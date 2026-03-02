@@ -6,10 +6,10 @@ See root CLAUDE.md for general project rules.
 
 ## Architecture
 
-- `seam.go` — public API: `Router`, `HandlerOptions`, type definitions, error constructors
+- `seam.go` — public API: `Router`, `HandlerOptions`, `PageAssets`, type definitions, error constructors
 - `handler.go` — core handler: `appState`, `buildHandler`, manifest, RPC handler (uses `engine.I18nQuery` for built-in i18n), error helpers
 - `handler_batch.go` — batch RPC handler, SSE subscribe handler, SSE helpers
-- `handler_page.go` — page handler: `makePageHandler`, `servePage`, loader orchestration (delegates to `engine.RenderPage` for slot injection, data script, head meta, and locale)
+- `handler_page.go` — page handler: `makePageHandler`, `servePage`, loader orchestration (delegates to `engine.RenderPage` for slot injection, per-page assets, data script, head meta, and locale)
 - `resolve.go` — `ResolveStrategy` interface, `ResolveData`, built-in strategies (`FromUrlPrefix`, `FromCookie`, `FromAcceptLanguage`, `FromUrlQuery`), `ResolveChain`, `DefaultStrategies`
 - `generics.go` — `Query[In, Out]` and `Subscribe[In, Out]` typed wrappers using generics
 - `schema.go` — JTD schema reflection (`SchemaOf[T]()`)

@@ -25,10 +25,10 @@ src/
     index.ts        -- createRouter: wires procedures, subscriptions, pages together; accepts resolveStrategies option
     handler.ts      -- handleRequest (RPC), handleSubscription (SSE stream)
   page/
-    index.ts        -- PageDef, LoaderFn, definePage()
-    handler.ts      -- handlePageRequest: runs loaders, injects data into template
+    index.ts        -- PageDef, PageAssets, LoaderFn, definePage()
+    handler.ts      -- handlePageRequest: runs loaders, passes page_assets to engine, injects data into template
     route-matcher.ts -- RouteMatcher: pattern matching with `:param` segments
-    build-loader.ts -- loadBuildOutput: reads route-manifest.json from build output
+    build-loader.ts -- loadBuildOutput: reads route-manifest.json from build output (includes per-page assets when splitting is active)
   manifest/
     index.ts        -- buildManifest: generates procedure manifest from definitions
   validation/

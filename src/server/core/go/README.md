@@ -1,6 +1,6 @@
 # seam-go
 
-Go implementation of the SeamJS server core, defining procedures, subscriptions, pages, and an HTTP handler. Uses the Go injector package for template rendering.
+Go implementation of the SeamJS server core, defining procedures, subscriptions, pages, and an HTTP handler. Uses the Go engine package for template rendering (page assembly, per-page assets, i18n).
 
 ## Structure
 
@@ -16,7 +16,7 @@ Go implementation of the SeamJS server core, defining procedures, subscriptions,
 
 ## Notes
 
-- Uses `go.mod` `replace` directive to reference the injector package within the monorepo
+- Uses `go.mod` `replace` directive to reference the engine package within the monorepo
 - Page loaders run concurrently via `sync.WaitGroup`; results are sorted for deterministic JSON output
 - `Handler()` accepts optional `HandlerOptions`; zero-value fields disable the corresponding timeout
 - Generic helpers `Query` and `Subscribe` handle JSON deserialization and schema generation automatically

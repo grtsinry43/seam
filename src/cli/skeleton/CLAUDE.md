@@ -10,7 +10,7 @@ Three-stage pipeline:
 
 1. **slot** (`slot.rs`) -- replaces `%%SEAM:path%%` sentinels with `<!--seam:path-->` HTML comments; handles text, attribute, and style sentinels
 2. **extract** (`extract/`) -- diffs variant HTML across axes (boolean, nullable, enum, array) to produce conditional/loop template directives; handles nested axes (e.g. `posts.$.hasAuthor` inside `posts` array)
-3. **document** (`document.rs`) -- wraps skeleton fragment in minimal HTML5 document with CSS/JS asset references under `/_seam/static/`
+3. **document** (`document.rs`) -- wraps skeleton fragment in minimal HTML5 document with CSS/JS asset references under `/_seam/static/`; inserts per-page asset slot markers (`<!--seam:page-styles-->`, `<!--seam:page-scripts-->`, `<!--seam:prefetch-->`) for runtime replacement by the engine
 
 ## Additional Modules
 
@@ -36,4 +36,4 @@ Three-stage pipeline:
 cargo test -p seam-skeleton
 ```
 
-170 tests covering slot conversion, extraction across all axis types, document wrapping, CTR checks, and slot type warnings.
+172 tests covering slot conversion, extraction across all axis types, document wrapping (including asset slot markers), CTR checks, and slot type warnings.

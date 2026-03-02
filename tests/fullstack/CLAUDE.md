@@ -21,7 +21,7 @@ cd tests/fullstack && go test -v -count=1
 ```
 
 - Starts the built server on a dynamically allocated free port
-- Tests: manifest, RPC (getUser with octocat), page rendering (home, dashboard/octocat), static asset caching
+- Tests: manifest, RPC (getUser with octocat), page rendering (home, dashboard/octocat), static asset caching, per-page asset injection (verifies `<link>` and `<script>` tags from page splitting)
 
 ## Procedures
 

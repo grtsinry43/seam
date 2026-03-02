@@ -4,7 +4,7 @@ Playwright end-to-end tests covering standalone fixtures, fullstack GitHub Dashb
 
 ## Structure
 
-- `specs/` — Test spec files
+- `specs/` — Test spec files (including `fullstack-page-split.spec.ts` for per-page resource splitting)
 - `fixture/` — Standalone test fixture (internal, has its own build output)
 - `playwright.config.ts` — 9 project configurations across multiple output directories
 

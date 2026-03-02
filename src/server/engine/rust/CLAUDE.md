@@ -9,21 +9,24 @@ See root CLAUDE.md for general project rules.
 | Module      | Responsibility                                                               |
 | ----------- | ---------------------------------------------------------------------------- |
 | `escape.rs` | `ascii_escape_json` — escape non-ASCII in JSON string values                 |
-| `page.rs`   | Page data assembly: `flatten_for_slots`, `build_seam_data`, `inject_*`, i18n |
+| `page.rs`   | Page data assembly: `flatten_for_slots`, `build_seam_data`, `inject_*`, asset slot generation, i18n |
 | `render.rs` | `render_page` — top-level page pipeline (inject + data script + meta + lang) |
 | `build.rs`  | `parse_build_output`, `parse_i18n_config`, `parse_rpc_hash_map`              |
 | `lib.rs`    | Public API barrel re-exporting all modules                                   |
 
 ## Key Types
 
-- `PageConfig { layout_chain, data_id, head_meta }` — page assembly configuration
+- `PageConfig { layout_chain, data_id, head_meta, page_assets }` — page assembly configuration
+- `PageAssets { styles, scripts, preload, prefetch }` — per-page asset references for resource splitting
 - `LayoutChainEntry { id, loader_keys }` — per-layout data grouping (fixes the `_layouts` bug)
 - `I18nOpts { locale, default_locale, messages }` — i18n injection (server pre-merges default locale)
 - `PageDefOutput` — build output parsing result
 
 ## render_page Pipeline
 
-`flatten_for_slots` -> `inject_no_script` (from seam-injector) -> `inject_head_meta` -> `inject_html_lang` -> `build_seam_data` -> `ascii_escape_json` -> `inject_data_script`
+`replace_asset_slots` / `strip_asset_slots` -> `flatten_for_slots` -> `inject_no_script` (from seam-injector) -> `inject_head_meta` -> `inject_html_lang` -> `build_seam_data` -> `ascii_escape_json` -> `inject_data_script`
+
+Asset slot markers (`<!--seam:page-styles-->`, `<!--seam:page-scripts-->`, `<!--seam:prefetch-->`) are processed before the injector to prevent misinterpretation as data slots. When `page_assets` is present, slots are replaced with actual `<link>`/`<script>` tags; when absent, slots are stripped.
 
 ## Dependencies
 
@@ -39,7 +42,7 @@ See root CLAUDE.md for general project rules.
 cargo test -p seam-engine
 ```
 
-32 tests covering escape, page assembly, i18n query, render pipeline, and build parsing.
+40 tests covering escape, page assembly, per-page asset slots, i18n query, render pipeline, and build parsing.
 
 ## Conventions
 

@@ -8,18 +8,18 @@ See root CLAUDE.md for general conventions.
 
 | Module            | Responsibility                                                                                      |
 | ----------------- | --------------------------------------------------------------------------------------------------- |
-| `main.rs`         | CLI entry point (clap); dispatches `pull`, `generate`, `build`, `dev`, `clean` subcommands          |
+| `main.rs`         | CLI entry point (clap); dispatches `pull`, `generate`, `build`, `dev`, `clean` subcommands; `--version` flag |
 | `config/`         | Parses `seam.toml`; walks upward to find config (like Cargo.toml discovery)                         |
 | `pull.rs`         | Fetches `/_seam/manifest.json` from a running server via reqwest                                    |
 | `build/config.rs` | `BuildConfig` + `BundlerMode` enum derived from `SeamConfig`; detects fullstack vs frontend-only    |
 | `build/run/`      | Build orchestrator: dispatches frontend-only (4 steps) or fullstack (7 steps) builds                |
 | `build/route/`    | Pipeline steps: skeleton rendering, route processing, manifest extraction, codegen, asset packaging |
-| `build/types.rs`  | Shared build types (`AssetFiles`, `SeamManifest`, re-exported `ViteDevInfo`) and manifest reader    |
+| `build/types.rs`  | Shared build types (`AssetFiles`, `BundleManifest`, `EntryAssets`, `SeamManifest`), manifest reader (`read_bundle_manifest_extended` for per-entry asset tracking) |
 | `shell.rs`        | Shell command helpers shared across build and dev (`run_command`, `run_builtin_bundler`)            |
 | `dev/`            | Spawns backend + frontend dev processes, pipes labeled output, handles Ctrl+C                       |
 | `dev_server.rs`   | Embedded axum dev server (static files + API proxy + SPA fallback)                                  |
 | `workspace.rs`    | Workspace mode: resolves members, delegates builds to each                                          |
-| `ui.rs`           | Terminal output helpers (ANSI colors, step counters, file size formatting)                          |
+| `ui.rs`           | Terminal output design system (ANSI colors, step counters, file size formatting, status labels)     |
 
 ## Companion Crates
 
@@ -54,7 +54,7 @@ cargo test -p seam-codegen
 
 - Skeleton pipeline tests (170) are in `seam-skeleton`
 - Codegen tests (45) are in `seam-codegen`
-- Build orchestration and config tests (94) remain in `seam-cli`
+- Build orchestration and config tests (103) remain in `seam-cli`
 
 ## Gotchas
 

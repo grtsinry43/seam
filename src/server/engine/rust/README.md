@@ -5,7 +5,7 @@ Pure Rust engine for page assembly, i18n resolution, build output parsing, and J
 ## Structure
 
 - `src/render.rs` — `render_page` top-level pipeline (inject + data script + meta + lang)
-- `src/page.rs` — Page data assembly: `flatten_for_slots`, `build_seam_data`, i18n helpers
+- `src/page.rs` — Page data assembly: `flatten_for_slots`, `build_seam_data`, per-page asset slot generation (`replace_asset_slots`, `strip_asset_slots`), i18n helpers
 - `src/build.rs` — `parse_build_output`, `parse_i18n_config`, `parse_rpc_hash_map`
 - `src/escape.rs` — `ascii_escape_json` for non-ASCII character escaping
 
@@ -13,7 +13,7 @@ Pure Rust engine for page assembly, i18n resolution, build output parsing, and J
 
 | Function             | Purpose                                         |
 | -------------------- | ----------------------------------------------- |
-| `render_page`        | Full page pipeline: slots + data + meta + lang  |
+| `render_page`        | Full page pipeline: asset slots + data slots + meta + lang |
 | `parse_build_output` | Parse route-manifest.json into page definitions |
 | `parse_i18n_config`  | Extract i18n configuration from manifest        |
 | `parse_rpc_hash_map` | Build reverse lookup from RPC hash map          |

@@ -24,7 +24,8 @@ Framework-agnostic server core that defines procedures, subscriptions, pages, an
 | `t`                 | JTD schema builder (`t.string()`, `t.object()`, etc.)   |
 | `toWebResponse`     | Convert internal response to Web `Response`             |
 | `serialize`         | Serialize response body to JSON                         |
-| `loadBuildOutput`   | Load pre-built skeleton templates                       |
+| `loadBuildOutput`   | Load pre-built skeleton templates and per-page assets   |
+| `PageAssets`        | Per-page CSS/JS/preload/prefetch references (type)      |
 
 ## Development
 
