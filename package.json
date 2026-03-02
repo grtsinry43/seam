@@ -62,6 +62,7 @@
     "typecheck": "bash scripts/ci/typecheck.sh",
     "verify": "bash scripts/verify-all.sh",
     "publish": "bash scripts/publish.sh",
+    "seam": "cargo install --path src/cli/core",
     "push": "bash scripts/push.sh"
   },
   "devDependencies": {

@@ -12,4 +12,4 @@ enabled = true
 
 [path_comment.exclude]
 dirs = ["node_modules", "target", "dist", ".seam", ".next", "generated", "pkg"]
-patterns = []
+patterns = ["next-env.d.ts"]
