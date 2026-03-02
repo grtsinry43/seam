@@ -80,7 +80,7 @@ function renderLayout(LayoutComponent, id, entry, manifest, i18nValue, ctx) {
 
   const fieldWarnings = checkFieldAccess(accessed, schema, `layout:${id}`);
   for (const w of fieldWarnings) {
-    const msg = `[seam] warning: ${w}`;
+    const msg = w;
     if (!ctx.seenWarnings.has(msg)) {
       ctx.seenWarnings.add(msg);
       ctx.buildWarnings.push(msg);

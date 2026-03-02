@@ -98,7 +98,7 @@ function renderRoute(route, manifest, i18nValue, ctx) {
 
   const fieldWarnings = checkFieldAccess(accessed, pageSchema, route.path);
   for (const w of fieldWarnings) {
-    const msg = `[seam] warning: ${w}`;
+    const msg = w;
     if (!ctx.seenWarnings.has(msg)) {
       ctx.seenWarnings.add(msg);
       ctx.buildWarnings.push(msg);

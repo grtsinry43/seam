@@ -144,7 +144,7 @@ function guardedRender(routePath, component, data, i18nValue, ctx) {
 
   // After fatal check, only warnings remain — dedup per message
   for (const v of violations) {
-    const msg = `[seam] warning: ${routePath}\n  ${v.reason}`;
+    const msg = `${routePath}\n  ${v.reason}`;
     if (!ctx.seenWarnings.has(msg)) {
       ctx.seenWarnings.add(msg);
       ctx.buildWarnings.push(msg);

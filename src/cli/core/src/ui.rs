@@ -111,7 +111,7 @@ pub fn detail_warn(msg: &str) {
     if i == 0 {
       println!("        {}warning{}: {line}", col(YELLOW), col(RESET));
     } else {
-      println!("                 {line}");
+      println!("          {}", line.trim_start());
     }
     inc_detail_lines();
   }
