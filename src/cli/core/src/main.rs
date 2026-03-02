@@ -18,7 +18,7 @@ use clap::{Parser, Subcommand};
 use config::{SeamConfig, find_seam_config, load_seam_config};
 
 #[derive(Parser)]
-#[command(name = "seam", about = "SeamJS CLI")]
+#[command(name = "seam", about = "SeamJS CLI", version)]
 struct Cli {
   #[command(subcommand)]
   command: Command,
