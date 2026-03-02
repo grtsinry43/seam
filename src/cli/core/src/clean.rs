@@ -86,7 +86,7 @@ fn clean_single_member(config: &SeamConfig, base_dir: &Path, name: &str) -> Resu
   // Delete member subdirectory within out_dir
   let out_dir = config.build.out_dir.as_deref().unwrap_or(".seam/output");
   let member_out = base_dir.join(out_dir).join(name);
-  delete_dir_if_exists(&member_out)?;
+  delete_dir_if_exists(&member_out, base_dir)?;
 
   run_clean_commands(&member_config.clean.commands, &dir)?;
   Ok(())
@@ -96,29 +96,30 @@ fn clean_single_member(config: &SeamConfig, base_dir: &Path, name: &str) -> Resu
 fn delete_out_dir(config: &SeamConfig, base_dir: &Path) -> Result<()> {
   let out_dir = config.build.out_dir.as_deref().unwrap_or(".seam/output");
   let path = base_dir.join(out_dir);
-  delete_dir_if_exists(&path)
+  delete_dir_if_exists(&path, base_dir)
 }
 
 /// Delete the bundler intermediate output directory.
 fn delete_dist_dir(base_dir: &Path) -> Result<()> {
   let path = base_dir.join(".seam/dist");
-  delete_dir_if_exists(&path)
+  delete_dir_if_exists(&path, base_dir)
 }
 
 /// Delete the codegen output directory.
 fn delete_generate_dir(config: &SeamConfig, base_dir: &Path) -> Result<()> {
   if let Some(ref gen_dir) = config.generate.out_dir {
     let path = base_dir.join(gen_dir);
-    delete_dir_if_exists(&path)?;
+    delete_dir_if_exists(&path, base_dir)?;
   }
   Ok(())
 }
 
-fn delete_dir_if_exists(path: &Path) -> Result<()> {
+fn delete_dir_if_exists(path: &Path, base_dir: &Path) -> Result<()> {
   if path.exists() {
     std::fs::remove_dir_all(path)
       .with_context(|| format!("failed to remove {}", path.display()))?;
-    ui::detail(&format!("deleted {}", path.display()));
+    let display = path.strip_prefix(base_dir).unwrap_or(path);
+    ui::detail_ok(&format!("deleted {}", display.display()));
   }
   Ok(())
 }
@@ -161,7 +162,7 @@ name = "my-app"
   fn delete_dir_if_exists_noop_on_missing() {
     let path = std::env::temp_dir().join("seam-test-clean-nonexistent");
     let _ = std::fs::remove_dir_all(&path);
-    assert!(delete_dir_if_exists(&path).is_ok());
+    assert!(delete_dir_if_exists(&path, &std::env::temp_dir()).is_ok());
   }
 
   #[test]
@@ -172,7 +173,7 @@ name = "my-app"
     std::fs::write(path.join("sub/file.txt"), "test").unwrap();
 
     assert!(path.exists());
-    delete_dir_if_exists(&path).unwrap();
+    delete_dir_if_exists(&path, &std::env::temp_dir()).unwrap();
     assert!(!path.exists());
   }
 
