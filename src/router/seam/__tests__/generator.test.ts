@@ -49,7 +49,7 @@ describe("generateRoutesFile", () => {
       outputPath: path.join(tmpDir, "output", "routes.ts"),
     });
 
-    expect(output).toContain("layout: Layout_index");
+    expect(output).toContain("layout: Layout_g_auth");
     expect(output).toContain('path: "/login"');
   });
 
@@ -94,6 +94,24 @@ describe("generateRoutesFile", () => {
     expect(output).toContain("mock as Page_index_mock");
     expect(output).toContain("loaders: Page_index_loaders");
     expect(output).toContain("mock: Page_index_mock");
+  });
+
+  it("generates unique import names for root layout and group layout", () => {
+    mkFile("pages/page.tsx", "export default function Home() {}");
+    mkFile("pages/layout.tsx", "export default function RootLayout() {}");
+    mkFile("pages/(marketing)/layout.tsx", "export default function MktLayout() {}");
+    mkFile("pages/(marketing)/pricing/page.tsx", "export default function Pricing() {}");
+
+    const tree = scanPages({ pagesDir: path.join(tmpDir, "pages") });
+    const output = generateRoutesFile(tree, {
+      outputPath: path.join(tmpDir, "output", "routes.ts"),
+    });
+
+    // Root layout and group layout must have distinct import names
+    expect(output).toContain("import Layout_index from");
+    expect(output).toContain("import Layout_g_marketing from");
+    expect(output).toContain("layout: Layout_index");
+    expect(output).toContain("layout: Layout_g_marketing");
   });
 
   it("sorts children: static before param before catch-all", () => {

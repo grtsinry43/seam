@@ -34,16 +34,28 @@ function sanitizePart(s: string): string {
   return s.replace(/[^a-zA-Z0-9]/g, "_");
 }
 
-function toImportName(prefix: string, urlPath: string): string {
-  if (urlPath === "/" || urlPath === "") return `${prefix}_index`;
-  const parts = urlPath
-    .split("/")
-    .filter(Boolean)
-    .map((p) => {
-      if (p.startsWith(":")) return `$${sanitizePart(p.slice(1))}`;
-      if (p.startsWith("*")) return `$$${sanitizePart(p.slice(1))}`;
-      return sanitizePart(p);
-    });
+/** Produce a unique identity fragment for each segment kind.
+ *  Unlike URL parts, groups are preserved to prevent naming collisions. */
+function segmentToIdentity(seg: SegmentKind): string {
+  switch (seg.type) {
+    case "static":
+      return seg.value;
+    case "param":
+      return `$${seg.name}`;
+    case "optional-param":
+      return `o$${seg.name}`;
+    case "catch-all":
+      return `$$${seg.name}`;
+    case "optional-catch-all":
+      return `o$$${seg.name}`;
+    case "group":
+      return `g_${seg.name}`;
+  }
+}
+
+function toImportName(prefix: string, identity: string): string {
+  if (identity === "" || identity === "/") return `${prefix}_index`;
+  const parts = identity.split("/").filter(Boolean).map(sanitizePart);
   return `${prefix}_${parts.join("_")}`;
 }
 
@@ -53,6 +65,7 @@ function toPosixRelative(from: string, to: string): string {
   return rel;
 }
 
+/** URL path strips groups (for route `path:` field). */
 function computeUrlPath(node: RouteNode, parentUrl: string): string {
   const part = segmentToUrlPart(node.segment);
   if (node.segment.type === "group") return parentUrl;
@@ -60,19 +73,28 @@ function computeUrlPath(node: RouteNode, parentUrl: string): string {
   return url || "/";
 }
 
+/** Identity path preserves groups (for unique import names). */
+function computeIdentity(node: RouteNode, parentIdentity: string): string {
+  const part = segmentToIdentity(node.segment);
+  if (!part) return parentIdentity;
+  return parentIdentity ? `${parentIdentity}/${part}` : part;
+}
+
 function collectImports(
   nodes: RouteNode[],
   parentUrl: string,
+  parentIdentity: string,
   outputDir: string,
   componentImports: ImportEntry[],
   dataImports: DataImportEntry[],
 ): void {
   for (const node of nodes) {
     const url = computeUrlPath(node, parentUrl);
+    const identity = computeIdentity(node, parentIdentity);
 
     if (node.pageFile) {
       componentImports.push({
-        name: toImportName("Page", url),
+        name: toImportName("Page", identity),
         source: toPosixRelative(outputDir, node.pageFile),
         isDefault: true,
       });
@@ -84,7 +106,7 @@ function collectImports(
       for (const exp of exports) {
         dataImports.push({
           exportName: exp,
-          alias: `${toImportName("Page", url)}_${exp}`,
+          alias: `${toImportName("Page", identity)}_${exp}`,
           source: src,
         });
       }
@@ -92,7 +114,7 @@ function collectImports(
 
     if (node.layoutFile) {
       componentImports.push({
-        name: toImportName("Layout", url),
+        name: toImportName("Layout", identity),
         source: toPosixRelative(outputDir, node.layoutFile),
         isDefault: true,
       });
@@ -104,37 +126,17 @@ function collectImports(
       for (const exp of exports) {
         dataImports.push({
           exportName: exp,
-          alias: `${toImportName("Layout", url)}_${exp}`,
+          alias: `${toImportName("Layout", identity)}_${exp}`,
           source: src,
         });
       }
     }
 
-    if (node.errorFile) {
-      componentImports.push({
-        name: toImportName("Error", url),
-        source: toPosixRelative(outputDir, node.errorFile),
-        isDefault: true,
-      });
-    }
+    // error/loading/not-found: scanner detects these files, but SeamRouteDef
+    // does not yet support errorComponent/pendingComponent/notFoundComponent.
+    // Import generation is skipped until the runtime types are extended.
 
-    if (node.loadingFile) {
-      componentImports.push({
-        name: toImportName("Loading", url),
-        source: toPosixRelative(outputDir, node.loadingFile),
-        isDefault: true,
-      });
-    }
-
-    if (node.notFoundFile) {
-      componentImports.push({
-        name: toImportName("NotFound", url),
-        source: toPosixRelative(outputDir, node.notFoundFile),
-        isDefault: true,
-      });
-    }
-
-    collectImports(node.children, url, outputDir, componentImports, dataImports);
+    collectImports(node.children, url, identity, outputDir, componentImports, dataImports);
   }
 }
 
@@ -144,15 +146,21 @@ function sortChildren(children: RouteNode[]): RouteNode[] {
   );
 }
 
-function renderRouteNode(node: RouteNode, parentUrl: string, indent: string): string {
+function renderRouteNode(
+  node: RouteNode,
+  parentUrl: string,
+  parentIdentity: string,
+  indent: string,
+): string {
   const url = computeUrlPath(node, parentUrl);
+  const identity = computeIdentity(node, parentIdentity);
 
   // Group with layout → layout wrapper at path "/"
   if (node.segment.type === "group" && node.layoutFile) {
-    const layoutName = toImportName("Layout", url);
+    const layoutName = toImportName("Layout", identity);
     const sorted = sortChildren(node.children);
     const childrenStr = sorted
-      .map((c) => renderRouteNode(c, url, indent + "  "))
+      .map((c) => renderRouteNode(c, url, identity, indent + "  "))
       .filter(Boolean)
       .join(",\n");
 
@@ -160,11 +168,10 @@ function renderRouteNode(node: RouteNode, parentUrl: string, indent: string): st
     fields.push(`${indent}  path: "/"`);
     fields.push(`${indent}  layout: ${layoutName}`);
 
-    // Layout data
     if (node.layoutDataFile) {
       const exports = detectNamedExports(node.layoutDataFile);
       for (const exp of exports) {
-        fields.push(`${indent}  ${exp}: ${toImportName("Layout", url)}_${exp}`);
+        fields.push(`${indent}  ${exp}: ${toImportName("Layout", identity)}_${exp}`);
       }
     }
 
@@ -179,7 +186,7 @@ function renderRouteNode(node: RouteNode, parentUrl: string, indent: string): st
   if (node.segment.type === "group" && !node.layoutFile) {
     const sorted = sortChildren(node.children);
     return sorted
-      .map((c) => renderRouteNode(c, url, indent))
+      .map((c) => renderRouteNode(c, url, identity, indent))
       .filter(Boolean)
       .join(",\n");
   }
@@ -190,44 +197,30 @@ function renderRouteNode(node: RouteNode, parentUrl: string, indent: string): st
   fields.push(`${indent}  path: "${routePath || "/"}"`);
 
   if (node.pageFile) {
-    fields.push(`${indent}  component: ${toImportName("Page", url)}`);
+    fields.push(`${indent}  component: ${toImportName("Page", identity)}`);
   }
 
   if (node.layoutFile) {
-    fields.push(`${indent}  layout: ${toImportName("Layout", url)}`);
+    fields.push(`${indent}  layout: ${toImportName("Layout", identity)}`);
   }
 
-  // Page data exports
   if (node.dataFile) {
     const exports = detectNamedExports(node.dataFile);
     for (const exp of exports) {
-      fields.push(`${indent}  ${exp}: ${toImportName("Page", url)}_${exp}`);
+      fields.push(`${indent}  ${exp}: ${toImportName("Page", identity)}_${exp}`);
     }
   }
 
-  // Layout data exports
   if (node.layoutDataFile) {
     const exports = detectNamedExports(node.layoutDataFile);
     for (const exp of exports) {
-      fields.push(`${indent}  ${exp}: ${toImportName("Layout", url)}_${exp}`);
+      fields.push(`${indent}  ${exp}: ${toImportName("Layout", identity)}_${exp}`);
     }
-  }
-
-  if (node.errorFile) {
-    fields.push(`${indent}  errorComponent: ${toImportName("Error", url)}`);
-  }
-
-  if (node.loadingFile) {
-    fields.push(`${indent}  pendingComponent: ${toImportName("Loading", url)}`);
-  }
-
-  if (node.notFoundFile) {
-    fields.push(`${indent}  notFoundComponent: ${toImportName("NotFound", url)}`);
   }
 
   const sorted = sortChildren(node.children);
   const childrenStr = sorted
-    .map((c) => renderRouteNode(c, url, indent + "  "))
+    .map((c) => renderRouteNode(c, url, identity, indent + "  "))
     .filter(Boolean)
     .join(",\n");
 
@@ -235,15 +228,8 @@ function renderRouteNode(node: RouteNode, parentUrl: string, indent: string): st
     fields.push(`${indent}  children: [\n${childrenStr}\n${indent}  ]`);
   }
 
-  // Skip nodes that have no page, no layout, no children, and no special files
-  if (
-    !node.pageFile &&
-    !node.layoutFile &&
-    !node.errorFile &&
-    !node.loadingFile &&
-    !node.notFoundFile &&
-    !childrenStr
-  ) {
+  // Skip nodes that have no page, no layout, and no children
+  if (!node.pageFile && !node.layoutFile && !childrenStr) {
     return "";
   }
 
@@ -255,7 +241,7 @@ export function generateRoutesFile(tree: RouteNode[], options: GenerateOptions):
   const componentImports: ImportEntry[] = [];
   const dataImports: DataImportEntry[] = [];
 
-  collectImports(tree, "", outputDir, componentImports, dataImports);
+  collectImports(tree, "", "", outputDir, componentImports, dataImports);
 
   const lines: string[] = [
     "/* .seam/generated/routes.ts — auto-generated by @canmi/seam-router, do not edit */",
@@ -288,7 +274,7 @@ export function generateRoutesFile(tree: RouteNode[], options: GenerateOptions):
   lines.push("");
 
   const routeEntries = tree
-    .map((node) => renderRouteNode(node, "", "  "))
+    .map((node) => renderRouteNode(node, "", "", "  "))
     .filter(Boolean)
     .join(",\n");
 
