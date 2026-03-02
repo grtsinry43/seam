@@ -102,6 +102,6 @@ pub(super) fn vite_info_from_config(config: &SeamConfig) -> Option<ViteDevInfo> 
 
 pub(super) fn print_cache_stats(cache: &Option<CacheStats>) {
   if let Some(stats) = cache {
-    ui::detail(&format!("skeleton cache: {} hit, {} miss", stats.hits, stats.misses));
+    ui::detail_ok(&format!("skeleton cache: {} hit, {} miss", stats.hits, stats.misses));
   }
 }

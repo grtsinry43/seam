@@ -272,7 +272,7 @@ pub(crate) fn package_static_assets(
       .with_context(|| format!("failed to copy {} -> {}", src.display(), dst.display()))?;
 
     let size = std::fs::metadata(&dst).map(|m| m.len()).unwrap_or(0);
-    ui::detail_ok(&format!("public/{file}  {}({}){}", col(DIM), ui::format_size(size), col(RESET)));
+    ui::detail_ok(&format!("{}public/{file}  ({}){}", col(DIM), ui::format_size(size), col(RESET)));
   }
 
   Ok(())

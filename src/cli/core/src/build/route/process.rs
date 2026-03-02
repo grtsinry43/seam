@@ -120,7 +120,13 @@ pub(crate) fn process_routes(
         let template_rel = format!("templates/{locale}/{filename}");
         templates.insert(locale.clone(), template_rel);
       }
-      ui::detail_ok(&format!("layout {} -> {} locales", layout.id, locale_html.len()));
+      ui::detail_ok(&format!(
+        "layout {} {}-> {} locales{}",
+        layout.id,
+        col(DIM),
+        locale_html.len(),
+        col(RESET)
+      ));
       manifest.layouts.insert(
         layout.id.clone(),
         LayoutManifestEntry {
@@ -141,7 +147,7 @@ pub(crate) fn process_routes(
       std::fs::write(&filepath, &document)
         .with_context(|| format!("failed to write {}", filepath.display()))?;
       let template_rel = format!("templates/{filename}");
-      ui::detail_ok(&format!("layout {} -> {template_rel}", layout.id));
+      ui::detail_ok(&format!("layout {} {}-> {template_rel}{}", layout.id, col(DIM), col(RESET)));
       manifest.layouts.insert(
         layout.id.clone(),
         LayoutManifestEntry {
@@ -219,10 +225,10 @@ pub(crate) fn process_routes(
 
       let size = locale_variants.values().next().map(|d| d.mock_html.len() as u64).unwrap_or(0);
       ui::detail_ok(&format!(
-        "{}  \u{2192} {} locales  {}(~{}){}",
+        "{}  {}\u{2192} {} locales  (~{}){}",
         route.path,
-        locale_variants.len(),
         col(DIM),
+        locale_variants.len(),
         ui::format_size(size),
         col(RESET)
       ));
@@ -282,7 +288,7 @@ pub(crate) fn process_routes(
       let size = document.len() as u64;
       let template_rel = format!("templates/{filename}");
       ui::detail_ok(&format!(
-        "{}  \u{2192} {template_rel}  {}({}){}",
+        "{}  {}\u{2192} {template_rel}  ({}){}",
         route.path,
         col(DIM),
         ui::format_size(size),

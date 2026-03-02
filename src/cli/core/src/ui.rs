@@ -107,8 +107,14 @@ pub fn detail_ok(msg: &str) {
 }
 
 pub fn detail_warn(msg: &str) {
-  println!("        {}warning{}: {msg}", col(YELLOW), col(RESET));
-  inc_detail_lines();
+  for (i, line) in msg.lines().enumerate() {
+    if i == 0 {
+      println!("        {}warning{}: {line}", col(YELLOW), col(RESET));
+    } else {
+      println!("                 {line}");
+    }
+    inc_detail_lines();
+  }
 }
 
 pub fn label(color: &str, name: &str, msg: &str) {
