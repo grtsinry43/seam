@@ -177,7 +177,7 @@
     },
     "src/cli/pkg": {
       "name": "@canmi/seam-cli",
-      "version": "0.4.15",
+      "version": "0.4.16",
       "bin": {
         "seam": "bin/seam",
       },
@@ -191,15 +191,15 @@
         "vitest": "^4.0.18",
       },
       "optionalDependencies": {
-        "@canmi/seam-cli-darwin-arm64": "0.4.15",
-        "@canmi/seam-cli-darwin-x64": "0.4.15",
-        "@canmi/seam-cli-linux-arm64": "0.4.15",
-        "@canmi/seam-cli-linux-x64": "0.4.15",
+        "@canmi/seam-cli-darwin-arm64": "0.4.16",
+        "@canmi/seam-cli-darwin-x64": "0.4.16",
+        "@canmi/seam-cli-linux-arm64": "0.4.16",
+        "@canmi/seam-cli-linux-x64": "0.4.16",
       },
     },
     "src/cli/vite": {
       "name": "@canmi/seam-vite",
-      "version": "0.4.15",
+      "version": "0.4.16",
       "devDependencies": {
         "@types/node": "^25.3.3",
         "tsdown": "^0.20.3",
@@ -213,7 +213,7 @@
     },
     "src/client/react": {
       "name": "@canmi/seam-react",
-      "version": "0.4.15",
+      "version": "0.4.16",
       "dependencies": {
         "@canmi/seam-client": "workspace:*",
         "esbuild": "^0.27.3",
@@ -237,7 +237,7 @@
     },
     "src/client/tanstack-router": {
       "name": "@canmi/seam-tanstack-router",
-      "version": "0.4.15",
+      "version": "0.4.16",
       "dependencies": {
         "@canmi/seam-client": "workspace:*",
         "@canmi/seam-react": "workspace:*",
@@ -264,7 +264,7 @@
     },
     "src/client/vanilla": {
       "name": "@canmi/seam-client",
-      "version": "0.4.15",
+      "version": "0.4.16",
       "devDependencies": {
         "tsdown": "^0.20.3",
         "typescript": "^5.9.3",
@@ -273,7 +273,7 @@
     },
     "src/eslint": {
       "name": "@canmi/eslint-plugin-seam",
-      "version": "0.4.15",
+      "version": "0.4.16",
       "devDependencies": {
         "eslint": "^10.0.2",
         "tsdown": "^0.20.3",
@@ -286,7 +286,7 @@
     },
     "src/i18n": {
       "name": "@canmi/seam-i18n",
-      "version": "0.4.15",
+      "version": "0.4.16",
       "devDependencies": {
         "@types/react": "^19.2.14",
         "react": "^19.2.4",
@@ -303,7 +303,7 @@
     },
     "src/server/adapter/bun": {
       "name": "@canmi/seam-adapter-bun",
-      "version": "0.4.15",
+      "version": "0.4.16",
       "devDependencies": {
         "@canmi/seam-server": "workspace:*",
         "@types/bun": "^1.3.9",
@@ -317,7 +317,7 @@
     },
     "src/server/adapter/hono": {
       "name": "@canmi/seam-adapter-hono",
-      "version": "0.4.15",
+      "version": "0.4.16",
       "devDependencies": {
         "@canmi/seam-server": "workspace:*",
         "hono": "^4.12.3",
@@ -332,7 +332,7 @@
     },
     "src/server/adapter/node": {
       "name": "@canmi/seam-adapter-node",
-      "version": "0.4.15",
+      "version": "0.4.16",
       "dependencies": {
         "ws": "^8.19.0",
       },
@@ -350,7 +350,7 @@
     },
     "src/server/core/typescript": {
       "name": "@canmi/seam-server",
-      "version": "0.4.15",
+      "version": "0.4.16",
       "dependencies": {
         "@canmi/seam-engine": "workspace:*",
         "jtd": "^0.1.1",
@@ -364,7 +364,7 @@
     },
     "src/server/engine/js": {
       "name": "@canmi/seam-engine",
-      "version": "0.4.15",
+      "version": "0.4.16",
       "devDependencies": {
         "@types/node": "^25.3.3",
         "tsdown": "^0.20.3",
@@ -477,14 +477,6 @@
     "@canmi/seam-adapter-node": ["@canmi/seam-adapter-node@workspace:src/server/adapter/node"],
 
     "@canmi/seam-cli": ["@canmi/seam-cli@workspace:src/cli/pkg"],
-
-    "@canmi/seam-cli-darwin-arm64": ["@canmi/seam-cli-darwin-arm64@0.4.15", "", { "os": "darwin", "cpu": "arm64" }, "sha512-vndhkEBlm6ogmSPxZBERl3EeXK8weU9gdSG4Xmfonr2156q6VKkFG2gIGIfC2gmNPMAzkexvzGHke6c3aoY59A=="],
-
-    "@canmi/seam-cli-darwin-x64": ["@canmi/seam-cli-darwin-x64@0.4.15", "", { "os": "darwin", "cpu": "x64" }, "sha512-WX3Zr7ZLJ0sBlQJaO/WWWNTZDJ5m6YU4rNdkvsQTGppNQuGvAfsiILMcqRkZ9polBUUQDTNnZUQ9oZk6jQw/Ng=="],
-
-    "@canmi/seam-cli-linux-arm64": ["@canmi/seam-cli-linux-arm64@0.4.15", "", { "os": "linux", "cpu": "arm64" }, "sha512-jflA01GbpVtbMHnJYiC7QWMrK7YPWRFNwyBN0j6hA7NA63FUqC0H4DqaCzCbhEbu+mx9Xtouxa88XuWmQ+imUA=="],
-
-    "@canmi/seam-cli-linux-x64": ["@canmi/seam-cli-linux-x64@0.4.15", "", { "os": "linux", "cpu": "x64" }, "sha512-P7Dds0t5GMLTdD+Yl/lefimlm8m311JpON9+5AQkpM3Ih2+5Vk/dhW+l8HX/8ygoGQoQkF3yQBmMet93oL3I8A=="],
 
     "@canmi/seam-client": ["@canmi/seam-client@workspace:src/client/vanilla"],
 
