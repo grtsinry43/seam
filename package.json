@@ -52,6 +52,7 @@
     "build:ts": "bun run build:ts:p1 && bun run build:ts:p2 && bun run build:ts:p3",
     "build:wasm": "bash src/server/injector/build-wasm.sh && bash src/server/engine/build-wasm.sh",
     "build:rs": "cargo build --workspace",
+    "build:cli": "cargo install --path src/cli/core",
     "build": "bun run build:ts && bun run build:rs",
     "test:rs": "cargo test --workspace",
     "test:ts": "bun run --filter '@canmi/seam-injector' test && bun run --filter '@canmi/seam-server' test && bun run --filter '@canmi/seam-injector-native' test && bun run --filter '@canmi/seam-adapter-hono' test && bun run --filter '@canmi/seam-adapter-bun' test && bun run --filter '@canmi/seam-adapter-node' test && bun run --filter '@canmi/seam-client' test && bun run --filter '@canmi/seam-react' test && bun run --filter '@canmi/seam-tanstack-router' test && bun run --filter '@canmi/seam-router' test && bun run --filter '@canmi/eslint-plugin-seam' test && bun run --filter '@canmi/seam-i18n' test",
@@ -63,7 +64,6 @@
     "typecheck": "bash scripts/ci/typecheck.sh",
     "verify": "bash scripts/verify-all.sh",
     "pkg": "bash scripts/publish.sh",
-    "cli": "cargo install --path src/cli/core",
     "push": "bash scripts/push.sh"
   },
   "devDependencies": {
