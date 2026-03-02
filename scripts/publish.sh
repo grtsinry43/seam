@@ -183,6 +183,8 @@ patch_skipped_deps() {
   local cargo_toml="$ROOT/$crate_dir/Cargo.toml"
   local needs_patch=false
 
+  [ ${#SKIPPED_CRATE_NAMES[@]} -eq 0 ] && return
+
   for dep in "${SKIPPED_CRATE_NAMES[@]}"; do
     if grep -q "^$dep = " "$cargo_toml"; then
       needs_patch=true
