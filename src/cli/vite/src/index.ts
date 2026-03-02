@@ -5,7 +5,7 @@ import { basename, dirname, extname, resolve } from "node:path";
 import type { Plugin } from "vite";
 
 /** Parse import statements from source, returning Map<localName, specifier> */
-function parseComponentImports(source: string): Map<string, string> {
+export function parseComponentImports(source: string): Map<string, string> {
   const map = new Map<string, string>();
   const re = /import\s+(?:(\w+)\s*,?\s*)?(?:\{([^}]*)\}\s*)?from\s+['"]([^'"]+)['"]/g;
   let m: RegExpExecArray | null;

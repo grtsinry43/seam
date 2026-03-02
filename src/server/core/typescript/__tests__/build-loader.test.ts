@@ -218,6 +218,48 @@ describe("loadRpcHashMap", () => {
   });
 });
 
+describe("pageAssets passthrough", () => {
+  it("passes pageAssets from manifest to PageDef", () => {
+    const dir = mkdtempSync(join(tmpdir(), "seam-page-assets-"));
+    mkdirSync(join(dir, "templates"));
+    writeFileSync(join(dir, "templates/index.html"), "<p>home</p>");
+    writeFileSync(join(dir, "templates/about.html"), "<p>about</p>");
+    const assets = {
+      styles: ["assets/home.css"],
+      scripts: ["assets/home.js"],
+      preload: ["assets/shared.js"],
+      prefetch: ["assets/about.js"],
+    };
+    writeFileSync(
+      join(dir, "route-manifest.json"),
+      JSON.stringify({
+        routes: {
+          "/": {
+            template: "templates/index.html",
+            loaders: {},
+            assets,
+          },
+          "/about": {
+            template: "templates/about.html",
+            loaders: {},
+          },
+        },
+      }),
+    );
+    try {
+      const pages = loadBuildOutput(dir);
+      expect(pages["/"].pageAssets).toEqual(assets);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("pageAssets is undefined when assets absent", () => {
+    const pages = loadBuildOutput(distDir);
+    expect(pages["/user/:id"].pageAssets).toBeUndefined();
+  });
+});
+
 describe("loadBuildOutputDev", () => {
   it("loads pages with correct routes", () => {
     const pages = loadBuildOutputDev(distDir);

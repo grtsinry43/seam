@@ -18,7 +18,7 @@ import { SeamCoreBridge } from "./seam-core-bridge.js";
 import type { SeamRouteDef, SeamRouterOptions, SeamRouterContext, SeamI18nMeta } from "./types.js";
 
 /** Check if a component is a lazy loader (tagged by the bundler's page-split transform) */
-function isLazyLoader(c: unknown): c is LazyComponentLoader {
+export function isLazyLoader(c: unknown): c is LazyComponentLoader {
   return typeof c === "function" && (c as unknown as Record<string, unknown>).__seamLazy === true;
 }
 
@@ -26,7 +26,7 @@ function isLazyLoader(c: unknown): c is LazyComponentLoader {
 const lazyComponentCache = new Map<string, ComponentType>();
 
 /** Extract all leaf paths from a potentially nested route tree */
-function collectLeafPaths(defs: RouteDef[]): string[] {
+export function collectLeafPaths(defs: RouteDef[]): string[] {
   const paths: string[] = [];
   for (const d of defs) {
     if (d.children) paths.push(...collectLeafPaths(d.children));
