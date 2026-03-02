@@ -11,6 +11,7 @@
     { "path": "src/client/react" },
     { "path": "src/client/tanstack-router" },
     { "path": "src/eslint" },
-    { "path": "src/i18n" }
+    { "path": "src/i18n" },
+    { "path": "src/cli/vite" }
   ]
 }
