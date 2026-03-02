@@ -298,8 +298,8 @@ patch_skipped_npm_deps() {
       local reg_ver
       reg_ver=$(skipped_npm_ver_for "$dep")
       # Replace exact version (from workspace:*) and caret version (from workspace:^)
-      sed -i '' "s/\"$dep\": \"$VERSION\"/\"$dep\": \"$reg_ver\"/g" "$pkg_json"
-      sed -i '' "s/\"$dep\": \"\\^$VERSION\"/\"$dep\": \"^$reg_ver\"/g" "$pkg_json"
+      sed -i '' "s|\"$dep\": \"$VERSION\"|\"$dep\": \"$reg_ver\"|g" "$pkg_json"
+      sed -i '' "s|\"$dep\": \"\\^$VERSION\"|\"$dep\": \"^$reg_ver\"|g" "$pkg_json"
       info "  patched $dep dependency: $VERSION -> $reg_ver"
     fi
   done
