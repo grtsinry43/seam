@@ -18,6 +18,10 @@ I18N_DIR="$ROOT/examples/i18n-demo/seam-app"
 (cd "$I18N_DIR" && "$SEAM" build)
 (cd "$ROOT" && cargo build -p i18n-demo-axum --release)
 
+printf '\n==> Build fs-router demo\n'
+FS_ROUTER_DIR="$ROOT/examples/fs-router-demo"
+(cd "$FS_ROUTER_DIR" && "$SEAM" build)
+
 printf '\n==> Build workspace backends\n'
 (cd "$ROOT" && cargo build -p github-dashboard-axum --release)
 (cd "$WORKSPACE_DIR/backends/go-gin" && go build -o server .)
