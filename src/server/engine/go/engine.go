@@ -46,7 +46,7 @@ func callWasm(funcName string, args ...string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("instantiate: %w", err)
 	}
-	defer mod.Close(ctx)
+	defer func() { _ = mod.Close(ctx) }()
 
 	malloc := mod.ExportedFunction("__wbindgen_export")
 	free := mod.ExportedFunction("__wbindgen_export3")

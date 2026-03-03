@@ -1,4 +1,5 @@
 /* src/i18n/__tests__/cache.test.ts */
+/* oxlint-disable @typescript-eslint/no-non-null-assertion */
 
 import { describe, expect, it, beforeEach, vi } from "vitest";
 import { createI18nCache } from "../src/cache.js";

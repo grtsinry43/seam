@@ -1,4 +1,5 @@
 /* src/client/react/__tests__/pipeline/test-utils.ts */
+/* oxlint-disable @typescript-eslint/no-non-null-assertion */
 
 import { createElement } from "react";
 import { renderToString } from "react-dom/server";

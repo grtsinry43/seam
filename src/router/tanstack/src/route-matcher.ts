@@ -15,9 +15,9 @@ export function matchSeamRoute(
     let matched = true;
 
     for (let i = 0; i < segments.length; i++) {
-      const seg = segments[i]!;
+      const seg = segments[i] as string;
       if (seg.startsWith(":")) {
-        params[seg.slice(1)] = pathParts[i]!;
+        params[seg.slice(1)] = pathParts[i] as string;
       } else if (seg !== pathParts[i]) {
         matched = false;
         break;

@@ -49,12 +49,13 @@ function buildRoutes(
       const segment =
         def.path === "/" ? "root" : def.path.replace(/^\/|\/$/g, "").replace(/\//g, "-");
       const layoutId = `_layout_${segment}`;
-      const hasLoaders = def.loaders && Object.keys(def.loaders).length > 0;
+      const loaders = def.loaders ?? {};
+      const hasLoaders = Object.keys(loaders).length > 0;
       const layoutRoute = createRoute({
         getParentRoute: () => parent,
         id: layoutId,
         component: createLayoutWrapper(def.layout, hasLoaders),
-        loader: hasLoaders ? createLoaderFromDefs(def.loaders!, def.path, layoutId) : undefined,
+        loader: hasLoaders ? createLoaderFromDefs(loaders, def.path, layoutId) : undefined,
         staleTime: def.staleTime,
       });
       const children = buildRoutes(def.children, layoutRoute, pages);
@@ -68,9 +69,10 @@ function buildRoutes(
       // Lazy component: resolve in loader (runs before render), cache for reuse
       const lazyLoader = def.component;
       const routePath = def.path;
-      const dataLoader = def.clientLoader
+      const clientLoader = def.clientLoader;
+      const dataLoader = clientLoader
         ? (ctx: { params: Record<string, string>; context: SeamRouterContext }) =>
-            def.clientLoader!({ params: ctx.params, seamRpc: ctx.context.seamRpc })
+            clientLoader({ params: ctx.params, seamRpc: ctx.context.seamRpc })
         : createLoaderFromDefs(def.loaders ?? {}, def.path);
 
       return createRoute({
@@ -94,14 +96,15 @@ function buildRoutes(
     }
 
     const pageComponent = explicitPage ?? (def.component as ComponentType);
+    const cl = def.clientLoader;
     return createRoute({
       getParentRoute: () => parent,
       path: convertPath(def.path),
       component: createPageWrapper(pageComponent),
-      loader: def.clientLoader
+      loader: cl
         ? ({ params, context }: { params: Record<string, string>; context: unknown }) => {
             const ctx = context as SeamRouterContext;
-            return def.clientLoader!({ params, seamRpc: ctx.seamRpc });
+            return cl({ params, seamRpc: ctx.seamRpc });
           }
         : createLoaderFromDefs(def.loaders ?? {}, def.path),
       staleTime: def.staleTime,

@@ -1,4 +1,5 @@
 /* src/server/core/typescript/__tests__/i18n-router.test.ts */
+/* oxlint-disable @typescript-eslint/no-non-null-assertion */
 
 import { describe, expect, it } from "vitest";
 import { createRouter } from "../src/router/index.js";

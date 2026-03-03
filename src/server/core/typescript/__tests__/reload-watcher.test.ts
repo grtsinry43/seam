@@ -1,4 +1,5 @@
 /* src/server/core/typescript/__tests__/reload-watcher.test.ts */
+/* oxlint-disable no-promise-executor-return */
 
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { mkdtempSync, writeFileSync, rmSync } from "node:fs";

@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { renderPage, escapeHtml } from "@canmi/seam-engine";
 import { SeamError } from "../errors.js";
 import type { InternalProcedure } from "../procedure.js";
-import type { PageDef, LoaderFn, I18nConfig } from "./index.js";
+import type { PageDef, LayoutDef, LoaderFn, I18nConfig } from "./index.js";
 
 export interface PageTiming {
   /** Procedure execution time in milliseconds */
@@ -108,7 +108,7 @@ export async function handlePageRequest(
     const pageTemplate = selectTemplate(page.template, page.localeTemplates, locale);
     let composedTemplate = pageTemplate;
     for (let i = layoutChain.length - 1; i >= 0; i--) {
-      const layout = layoutChain[i]!;
+      const layout = layoutChain[i] as LayoutDef;
       const layoutTemplate = selectTemplate(layout.template, layout.localeTemplates, locale);
       composedTemplate = layoutTemplate.replace("<!--seam:outlet-->", composedTemplate);
     }

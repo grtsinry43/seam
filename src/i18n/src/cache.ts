@@ -81,7 +81,12 @@ export function createI18nCache(prefix?: string): I18nCache {
         }
 
         try {
-          const entry = JSON.parse(storage.getItem(key)!) as CachedEntry;
+          const raw = storage.getItem(key);
+          if (!raw) {
+            keysToRemove.push(key);
+            continue;
+          }
+          const entry = JSON.parse(raw) as CachedEntry;
           if (entry.hash !== expectedHash) {
             keysToRemove.push(key);
           }

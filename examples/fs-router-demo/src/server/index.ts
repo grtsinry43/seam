@@ -7,7 +7,9 @@ import { seam } from "@canmi/seam-adapter-hono";
 import { buildRouter } from "./router.js";
 
 const isDev = process.env.SEAM_DEV === "1";
-const BUILD_DIR = isDev ? process.env.SEAM_OUTPUT_DIR! : resolve(import.meta.dir, "..");
+const outputDir = process.env.SEAM_OUTPUT_DIR;
+if (isDev && !outputDir) throw new Error("SEAM_OUTPUT_DIR is required in dev mode");
+const BUILD_DIR = isDev ? (outputDir as string) : resolve(import.meta.dir, "..");
 const pages = isDev ? loadBuildOutputDev(BUILD_DIR) : loadBuildOutput(BUILD_DIR);
 const router = buildRouter({ pages });
 

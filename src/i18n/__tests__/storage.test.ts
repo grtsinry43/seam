@@ -1,4 +1,5 @@
 /* src/i18n/__tests__/storage.test.ts */
+/* oxlint-disable @typescript-eslint/no-non-null-assertion */
 
 import { describe, expect, it, beforeEach, afterEach, vi } from "vitest";
 import {

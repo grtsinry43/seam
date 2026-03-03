@@ -1,4 +1,5 @@
 /* tests/e2e/specs/html-slot.spec.ts */
+/* oxlint-disable @typescript-eslint/no-non-null-assertion */
 import { test, expect, type ConsoleMessage } from "@playwright/test";
 
 const HYDRATION_ERROR_PATTERNS = [

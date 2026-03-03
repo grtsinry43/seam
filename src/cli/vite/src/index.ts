@@ -11,16 +11,16 @@ export function parseComponentImports(source: string): Map<string, string> {
   let m: RegExpExecArray | null;
   while ((m = re.exec(source)) !== null) {
     const [, defaultName, namedPart, specifier] = m;
-    if (defaultName) map.set(defaultName, specifier!);
+    if (defaultName) map.set(defaultName, specifier as string);
     if (namedPart) {
       for (const part of namedPart.split(",")) {
         const t = part.trim();
         if (!t) continue;
         const asMatch = t.match(/^(\w+)\s+as\s+(\w+)$/);
         if (asMatch) {
-          map.set(asMatch[2]!, specifier!);
+          map.set(asMatch[2] as string, specifier as string);
         } else {
-          map.set(t, specifier!);
+          map.set(t, specifier as string);
         }
       }
     }
@@ -65,7 +65,7 @@ function analyzeRoutesForSplitting(routesFile: string): SplitInfo | null {
   const componentRe = /component\s*:\s*(\w+)/g;
   let match: RegExpExecArray | null;
   while ((match = componentRe.exec(source)) !== null) {
-    componentRefs.add(match[1]!);
+    componentRefs.add(match[1] as string);
   }
 
   if (componentRefs.size < 2) return null; // splitting only helps with 2+ pages

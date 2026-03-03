@@ -65,7 +65,7 @@ export function fromCallback<T>(
         }
 
         while (queue.length > 0) {
-          const item = queue.shift()!;
+          const item = queue.shift() as QueueItem<T>;
           if (item.type === "value") {
             yield item.value;
           } else if (item.type === "error") {

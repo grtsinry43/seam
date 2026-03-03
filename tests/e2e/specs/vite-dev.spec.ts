@@ -1,4 +1,5 @@
 /* tests/e2e/specs/vite-dev.spec.ts */
+/* oxlint-disable no-promise-executor-return */
 
 import { test, expect } from "@playwright/test";
 import { spawn, type ChildProcess } from "node:child_process";

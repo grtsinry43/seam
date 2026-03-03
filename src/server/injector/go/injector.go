@@ -45,7 +45,7 @@ func callWasm(funcName, template, dataJSON string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("instantiate: %w", err)
 	}
-	defer mod.Close(ctx)
+	defer func() { _ = mod.Close(ctx) }()
 
 	malloc := mod.ExportedFunction("__wbindgen_export")
 	free := mod.ExportedFunction("__wbindgen_export3")
@@ -127,6 +127,7 @@ func callWasm(funcName, template, dataJSON string) (string, error) {
 }
 
 // Inject renders the template with data and appends a data script tag.
+//
 // Deprecated: uses injector.wasm which hard-codes "__SEAM_DATA__" as data ID.
 // Prefer engine.Inject which accepts a configurable data ID.
 func Inject(template, dataJSON string) (string, error) {

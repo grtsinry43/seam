@@ -1,4 +1,5 @@
 /* src/router/tanstack/__tests__/link-interceptor.test.ts */
+/* oxlint-disable @typescript-eslint/no-non-null-assertion */
 
 import { describe, it, expect, vi, afterEach } from "vitest";
 import { JSDOM } from "jsdom";

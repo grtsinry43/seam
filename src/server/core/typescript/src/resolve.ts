@@ -56,11 +56,11 @@ export function fromAcceptLanguage(): ResolveStrategy {
       for (const part of data.acceptLanguage.split(",")) {
         const trimmed = part.trim();
         const parts = trimmed.split(";");
-        const lang = parts[0]!;
+        const lang = parts[0] as string;
         let q = 1;
         for (let j = 1; j < parts.length; j++) {
-          const match = parts[j]!.trim().match(/^q=(\d+(?:\.\d+)?)$/);
-          if (match) q = parseFloat(match[1]!);
+          const match = (parts[j] as string).trim().match(/^q=(\d+(?:\.\d+)?)$/);
+          if (match) q = parseFloat(match[1] as string);
         }
         entries.push({ lang: lang.trim(), q });
       }
@@ -69,7 +69,7 @@ export function fromAcceptLanguage(): ResolveStrategy {
       for (const { lang } of entries) {
         if (localeSet.has(lang)) return lang;
         // Prefix match: zh-CN -> zh
-        const prefix = lang.split("-")[0]!;
+        const prefix = lang.split("-")[0] as string;
         if (prefix !== lang && localeSet.has(prefix)) return prefix;
       }
       return null;

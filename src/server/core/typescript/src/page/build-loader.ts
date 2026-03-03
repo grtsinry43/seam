@@ -81,7 +81,7 @@ function resolveTemplatePath(
 ): string {
   if (entry.template) return entry.template;
   if (entry.templates) {
-    const locale = defaultLocale ?? Object.keys(entry.templates)[0]!;
+    const locale = defaultLocale ?? (Object.keys(entry.templates)[0] as string);
     const path = entry.templates[locale];
     if (!path) throw new Error(`No template for locale "${locale}"`);
     return path;

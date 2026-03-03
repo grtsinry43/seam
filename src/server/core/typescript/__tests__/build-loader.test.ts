@@ -1,4 +1,5 @@
 /* src/server/core/typescript/__tests__/build-loader.test.ts */
+/* oxlint-disable @typescript-eslint/no-non-null-assertion */
 
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from "node:fs";

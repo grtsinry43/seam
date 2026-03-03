@@ -1,4 +1,5 @@
 /* tests/e2e/specs/fullstack-assets.spec.ts */
+/* oxlint-disable @typescript-eslint/no-non-null-assertion */
 
 import { test, expect } from "@playwright/test";
 

@@ -1,4 +1,5 @@
 /* src/client/react/__tests__/use-seam-subscription.test.ts */
+/* oxlint-disable @typescript-eslint/no-non-null-assertion */
 
 // @vitest-environment jsdom
 

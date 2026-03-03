@@ -1,4 +1,5 @@
 /* src/client/react/__tests__/round-trip-react19.test.ts */
+/* oxlint-disable @typescript-eslint/no-non-null-assertion */
 
 import { describe, it, expect } from "vitest";
 import {

@@ -1,4 +1,5 @@
 /* src/client/react/__tests__/use-seam-navigate.test.ts */
+/* oxlint-disable @typescript-eslint/no-non-null-assertion */
 
 import { describe, it, expect, vi } from "vitest";
 import { createElement } from "react";

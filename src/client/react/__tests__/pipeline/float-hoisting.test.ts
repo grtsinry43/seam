@@ -1,4 +1,5 @@
 /* src/client/react/__tests__/pipeline/float-hoisting.test.ts */
+/* oxlint-disable @typescript-eslint/no-non-null-assertion */
 
 import { describe, expect, it } from "vitest";
 import { createElement } from "react";

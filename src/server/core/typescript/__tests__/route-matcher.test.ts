@@ -3,7 +3,7 @@
 import { describe, expect, it } from "vitest";
 import { RouteMatcher } from "../src/page/route-matcher.js";
 
-describe("RouteMatcher", () => {
+describe("RouteMatcher: static and param routes", () => {
   it("matches static route exactly", () => {
     const m = new RouteMatcher<string>();
     m.add("/about", "about-page");
@@ -70,7 +70,9 @@ describe("RouteMatcher", () => {
     const result = m.match("/");
     expect(result).toEqual({ value: "home", params: {}, pattern: "/" });
   });
+});
 
+describe("RouteMatcher: catch-all routes", () => {
   it("matches catch-all with one segment", () => {
     const m = new RouteMatcher<string>();
     m.add("/docs/*path", "docs-page");
