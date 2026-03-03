@@ -3,8 +3,9 @@
 use crate::escape::ascii_escape_json;
 use crate::page::{
   I18nOpts, PageConfig, build_seam_data, flatten_for_slots, inject_data_script, inject_head_meta,
-  inject_html_lang, replace_asset_slots, strip_asset_slots,
+  inject_html_lang,
 };
+use crate::slots::{replace_asset_slots, strip_asset_slots};
 
 /// Render a page: inject data into template, assemble data script,
 /// apply head metadata and locale attributes.
