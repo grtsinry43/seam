@@ -20,4 +20,12 @@ describe("convertPath()", () => {
   it("handles single param segment", () => {
     expect(convertPath("/:id")).toBe("/$id");
   });
+
+  it("converts catch-all to splat", () => {
+    expect(convertPath("/*slug")).toBe("/$");
+  });
+
+  it("converts optional catch-all to splat", () => {
+    expect(convertPath("/*path?")).toBe("/$");
+  });
 });

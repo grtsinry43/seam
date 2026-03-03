@@ -1,6 +1,9 @@
 /* src/router/tanstack/src/convert-routes.ts */
 
-/** Convert SeamJS `:param` path syntax to TanStack Router `$param` syntax */
+/** Convert SeamJS path syntax to TanStack Router syntax.
+ *  - `:param` → `$param`
+ *  - `/*name` or `/*name?` (catch-all) → `/$`
+ */
 export function convertPath(seamPath: string): string {
-  return seamPath.replace(/:(\w+)/g, "$$$1");
+  return seamPath.replace(/\/\*\w+\??$/, "/$").replace(/:(\w+)/g, "$$$1");
 }

@@ -25,12 +25,19 @@ export function isLazyLoader(c: unknown): c is LazyComponentLoader {
 /** Cache of resolved lazy components, keyed by route path */
 const lazyComponentCache = new Map<string, ComponentType>();
 
-/** Extract all leaf paths from a potentially nested route tree */
-export function collectLeafPaths(defs: RouteDef[]): string[] {
+/** Extract all leaf paths from a potentially nested route tree, joining parent prefixes */
+export function collectLeafPaths(defs: RouteDef[], parentPath = ""): string[] {
   const paths: string[] = [];
   for (const d of defs) {
-    if (d.children) paths.push(...collectLeafPaths(d.children));
-    else paths.push(d.path);
+    // Path grouping nodes (children, no layout, no component) use relative child paths;
+    // layout nodes already have absolute child paths — don't accumulate for layouts.
+    const isGrouping = d.children && !d.layout && !d.component;
+    const full = d.path === "/" ? parentPath || "/" : `${parentPath}${d.path}`;
+    if (d.children) {
+      paths.push(...collectLeafPaths(d.children, isGrouping ? full : parentPath));
+    } else {
+      paths.push(parentPath ? `${parentPath}${d.path}` : d.path);
+    }
   }
   return paths;
 }
@@ -40,15 +47,17 @@ function buildRoutes(
   defs: SeamRouteDef[],
   parent: AnyRoute,
   pages?: Record<string, ComponentType>,
+  parentPath = "",
 ): AnyRoute[] {
   return defs.map((def) => {
     if (def.layout && def.children) {
       // Layout node — pathless route that wraps children.
       // ID must not end with "/" to avoid colliding with index child route
       // after TanStack Router's joinPaths + cleanPath normalization.
+      // Layout children have absolute paths, so don't accumulate parentPath.
       const segment =
         def.path === "/" ? "root" : def.path.replace(/^\/|\/$/g, "").replace(/\//g, "-");
-      const layoutId = `_layout_${segment}`;
+      const layoutId = def._layoutId ?? `_layout_${segment}`;
       const loaders = def.loaders ?? {};
       const hasLoaders = Object.keys(loaders).length > 0;
       const layoutRoute = createRoute({
@@ -58,9 +67,26 @@ function buildRoutes(
         loader: hasLoaders ? createLoaderFromDefs(loaders, def.path, layoutId) : undefined,
         staleTime: def.staleTime,
       });
-      const children = buildRoutes(def.children, layoutRoute, pages);
+      const children = buildRoutes(def.children, layoutRoute, pages, parentPath);
       return layoutRoute.addChildren(children);
     }
+
+    // Path grouping node — has children but no layout/component.
+    // Creates a path-only route that groups children under a common prefix.
+    // Must render SeamOutlet so TanStack Router can display child matches.
+    // Children have relative paths, so accumulate parentPath.
+    if (def.children && !def.component) {
+      const fullPrefix = def.path === "/" ? parentPath || "/" : `${parentPath}${def.path}`;
+      const groupRoute = createRoute({
+        getParentRoute: () => parent,
+        path: convertPath(def.path),
+        component: SeamOutlet,
+      });
+      return groupRoute.addChildren(buildRoutes(def.children, groupRoute, pages, fullPrefix));
+    }
+
+    // Compute full path for leaf nodes (needed for SSR data matching)
+    const fullPath = parentPath ? `${parentPath}${def.path}` : def.path;
 
     // Leaf node — page route, wrapped with SeamDataProvider for scoped useSeamData()
     const explicitPage = pages?.[def.path];
@@ -68,12 +94,12 @@ function buildRoutes(
     if (!explicitPage && isLazyLoader(def.component)) {
       // Lazy component: resolve in loader (runs before render), cache for reuse
       const lazyLoader = def.component;
-      const routePath = def.path;
+      const routePath = fullPath;
       const clientLoader = def.clientLoader;
       const dataLoader = clientLoader
         ? (ctx: { params: Record<string, string>; context: SeamRouterContext }) =>
             clientLoader({ params: ctx.params, seamRpc: ctx.context.seamRpc })
-        : createLoaderFromDefs(def.loaders ?? {}, def.path);
+        : createLoaderFromDefs(def.loaders ?? {}, fullPath);
 
       return createRoute({
         getParentRoute: () => parent,
@@ -106,7 +132,7 @@ function buildRoutes(
             const ctx = context as SeamRouterContext;
             return cl({ params, seamRpc: ctx.seamRpc });
           }
-        : createLoaderFromDefs(def.loaders ?? {}, def.path),
+        : createLoaderFromDefs(def.loaders ?? {}, fullPath),
       staleTime: def.staleTime,
     });
   });
