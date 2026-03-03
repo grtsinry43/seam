@@ -22,6 +22,12 @@ jobs:
         with:
           go-version: stable
 
+      - uses: golangci/golangci-lint-action@v6
+        with:
+          install-mode: binary
+          version: v2.1
+          args: --help
+
       - name: Install chore-cli
         run: cargo install chore-cli
 
