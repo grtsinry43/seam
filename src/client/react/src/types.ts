@@ -3,7 +3,7 @@
 import type { ComponentType, ReactNode } from "react";
 
 export interface ParamMapping {
-  from: "route";
+  from: string;
   type?: "string" | "int";
 }
 
@@ -27,4 +27,6 @@ export interface RouteDef {
   mock?: Record<string, unknown>;
   nullable?: string[];
   staleTime?: number;
+  /** Internal: override layout ID for group layouts to avoid toLayoutId collision */
+  _layoutId?: string;
 }

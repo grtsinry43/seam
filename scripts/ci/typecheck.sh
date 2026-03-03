@@ -5,6 +5,7 @@ set -uo pipefail
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 
 packages=(
+  src/server/engine/js
   src/server/injector/js
   src/server/injector/native
   src/server/core/typescript
