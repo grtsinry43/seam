@@ -8,6 +8,7 @@ export { definePage } from "./page/index.js";
 export {
   createHttpHandler,
   sseDataEvent,
+  sseDataEventWithId,
   sseErrorEvent,
   sseCompleteEvent,
   serialize,
@@ -47,6 +48,7 @@ export type {
   ProcedureDef,
   CommandDef,
   SubscriptionDef,
+  StreamDef,
   DefinitionMap,
   ProcedureKind,
   Router,

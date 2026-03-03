@@ -38,8 +38,12 @@ function readBody(req: IncomingMessage): Promise<string> {
 async function sendResponse(res: ServerResponse, result: HttpResponse): Promise<void> {
   res.writeHead(result.status, result.headers);
   if ("stream" in result) {
+    const { onCancel } = result;
     await drainStream(result.stream, (chunk) => {
-      if (!res.writable) return false;
+      if (!res.writable) {
+        if (onCancel) onCancel();
+        return false;
+      }
       res.write(chunk);
     });
     res.end();

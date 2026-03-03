@@ -23,6 +23,7 @@ export interface HttpStreamResponse {
   status: number;
   headers: Record<string, string>;
   stream: AsyncIterable<string>;
+  onCancel?: () => void;
 }
 
 export type HttpResponse = HttpBodyResponse | HttpStreamResponse;
@@ -90,6 +91,11 @@ export function sseDataEvent(data: unknown): string {
   return `event: data\ndata: ${JSON.stringify(data)}\n\n`;
 }
 
+/** Format an SSE data event with a sequence id (for streams) */
+export function sseDataEventWithId(data: unknown, id: number): string {
+  return `event: data\nid: ${id}\ndata: ${JSON.stringify(data)}\n\n`;
+}
+
 /** Format an SSE error event */
 export function sseErrorEvent(code: string, message: string, transient = false): string {
   return `event: error\ndata: ${JSON.stringify({ code, message, transient })}\n\n`;
@@ -108,6 +114,39 @@ async function* sseStream<T extends DefinitionMap>(
   try {
     for await (const value of router.handleSubscription(name, input)) {
       yield sseDataEvent(value);
+    }
+    yield sseCompleteEvent();
+  } catch (error) {
+    if (error instanceof SeamError) {
+      yield sseErrorEvent(error.code, error.message);
+    } else {
+      const message = error instanceof Error ? error.message : "Unknown error";
+      yield sseErrorEvent("INTERNAL_ERROR", message);
+    }
+  }
+}
+
+async function* sseStreamForStream<T extends DefinitionMap>(
+  router: Router<T>,
+  name: string,
+  input: unknown,
+  signal?: AbortSignal,
+): AsyncGenerator<string> {
+  const gen = router.handleStream(name, input);
+  // Wire abort signal to terminate the generator
+  if (signal) {
+    signal.addEventListener(
+      "abort",
+      () => {
+        void gen.return(undefined);
+      },
+      { once: true },
+    );
+  }
+  try {
+    let seq = 0;
+    for await (const value of gen) {
+      yield sseDataEventWithId(value, seq++);
     }
     yield sseCompleteEvent();
   } catch (error) {
@@ -194,6 +233,17 @@ export function createHttpHandler<T extends DefinitionMap>(
           return errorResponse(400, "VALIDATION_ERROR", "Invalid JSON body");
         }
 
+        // Stream procedures return SSE over POST
+        if (router.getKind(name) === "stream") {
+          const controller = new AbortController();
+          return {
+            status: 200,
+            headers: SSE_HEADER,
+            stream: sseStreamForStream(router, name, body, controller.signal),
+            onCancel: () => controller.abort(),
+          };
+        }
+
         const result = await router.handle(name, body);
         return jsonResponse(result.status, result.body);
       }
@@ -268,6 +318,7 @@ export async function drainStream(
 export function toWebResponse(result: HttpResponse): Response {
   if ("stream" in result) {
     const stream = result.stream;
+    const onCancel = result.onCancel;
     const encoder = new TextEncoder();
     const readable = new ReadableStream({
       async start(controller) {
@@ -275,6 +326,9 @@ export function toWebResponse(result: HttpResponse): Response {
           controller.enqueue(encoder.encode(chunk));
         });
         controller.close();
+      },
+      cancel() {
+        onCancel?.();
       },
     });
     return new Response(readable, { status: result.status, headers: result.headers });

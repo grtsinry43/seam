@@ -18,3 +18,9 @@ export interface InternalSubscription {
   outputSchema: Schema;
   handler: (params: { input: unknown }) => AsyncIterable<unknown>;
 }
+
+export interface InternalStream {
+  inputSchema: Schema;
+  chunkOutputSchema: Schema;
+  handler: (params: { input: unknown }) => AsyncGenerator<unknown>;
+}

@@ -5,19 +5,19 @@ import { join } from "node:path";
 import type { SchemaNode } from "../types/schema.js";
 import type { ProcedureManifest } from "../manifest/index.js";
 import type { HandleResult, InternalProcedure } from "./handler.js";
-import type { InternalSubscription } from "../procedure.js";
+import type { InternalSubscription, InternalStream } from "../procedure.js";
 import type { HandlePageResult } from "../page/handler.js";
 import type { PageDef, I18nConfig } from "../page/index.js";
 import type { ChannelResult, ChannelMeta } from "../channel.js";
 import { buildManifest } from "../manifest/index.js";
-import { handleRequest, handleSubscription, handleBatchRequest } from "./handler.js";
+import { handleRequest, handleSubscription, handleStream, handleBatchRequest } from "./handler.js";
 import type { BatchCall, BatchResultItem } from "./handler.js";
 import { handlePageRequest } from "../page/handler.js";
 import { RouteMatcher } from "../page/route-matcher.js";
 import { defaultStrategies, resolveChain } from "../resolve.js";
 import type { ResolveStrategy } from "../resolve.js";
 
-export type ProcedureKind = "query" | "command" | "subscription";
+export type ProcedureKind = "query" | "command" | "subscription" | "stream";
 
 export interface ProcedureDef<TIn = unknown, TOut = unknown> {
   kind?: "query";
@@ -49,16 +49,24 @@ export interface SubscriptionDef<TIn = unknown, TOut = unknown> {
   handler: (params: { input: TIn }) => AsyncIterable<TOut>;
 }
 
+export interface StreamDef<TIn = unknown, TChunk = unknown> {
+  kind: "stream";
+  input: SchemaNode<TIn>;
+  output: SchemaNode<TChunk>;
+  error?: SchemaNode;
+  handler: (params: { input: TIn }) => AsyncGenerator<TChunk>;
+}
+
 /* eslint-disable @typescript-eslint/no-explicit-any */
 export type DefinitionMap = Record<
   string,
-  ProcedureDef<any, any> | CommandDef<any, any> | SubscriptionDef<any, any>
+  ProcedureDef<any, any> | CommandDef<any, any> | SubscriptionDef<any, any> | StreamDef<any, any>
 >;
 /* eslint-enable @typescript-eslint/no-explicit-any */
 
 function resolveKind(
   name: string,
-  def: ProcedureDef | CommandDef | SubscriptionDef,
+  def: ProcedureDef | CommandDef | SubscriptionDef | StreamDef,
 ): ProcedureKind {
   if ("kind" in def && def.kind) return def.kind;
   if ("type" in def && def.type) {
@@ -72,9 +80,16 @@ function resolveKind(
 
 function isSubscriptionDef(
   name: string,
-  def: ProcedureDef | CommandDef | SubscriptionDef,
+  def: ProcedureDef | CommandDef | SubscriptionDef | StreamDef,
 ): def is SubscriptionDef {
   return resolveKind(name, def) === "subscription";
+}
+
+function isStreamDef(
+  name: string,
+  def: ProcedureDef | CommandDef | SubscriptionDef | StreamDef,
+): def is StreamDef {
+  return resolveKind(name, def) === "stream";
 }
 
 export interface RouterOptions {
@@ -96,6 +111,8 @@ export interface Router<T extends DefinitionMap> {
   handle(procedureName: string, body: unknown): Promise<HandleResult>;
   handleBatch(calls: BatchCall[]): Promise<{ results: BatchResultItem[] }>;
   handleSubscription(name: string, input: unknown): AsyncIterable<unknown>;
+  handleStream(name: string, input: unknown): AsyncGenerator<unknown>;
+  getKind(name: string): ProcedureKind | null;
   handlePage(path: string, headers?: PageRequestHeaders): Promise<HandlePageResult | null>;
   readonly hasPages: boolean;
   /** Exposed for adapter access to the definitions */
@@ -150,9 +167,20 @@ export function createRouter<T extends DefinitionMap>(
 ): Router<T> {
   const procedureMap = new Map<string, InternalProcedure>();
   const subscriptionMap = new Map<string, InternalSubscription>();
+  const streamMap = new Map<string, InternalStream>();
+  const kindMap = new Map<string, ProcedureKind>();
 
   for (const [name, def] of Object.entries(procedures)) {
-    if (isSubscriptionDef(name, def)) {
+    const kind = resolveKind(name, def);
+    kindMap.set(name, kind);
+
+    if (isStreamDef(name, def)) {
+      streamMap.set(name, {
+        inputSchema: def.input._schema,
+        chunkOutputSchema: def.output._schema,
+        handler: def.handler as InternalStream["handler"],
+      });
+    } else if (isSubscriptionDef(name, def)) {
       subscriptionMap.set(name, {
         inputSchema: def.input._schema,
         outputSchema: def.output._schema,
@@ -213,6 +241,12 @@ export function createRouter<T extends DefinitionMap>(
     },
     handleSubscription(name, input) {
       return handleSubscription(subscriptionMap, name, input, shouldValidateOutput);
+    },
+    handleStream(name, input) {
+      return handleStream(streamMap, name, input, shouldValidateOutput);
+    },
+    getKind(name) {
+      return kindMap.get(name) ?? null;
     },
     async handlePage(path, headers) {
       let pathLocale: string | null = null;

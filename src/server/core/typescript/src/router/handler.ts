@@ -1,7 +1,12 @@
 /* src/server/core/typescript/src/router/handler.ts */
 
 import { SeamError } from "../errors.js";
-import type { HandleResult, InternalProcedure, InternalSubscription } from "../procedure.js";
+import type {
+  HandleResult,
+  InternalProcedure,
+  InternalSubscription,
+  InternalStream,
+} from "../procedure.js";
 import { validateInput, formatValidationErrors } from "../validation/index.js";
 
 export type { HandleResult, InternalProcedure } from "../procedure.js";
@@ -107,6 +112,35 @@ export async function* handleSubscription(
   for await (const value of sub.handler({ input: rawInput })) {
     if (validateOutput) {
       const outValidation = validateInput(sub.outputSchema, value);
+      if (!outValidation.valid) {
+        const details = formatValidationErrors(outValidation.errors);
+        throw new SeamError("INTERNAL_ERROR", `Output validation failed: ${details}`);
+      }
+    }
+    yield value;
+  }
+}
+
+export async function* handleStream(
+  streams: Map<string, InternalStream>,
+  name: string,
+  rawInput: unknown,
+  validateOutput?: boolean,
+): AsyncGenerator<unknown> {
+  const stream = streams.get(name);
+  if (!stream) {
+    throw new SeamError("NOT_FOUND", `Stream '${name}' not found`);
+  }
+
+  const validation = validateInput(stream.inputSchema, rawInput);
+  if (!validation.valid) {
+    const details = formatValidationErrors(validation.errors);
+    throw new SeamError("VALIDATION_ERROR", `Input validation failed: ${details}`);
+  }
+
+  for await (const value of stream.handler({ input: rawInput })) {
+    if (validateOutput) {
+      const outValidation = validateInput(stream.chunkOutputSchema, value);
       if (!outValidation.valid) {
         const details = formatValidationErrors(outValidation.errors);
         throw new SeamError("INTERNAL_ERROR", `Output validation failed: ${details}`);
