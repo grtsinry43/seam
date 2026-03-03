@@ -52,7 +52,7 @@ fn parse_nodes(bytes: &[u8], pos: &mut usize, parent_tag: Option<&str>) -> Vec<D
       while *pos < bytes.len() && bytes[*pos] != b'<' {
         *pos += 1;
       }
-      let text = std::str::from_utf8(&bytes[start..*pos]).unwrap();
+      let text = std::str::from_utf8(&bytes[start..*pos]).expect("valid UTF-8 from HTML source");
       if !text.is_empty() {
         nodes.push(DomNode::Text(text.to_string()));
       }
@@ -67,14 +67,15 @@ fn parse_comment(bytes: &[u8], pos: &mut usize) -> DomNode {
   let start = *pos;
   while *pos + 2 < bytes.len() {
     if bytes[*pos] == b'-' && bytes[*pos + 1] == b'-' && bytes[*pos + 2] == b'>' {
-      let content = std::str::from_utf8(&bytes[start..*pos]).unwrap();
+      let content = std::str::from_utf8(&bytes[start..*pos]).expect("valid UTF-8 from HTML source");
       *pos += 3; // skip "-->"
       return DomNode::Comment(content.to_string());
     }
     *pos += 1;
   }
   // Unterminated comment: consume the rest
-  let content = std::str::from_utf8(&bytes[start..bytes.len()]).unwrap();
+  let content =
+    std::str::from_utf8(&bytes[start..bytes.len()]).expect("valid UTF-8 from HTML source");
   *pos = bytes.len();
   DomNode::Comment(content.to_string())
 }
@@ -88,7 +89,8 @@ fn parse_element(bytes: &[u8], pos: &mut usize) -> DomNode {
   while *pos < bytes.len() && bytes[*pos] != b' ' && bytes[*pos] != b'>' && bytes[*pos] != b'/' {
     *pos += 1;
   }
-  let tag = std::str::from_utf8(&bytes[tag_start..*pos]).unwrap().to_string();
+  let tag =
+    std::str::from_utf8(&bytes[tag_start..*pos]).expect("valid UTF-8 from HTML source").to_string();
 
   // Read attrs: everything from current pos until we find unquoted '>' or '/>'
   let attrs_start = *pos;
@@ -110,11 +112,15 @@ fn parse_element(bytes: &[u8], pos: &mut usize) -> DomNode {
           *pos += 1;
         } else if bytes[*pos] == b'/' && *pos + 1 < bytes.len() && bytes[*pos + 1] == b'>' {
           // Self-closing tag
-          let attrs = std::str::from_utf8(&bytes[attrs_start..*pos]).unwrap().to_string();
+          let attrs = std::str::from_utf8(&bytes[attrs_start..*pos])
+            .expect("valid UTF-8 from HTML source")
+            .to_string();
           *pos += 2; // skip '/>'
           return DomNode::Element { tag, attrs, children: Vec::new(), self_closing: true };
         } else if bytes[*pos] == b'>' {
-          let attrs = std::str::from_utf8(&bytes[attrs_start..*pos]).unwrap().to_string();
+          let attrs = std::str::from_utf8(&bytes[attrs_start..*pos])
+            .expect("valid UTF-8 from HTML source")
+            .to_string();
           *pos += 1; // skip '>'
           let children = parse_nodes(bytes, pos, Some(&tag));
           return DomNode::Element { tag, attrs, children, self_closing: false };
@@ -126,7 +132,9 @@ fn parse_element(bytes: &[u8], pos: &mut usize) -> DomNode {
   }
 
   // Unterminated tag
-  let attrs = std::str::from_utf8(&bytes[attrs_start..bytes.len()]).unwrap().to_string();
+  let attrs = std::str::from_utf8(&bytes[attrs_start..bytes.len()])
+    .expect("valid UTF-8 from HTML source")
+    .to_string();
   *pos = bytes.len();
   DomNode::Element { tag, attrs, children: Vec::new(), self_closing: false }
 }

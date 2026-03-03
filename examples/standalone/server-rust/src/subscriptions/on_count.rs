@@ -26,7 +26,7 @@ pub fn on_count_subscription() -> SubscriptionDef {
 
         let stream = async_stream::stream! {
           for i in 1..=input.max {
-            yield Ok(serde_json::to_value(CountOutput { n: i }).unwrap());
+            yield Ok(serde_json::to_value(CountOutput { n: i }).expect("CountOutput is serializable"));
           }
         };
 

@@ -15,7 +15,7 @@ fn slot_re() -> &'static Regex {
   RE.get_or_init(|| {
     // Matches style slots: <!--seam:PATH:style:CSS_PROP-->
     // and class attr slots: <!--seam:PATH:attr:class-->
-    Regex::new(r"<!--seam:([^:]+(?:\.[^:]+)*):(?:style:[\w-]+|attr:class)-->").unwrap()
+    Regex::new(r"<!--seam:([^:]+(?:\.[^:]+)*):(?:style:[\w-]+|attr:class)-->").expect("valid regex")
   })
 }
 
@@ -54,7 +54,7 @@ pub fn check_slot_types(template: &str, page_schema: &Value) -> Vec<String> {
   let mut warnings = Vec::new();
 
   for cap in re.captures_iter(template) {
-    let full = cap.get(0).unwrap().as_str();
+    let full = cap.get(0).expect("capture group exists").as_str();
     let path = &cap[1];
 
     let Some(field_schema) = resolve_path(page_schema, path) else {
@@ -67,7 +67,8 @@ pub fn check_slot_types(template: &str, page_schema: &Value) -> Vec<String> {
 
     // Determine context label from the marker
     let context = if full.contains(":style:") {
-      let prop = full.rsplit(":style:").next().unwrap().trim_end_matches("-->");
+      let prop =
+        full.rsplit(":style:").next().expect("style delimiter present").trim_end_matches("-->");
       format!("style property \"{prop}\"")
     } else {
       "class attribute".to_string()

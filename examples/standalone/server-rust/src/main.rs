@@ -1,5 +1,6 @@
 /* examples/standalone/server-rust/src/main.rs */
 #![cfg_attr(test, allow(clippy::unwrap_used))]
+#![allow(clippy::print_stdout, clippy::print_stderr)]
 
 mod pages;
 mod procedures;

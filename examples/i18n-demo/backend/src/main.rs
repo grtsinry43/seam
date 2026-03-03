@@ -1,5 +1,6 @@
 /* examples/i18n-demo/backend/src/main.rs */
 #![cfg_attr(test, allow(clippy::unwrap_used))]
+#![allow(clippy::print_stdout, clippy::print_stderr)]
 
 use std::env;
 use std::path::PathBuf;

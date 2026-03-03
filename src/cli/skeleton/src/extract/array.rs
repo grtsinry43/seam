@@ -23,9 +23,8 @@ pub(super) fn process_array(
 ) -> Vec<DomNode> {
   let axis = &axes[axis_idx];
   let pair = find_pair_for_axis(axes, variants.len(), axis_idx);
-  let (vi_pop, vi_empty) = match pair {
-    Some(p) => p,
-    None => return result,
+  let Some((vi_pop, vi_empty)) = pair else {
+    return result;
   };
 
   let tree_pop = parse_html(&variants[vi_pop]);
@@ -66,7 +65,7 @@ fn insert_array_directives(
   // the entire region as a conditional with if/else semantics for the array
   if body_indices.is_empty() && has_only_right {
     // Fall back to treating as boolean-like diff
-    return insert_boolean_directives(tree, pop_nodes, empty_nodes, path);
+    return insert_boolean_directives(&tree, pop_nodes, empty_nodes, path);
   }
 
   if body_indices.is_empty() {
@@ -295,9 +294,8 @@ pub(super) fn process_array_with_children(
 
   // 1. Find populated/empty pair
   let pair = find_pair_for_axis(axes, variants.len(), group.parent_axis_idx);
-  let (_, vi_empty) = match pair {
-    Some(p) => p,
-    None => return result,
+  let Some((_, vi_empty)) = pair else {
+    return result;
   };
   let tree_empty = parse_html(&variants[vi_empty]);
 
@@ -314,9 +312,8 @@ pub(super) fn process_array_with_children(
   let first_pop = &scoped_trees[0];
 
   // 4. Find body location by recursively traversing Modified elements
-  let body_loc = match find_body_in_trees(first_pop, &tree_empty) {
-    Some(loc) => loc,
-    None => return result,
+  let Some(body_loc) = find_body_in_trees(first_pop, &tree_empty) else {
+    return result;
   };
 
   // 5. Extract body from each scoped variant at the found path

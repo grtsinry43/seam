@@ -99,9 +99,8 @@ pub(super) fn process_enum(
   let base_tree = &trees[0];
 
   let other_trees: Vec<Vec<DomNode>> = trees[1..].to_vec();
-  let region = match find_enum_region(base_tree, &other_trees) {
-    Some(r) => r,
-    None => return (result, false),
+  let Some(region) = find_enum_region(base_tree, &other_trees) else {
+    return (result, false);
   };
 
   // Collect sibling axes for recursive processing within each arm

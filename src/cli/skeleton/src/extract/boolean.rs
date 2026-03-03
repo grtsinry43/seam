@@ -10,7 +10,7 @@ use super::{Axis, content_indices};
 /// directive Comments). Walks the diff between `a_nodes` and `b_nodes`, and
 /// inserts if/else/endif Comment nodes into the result.
 pub(super) fn insert_boolean_directives(
-  tree: Vec<DomNode>,
+  tree: &[DomNode],
   a_nodes: &[DomNode],
   b_nodes: &[DomNode],
   path: &str,
@@ -19,7 +19,7 @@ pub(super) fn insert_boolean_directives(
 
   // Map content nodes in `tree` (skipping directive comments) to tree indices.
   // content_map[k] = index in `tree` of the k-th content node.
-  let content_map = content_indices(&tree);
+  let content_map = content_indices(tree);
 
   // Build new children list by walking ops and copying from tree
   let mut result = Vec::new();
@@ -46,14 +46,14 @@ pub(super) fn insert_boolean_directives(
   while op_idx < ops.len() {
     match &ops[op_idx] {
       DiffOp::Identical(_, _) => {
-        copy_leading_directives(&tree, &mut tree_pos, &content_map, tree_content_idx, &mut result);
+        copy_leading_directives(tree, &mut tree_pos, &content_map, tree_content_idx, &mut result);
         result.push(tree[tree_pos].clone());
         tree_pos += 1;
         tree_content_idx += 1;
         op_idx += 1;
       }
       DiffOp::Modified(ai, bi) => {
-        copy_leading_directives(&tree, &mut tree_pos, &content_map, tree_content_idx, &mut result);
+        copy_leading_directives(tree, &mut tree_pos, &content_map, tree_content_idx, &mut result);
         // Same tag, different content — try to recurse into children
         match (&tree[tree_pos], &a_nodes[*ai], &b_nodes[*bi]) {
           (
@@ -62,7 +62,7 @@ pub(super) fn insert_boolean_directives(
             DomNode::Element { attrs: ab, children: bc, .. },
           ) if aa == ab => {
             // Same attrs — recurse into children
-            let merged = insert_boolean_directives(tc.clone(), ac, bc, path);
+            let merged = insert_boolean_directives(tc, ac, bc, path);
             result.push(DomNode::Element {
               tag: tag.clone(),
               attrs: attrs.clone(),
@@ -84,7 +84,7 @@ pub(super) fn insert_boolean_directives(
         op_idx += 1;
       }
       DiffOp::OnlyLeft(ai) => {
-        copy_leading_directives(&tree, &mut tree_pos, &content_map, tree_content_idx, &mut result);
+        copy_leading_directives(tree, &mut tree_pos, &content_map, tree_content_idx, &mut result);
         // Check if next op is OnlyRight — forms an if/else replacement pair
         if op_idx + 1 < ops.len()
           && let DiffOp::OnlyRight(bi) = &ops[op_idx + 1]
@@ -108,7 +108,7 @@ pub(super) fn insert_boolean_directives(
         op_idx += 1;
       }
       DiffOp::OnlyRight(bi) => {
-        copy_leading_directives(&tree, &mut tree_pos, &content_map, tree_content_idx, &mut result);
+        copy_leading_directives(tree, &mut tree_pos, &content_map, tree_content_idx, &mut result);
         // Content only in false variant (not preceded by OnlyLeft)
         result.push(DomNode::Comment(format!("seam:if:{path}")));
         result.push(DomNode::Comment("seam:else".into()));
@@ -138,13 +138,12 @@ pub(super) fn process_boolean(
 ) -> Vec<DomNode> {
   let axis = &axes[axis_idx];
   let pair = find_pair_for_axis(axes, variants.len(), axis_idx);
-  let (vi_a, vi_b) = match pair {
-    Some(p) => p,
-    None => return result,
+  let Some((vi_a, vi_b)) = pair else {
+    return result;
   };
 
   let tree_a = parse_html(&variants[vi_a]);
   let tree_b = parse_html(&variants[vi_b]);
 
-  insert_boolean_directives(result, &tree_a, &tree_b, &axis.path)
+  insert_boolean_directives(&result, &tree_a, &tree_b, &axis.path)
 }

@@ -44,6 +44,7 @@ impl IntoAxumRouter for SeamServer {
     )
   }
 
+  #[allow(clippy::print_stdout)]
   async fn serve(self, addr: &str) -> Result<(), Box<dyn std::error::Error>> {
     let router = self.into_axum_router();
     let listener = tokio::net::TcpListener::bind(addr).await?;

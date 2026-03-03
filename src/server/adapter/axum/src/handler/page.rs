@@ -20,9 +20,8 @@ fn resolve_locale(
   uri: &axum::http::Uri,
   headers: &axum::http::HeaderMap,
 ) -> Result<Option<String>, SeamError> {
-  let locale_set = match state.locale_set {
-    Some(ref ls) => ls,
-    None => return Ok(None),
+  let Some(ref locale_set) = state.locale_set else {
+    return Ok(None);
   };
 
   let extracted = params.remove("_seam_locale");
@@ -32,7 +31,8 @@ fn resolve_locale(
     return Err(SeamError::not_found("Unknown locale"));
   }
 
-  let i18n = state.i18n_config.as_ref().unwrap();
+  let i18n =
+    state.i18n_config.as_ref().ok_or_else(|| SeamError::internal("i18n_config missing"))?;
   let url_str = uri.path_and_query().map(axum::http::uri::PathAndQuery::as_str).unwrap_or("");
   let data = seam_server::ResolveData {
     url: url_str,

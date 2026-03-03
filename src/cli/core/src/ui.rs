@@ -290,7 +290,7 @@ pub fn spinner(msg: &str) -> Spinner {
         ProgressStyle::default_spinner()
           .tick_chars("\u{280b}\u{2819}\u{2838}\u{28b0}\u{28e0}\u{28c4}\u{2846}\u{2807} ")
           .template("        {spinner} {msg}")
-          .unwrap(),
+          .expect("valid template"),
       );
       pb.set_message(msg.to_string());
       pb.enable_steady_tick(std::time::Duration::from_millis(80));

@@ -100,7 +100,10 @@ pub(super) fn run_fullstack_build(
   let t = tracker.begin();
   run_command(
     base_dir,
-    build_config.backend_build_command.as_deref().unwrap(),
+    build_config
+      .backend_build_command
+      .as_deref()
+      .expect("backend_build_command required in fullstack mode"),
     "backend build",
     &[],
   )?;

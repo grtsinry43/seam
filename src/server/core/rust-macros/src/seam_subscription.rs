@@ -24,6 +24,7 @@ impl Parse for SubscriptionAttr {
   }
 }
 
+#[allow(clippy::needless_pass_by_value)]
 pub fn expand(attr: TokenStream, item: ItemFn) -> syn::Result<TokenStream> {
   let parsed_attr: SubscriptionAttr = syn::parse2(attr)?;
 

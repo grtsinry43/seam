@@ -54,7 +54,7 @@ pub(crate) fn run_builtin_bundler(
   let script = find_cli_script(base_dir, "build-frontend.mjs")?;
   let spinner = ui::spinner(&format!("{runtime} build-frontend.mjs {entry} {out_dir}"));
   let mut cmd = Command::new(runtime);
-  cmd.args([script.to_str().unwrap(), entry, out_dir]);
+  cmd.args([script.to_str().expect("script path is valid UTF-8"), entry, out_dir]);
   cmd.current_dir(base_dir);
   for (k, v) in env {
     cmd.env(k, v);

@@ -66,7 +66,7 @@ pub(crate) fn export_i18n(
       locale_hashes.insert(locale.clone(), ch);
 
       // Store in per-locale map
-      per_locale.get_mut(locale).unwrap().insert(rh.clone(), msgs);
+      per_locale.get_mut(locale).expect("locale initialized above").insert(rh.clone(), msgs);
     }
     content_hashes.insert(rh.clone(), locale_hashes);
   }

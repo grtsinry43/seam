@@ -6,22 +6,22 @@ use regex::Regex;
 
 fn attr_re() -> &'static Regex {
   static RE: OnceLock<Regex> = OnceLock::new();
-  RE.get_or_init(|| Regex::new(r#"([\w-]+)="%%SEAM:([^%]+)%%""#).unwrap())
+  RE.get_or_init(|| Regex::new(r#"([\w-]+)="%%SEAM:([^%]+)%%""#).expect("valid regex"))
 }
 
 fn style_sentinel_re() -> &'static Regex {
   static RE: OnceLock<Regex> = OnceLock::new();
-  RE.get_or_init(|| Regex::new(r#"style="([^"]*%%SEAM:[^"]*)""#).unwrap())
+  RE.get_or_init(|| Regex::new(r#"style="([^"]*%%SEAM:[^"]*)""#).expect("valid regex"))
 }
 
 fn text_re() -> &'static Regex {
   static RE: OnceLock<Regex> = OnceLock::new();
-  RE.get_or_init(|| Regex::new(r"%%SEAM:([^%]+)%%").unwrap())
+  RE.get_or_init(|| Regex::new(r"%%SEAM:([^%]+)%%").expect("valid regex"))
 }
 
 fn tag_re() -> &'static Regex {
   static RE: OnceLock<Regex> = OnceLock::new();
-  RE.get_or_init(|| Regex::new(r"<([a-zA-Z][a-zA-Z0-9]*)\b([^>]*)>").unwrap())
+  RE.get_or_init(|| Regex::new(r"<([a-zA-Z][a-zA-Z0-9]*)\b([^>]*)>").expect("valid regex"))
 }
 
 /// Replace text sentinels `%%SEAM:path%%` with slot markers `<!--seam:path-->`.
@@ -45,8 +45,8 @@ pub fn sentinel_to_slots(html: &str) -> String {
   let mut last_end = 0;
 
   for cap in tag_re.captures_iter(html) {
-    let full_match = cap.get(0).unwrap();
-    let attrs_part = cap.get(2).unwrap().as_str();
+    let full_match = cap.get(0).expect("capture group exists");
+    let attrs_part = cap.get(2).expect("capture group exists").as_str();
 
     let has_attr_sentinels = attr_re.is_match(attrs_part);
     let has_style_sentinels = style_re.is_match(attrs_part);
@@ -94,7 +94,7 @@ pub fn sentinel_to_slots(html: &str) -> String {
       }
 
       // Replace style attribute in working attrs
-      let full_style_match = style_cap.get(0).unwrap().as_str();
+      let full_style_match = style_cap.get(0).expect("capture group exists").as_str();
       if static_pairs.is_empty() {
         working_attrs = working_attrs.replace(full_style_match, "");
       } else {
@@ -120,7 +120,7 @@ pub fn sentinel_to_slots(html: &str) -> String {
     }
 
     // Rebuild the tag
-    let tag_name = cap.get(1).unwrap().as_str();
+    let tag_name = cap.get(1).expect("capture group exists").as_str();
     let cleaned_attrs = working_attrs.trim();
 
     if cleaned_attrs.is_empty() {

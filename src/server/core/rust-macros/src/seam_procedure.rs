@@ -35,6 +35,7 @@ impl Parse for ProcedureAttr {
   }
 }
 
+#[allow(clippy::needless_pass_by_value)]
 pub fn expand(attr: TokenStream, item: ItemFn) -> syn::Result<TokenStream> {
   let parsed_attr: ProcedureAttr = syn::parse2(attr)?;
   expand_with_type(parsed_attr, &item, &quote! { seam_server::ProcedureType::Query })

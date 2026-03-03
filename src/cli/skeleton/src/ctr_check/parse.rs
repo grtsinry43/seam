@@ -73,7 +73,7 @@ fn parse_nodes(
       while *pos < bytes.len() && bytes[*pos] != b'<' {
         *pos += 1;
       }
-      let text = std::str::from_utf8(&bytes[start..*pos]).unwrap();
+      let text = std::str::from_utf8(&bytes[start..*pos]).expect("valid UTF-8 from HTML source");
       if !text.is_empty() {
         nodes.push(CtrNode::Text(text.to_string()));
       }
@@ -104,7 +104,9 @@ fn parse_element(bytes: &[u8], pos: &mut usize, data_id: &str) -> Option<CtrNode
   while *pos < bytes.len() && bytes[*pos] != b' ' && bytes[*pos] != b'>' && bytes[*pos] != b'/' {
     *pos += 1;
   }
-  let tag = std::str::from_utf8(&bytes[tag_start..*pos]).unwrap().to_lowercase();
+  let tag = std::str::from_utf8(&bytes[tag_start..*pos])
+    .expect("valid UTF-8 from HTML source")
+    .to_lowercase();
 
   // Read raw attribute string (quote-aware scanning for '>' or '/>')
   let attrs_start = *pos;
@@ -138,7 +140,8 @@ fn parse_element(bytes: &[u8], pos: &mut usize, data_id: &str) -> Option<CtrNode
     }
   }
 
-  let attrs_raw = std::str::from_utf8(&bytes[attrs_start..*pos]).unwrap();
+  let attrs_raw =
+    std::str::from_utf8(&bytes[attrs_start..*pos]).expect("valid UTF-8 from HTML source");
   let attrs = parse_attrs(attrs_raw);
 
   if self_closed {
@@ -213,7 +216,8 @@ fn parse_attrs(raw: &str) -> BTreeMap<String, String> {
     if i == key_start {
       break;
     }
-    let key = std::str::from_utf8(&bytes[key_start..i]).unwrap().to_string();
+    let key =
+      std::str::from_utf8(&bytes[key_start..i]).expect("valid UTF-8 from HTML source").to_string();
 
     // Check for '='
     if i < bytes.len() && bytes[i] == b'=' {
@@ -225,7 +229,9 @@ fn parse_attrs(raw: &str) -> BTreeMap<String, String> {
         while i < bytes.len() && bytes[i] != quote {
           i += 1;
         }
-        let value = std::str::from_utf8(&bytes[val_start..i]).unwrap().to_string();
+        let value = std::str::from_utf8(&bytes[val_start..i])
+          .expect("valid UTF-8 from HTML source")
+          .to_string();
         if i < bytes.len() {
           i += 1; // skip closing quote
         }
@@ -236,7 +242,9 @@ fn parse_attrs(raw: &str) -> BTreeMap<String, String> {
         while i < bytes.len() && !bytes[i].is_ascii_whitespace() && bytes[i] != b'>' {
           i += 1;
         }
-        let value = std::str::from_utf8(&bytes[val_start..i]).unwrap().to_string();
+        let value = std::str::from_utf8(&bytes[val_start..i])
+          .expect("valid UTF-8 from HTML source")
+          .to_string();
         map.insert(key, value);
       }
     } else {
