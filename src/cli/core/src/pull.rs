@@ -30,11 +30,13 @@ pub async fn pull_manifest(base_url: &str, out: &Path) -> Result<()> {
   let mut queries = 0u32;
   let mut commands = 0u32;
   let mut subscriptions = 0u32;
+  let mut streams = 0u32;
   for proc in manifest.procedures.values() {
     match proc.proc_type {
       ProcedureType::Query => queries += 1,
       ProcedureType::Command => commands += 1,
       ProcedureType::Subscription => subscriptions += 1,
+      ProcedureType::Stream => streams += 1,
     }
   }
 
@@ -50,6 +52,9 @@ pub async fn pull_manifest(base_url: &str, out: &Path) -> Result<()> {
       "{subscriptions} {}",
       if subscriptions == 1 { "subscription" } else { "subscriptions" }
     ));
+  }
+  if streams > 0 {
+    parts.push(format!("{streams} {}", if streams == 1 { "stream" } else { "streams" }));
   }
 
   let breakdown =

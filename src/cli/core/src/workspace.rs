@@ -322,6 +322,7 @@ mod tests {
         "query" => ProcedureType::Query,
         "command" => ProcedureType::Command,
         "subscription" => ProcedureType::Subscription,
+        "stream" => ProcedureType::Stream,
         _ => ProcedureType::Query,
       };
       procedures.insert(
@@ -329,7 +330,8 @@ mod tests {
         ProcedureSchema {
           proc_type,
           input: serde_json::json!({"properties": {"id": {"type": "uint32"}}}),
-          output: serde_json::json!({"properties": {"name": {"type": "string"}}}),
+          output: Some(serde_json::json!({"properties": {"name": {"type": "string"}}})),
+          chunk_output: None,
           error: None,
         },
       );

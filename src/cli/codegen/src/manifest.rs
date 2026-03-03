@@ -11,6 +11,7 @@ pub enum ProcedureType {
   Query,
   Command,
   Subscription,
+  Stream,
 }
 
 impl std::fmt::Display for ProcedureType {
@@ -19,6 +20,7 @@ impl std::fmt::Display for ProcedureType {
       Self::Query => write!(f, "query"),
       Self::Command => write!(f, "command"),
       Self::Subscription => write!(f, "subscription"),
+      Self::Stream => write!(f, "stream"),
     }
   }
 }
@@ -36,14 +38,25 @@ pub struct ProcedureSchema {
   #[serde(rename = "kind", alias = "type")]
   pub proc_type: ProcedureType,
   pub input: Value,
-  pub output: Value,
+  #[serde(default, skip_serializing_if = "Option::is_none")]
+  pub output: Option<Value>,
+  #[serde(default, skip_serializing_if = "Option::is_none", rename = "chunkOutput")]
+  pub chunk_output: Option<Value>,
   #[serde(default, skip_serializing_if = "Option::is_none")]
   pub error: Option<Value>,
+}
+
+impl ProcedureSchema {
+  /// Return the effective output schema: chunkOutput for streams, output for others.
+  pub fn effective_output(&self) -> Option<&Value> {
+    self.chunk_output.as_ref().or(self.output.as_ref())
+  }
 }
 
 #[cfg(test)]
 mod tests {
   use super::*;
+  use serde_json::json;
 
   #[test]
   fn deserialize_v1_manifest() {
@@ -78,6 +91,48 @@ mod tests {
   }
 
   #[test]
+  fn deserialize_stream_manifest() {
+    let json = r#"{
+      "version": 2,
+      "context": {},
+      "procedures": {
+        "countStream": { "kind": "stream", "input": {}, "chunkOutput": {} }
+      },
+      "transportDefaults": {}
+    }"#;
+    let m: Manifest = serde_json::from_str(json).unwrap();
+    assert_eq!(m.procedures["countStream"].proc_type, ProcedureType::Stream);
+    assert!(m.procedures["countStream"].chunk_output.is_some());
+    assert!(m.procedures["countStream"].output.is_none());
+  }
+
+  #[test]
+  fn effective_output_returns_chunk_output_for_stream() {
+    let schema = ProcedureSchema {
+      proc_type: ProcedureType::Stream,
+      input: Value::Object(Default::default()),
+      output: None,
+      chunk_output: Some(json!({"properties": {"n": {"type": "int32"}}})),
+      error: None,
+    };
+    assert!(schema.effective_output().is_some());
+    assert_eq!(schema.effective_output(), schema.chunk_output.as_ref());
+  }
+
+  #[test]
+  fn effective_output_returns_output_for_query() {
+    let schema = ProcedureSchema {
+      proc_type: ProcedureType::Query,
+      input: Value::Object(Default::default()),
+      output: Some(json!({"properties": {"msg": {"type": "string"}}})),
+      chunk_output: None,
+      error: None,
+    };
+    assert!(schema.effective_output().is_some());
+    assert_eq!(schema.effective_output(), schema.output.as_ref());
+  }
+
+  #[test]
   fn serialize_outputs_kind() {
     let m = Manifest {
       version: 2,
@@ -86,7 +141,8 @@ mod tests {
         ProcedureSchema {
           proc_type: ProcedureType::Command,
           input: Value::Object(Default::default()),
-          output: Value::Object(Default::default()),
+          output: Some(Value::Object(Default::default())),
+          chunk_output: None,
           error: None,
         },
       )]),

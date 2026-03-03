@@ -20,7 +20,8 @@ fn channel_procedure_meta_uses_channel_types() {
         crate::manifest::ProcedureSchema {
           proc_type: ProcedureType::Command,
           input: json!({ "properties": { "roomId": { "type": "string" }, "text": { "type": "string" } } }),
-          output: json!({ "properties": { "id": { "type": "string" } } }),
+          output: Some(json!({ "properties": { "id": { "type": "string" } } })),
+          chunk_output: None,
           error: None,
         },
       );
@@ -29,12 +30,13 @@ fn channel_procedure_meta_uses_channel_types() {
         crate::manifest::ProcedureSchema {
           proc_type: ProcedureType::Subscription,
           input: json!({ "properties": { "roomId": { "type": "string" } } }),
-          output: json!({
+          output: Some(json!({
             "discriminator": "type",
             "mapping": {
               "newMessage": { "properties": { "payload": { "properties": { "text": { "type": "string" } } } } }
             }
-          }),
+          })),
+          chunk_output: None,
           error: None,
         },
       );
@@ -97,7 +99,8 @@ fn transport_hint_codegen() {
         crate::manifest::ProcedureSchema {
           proc_type: ProcedureType::Command,
           input: json!({ "properties": { "roomId": { "type": "string" }, "text": { "type": "string" } } }),
-          output: json!({ "properties": { "id": { "type": "string" } } }),
+          output: Some(json!({ "properties": { "id": { "type": "string" } } })),
+          chunk_output: None,
           error: None,
         },
       );
@@ -106,12 +109,13 @@ fn transport_hint_codegen() {
         crate::manifest::ProcedureSchema {
           proc_type: ProcedureType::Subscription,
           input: json!({ "properties": { "roomId": { "type": "string" } } }),
-          output: json!({
+          output: Some(json!({
             "discriminator": "type",
             "mapping": {
               "newMessage": { "properties": { "payload": { "properties": { "text": { "type": "string" } } } } }
             }
-          }),
+          })),
+          chunk_output: None,
           error: None,
         },
       );
@@ -180,9 +184,10 @@ fn dot_namespace_codegen() {
           input: json!({
               "properties": { "userId": { "type": "string" } }
           }),
-          output: json!({
+          output: Some(json!({
               "properties": { "name": { "type": "string" } }
-          }),
+          })),
+          chunk_output: None,
           error: None,
         },
       );
@@ -193,9 +198,10 @@ fn dot_namespace_codegen() {
           input: json!({
               "properties": { "email": { "type": "string" } }
           }),
-          output: json!({
+          output: Some(json!({
               "properties": { "success": { "type": "boolean" } }
-          }),
+          })),
+          chunk_output: None,
           error: None,
         },
       );
@@ -206,9 +212,10 @@ fn dot_namespace_codegen() {
           input: json!({
               "properties": { "max": { "type": "int32" } }
           }),
-          output: json!({
+          output: Some(json!({
               "properties": { "n": { "type": "int32" } }
-          }),
+          })),
+          chunk_output: None,
           error: None,
         },
       );

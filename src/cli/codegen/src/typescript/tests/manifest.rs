@@ -20,9 +20,10 @@ fn full_manifest_render() {
           input: json!({
               "properties": { "name": { "type": "string" } }
           }),
-          output: json!({
+          output: Some(json!({
               "properties": { "message": { "type": "string" } }
-          }),
+          })),
+          chunk_output: None,
           error: None,
         },
       );
@@ -57,9 +58,10 @@ fn subscription_codegen() {
           input: json!({
               "properties": { "max": { "type": "int32" } }
           }),
-          output: json!({
+          output: Some(json!({
               "properties": { "n": { "type": "int32" } }
-          }),
+          })),
+          chunk_output: None,
           error: None,
         },
       );
@@ -92,9 +94,10 @@ fn full_manifest_render_with_hashes() {
           input: json!({
               "properties": { "name": { "type": "string" } }
           }),
-          output: json!({
+          output: Some(json!({
               "properties": { "message": { "type": "string" } }
-          }),
+          })),
+          chunk_output: None,
           error: None,
         },
       );
@@ -134,9 +137,10 @@ fn codegen_without_hashes_unchanged() {
           input: json!({
               "properties": { "name": { "type": "string" } }
           }),
-          output: json!({
+          output: Some(json!({
               "properties": { "message": { "type": "string" } }
-          }),
+          })),
+          chunk_output: None,
           error: None,
         },
       );
@@ -165,9 +169,10 @@ fn subscription_codegen_with_hashes() {
           input: json!({
               "properties": { "max": { "type": "int32" } }
           }),
-          output: json!({
+          output: Some(json!({
               "properties": { "n": { "type": "int32" } }
-          }),
+          })),
+          chunk_output: None,
           error: None,
         },
       );
@@ -239,9 +244,10 @@ fn command_codegen() {
           input: json!({
               "properties": { "userId": { "type": "string" } }
           }),
-          output: json!({
+          output: Some(json!({
               "properties": { "success": { "type": "boolean" } }
-          }),
+          })),
+          chunk_output: None,
           error: None,
         },
       );
@@ -270,9 +276,10 @@ fn error_schema_codegen() {
           input: json!({
               "properties": { "userId": { "type": "string" } }
           }),
-          output: json!({
+          output: Some(json!({
               "properties": { "success": { "type": "boolean" } }
-          }),
+          })),
+          chunk_output: None,
           error: Some(json!({
               "properties": { "reason": { "type": "string" } }
           })),
@@ -304,9 +311,10 @@ fn error_schema_absent_no_error_type() {
           input: json!({
               "properties": { "name": { "type": "string" } }
           }),
-          output: json!({
+          output: Some(json!({
               "properties": { "message": { "type": "string" } }
-          }),
+          })),
+          chunk_output: None,
           error: None,
         },
       );
@@ -335,9 +343,10 @@ fn command_with_hashes() {
           input: json!({
               "properties": { "userId": { "type": "string" } }
           }),
-          output: json!({
+          output: Some(json!({
               "properties": { "success": { "type": "boolean" } }
-          }),
+          })),
+          chunk_output: None,
           error: None,
         },
       );
@@ -357,4 +366,82 @@ fn command_with_hashes() {
   let code = generate_typescript(&manifest, Some(&hash_map), "__data").unwrap();
   assert!(code.contains("client.command(\"dead1234\""));
   assert!(code.contains("deleteUser(input: DeleteUserInput): Promise<DeleteUserOutput>;"));
+}
+
+#[test]
+fn stream_codegen() {
+  let manifest = crate::manifest::Manifest {
+    version: 2,
+    procedures: {
+      let mut m = BTreeMap::new();
+      m.insert(
+        "countStream".to_string(),
+        crate::manifest::ProcedureSchema {
+          proc_type: ProcedureType::Stream,
+          input: json!({
+              "properties": { "max": { "type": "int32" } }
+          }),
+          output: None,
+          chunk_output: Some(json!({
+              "properties": { "n": { "type": "int32" } }
+          })),
+          error: None,
+        },
+      );
+      m
+    },
+    channels: BTreeMap::new(),
+  };
+
+  let code = generate_typescript(&manifest, None, "__data").unwrap();
+  assert!(code.contains("export interface CountStreamInput {"));
+  assert!(code.contains("export interface CountStreamChunk {"));
+  assert!(code.contains("countStream(input: CountStreamInput): StreamHandle<CountStreamChunk>;"));
+  assert!(code.contains("client.stream(\"countStream\""));
+  assert!(code.contains("StreamHandle"));
+  // Meta should use "stream" kind with Chunk type
+  assert!(code.contains(
+    "countStream: { kind: \"stream\"; input: CountStreamInput; output: CountStreamChunk };"
+  ));
+}
+
+#[test]
+fn stream_codegen_with_hashes() {
+  use crate::rpc_hash::RpcHashMap;
+
+  let manifest = crate::manifest::Manifest {
+    version: 2,
+    procedures: {
+      let mut m = BTreeMap::new();
+      m.insert(
+        "countStream".to_string(),
+        crate::manifest::ProcedureSchema {
+          proc_type: ProcedureType::Stream,
+          input: json!({
+              "properties": { "max": { "type": "int32" } }
+          }),
+          output: None,
+          chunk_output: Some(json!({
+              "properties": { "n": { "type": "int32" } }
+          })),
+          error: None,
+        },
+      );
+      m
+    },
+    channels: BTreeMap::new(),
+  };
+  let hash_map = RpcHashMap {
+    salt: "test_salt".to_string(),
+    batch: "deadbeef".to_string(),
+    procedures: {
+      let mut m = BTreeMap::new();
+      m.insert("countStream".to_string(), "stream1234".to_string());
+      m
+    },
+  };
+  let code = generate_typescript(&manifest, Some(&hash_map), "__data").unwrap();
+  assert!(code.contains("client.stream(\"stream1234\""));
+  // Interface still uses original name
+  assert!(code.contains("countStream(input: CountStreamInput"));
 }

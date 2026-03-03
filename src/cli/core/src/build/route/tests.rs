@@ -75,7 +75,8 @@ fn make_manifest(names: &[&str]) -> seam_codegen::Manifest {
       ProcedureSchema {
         proc_type: ProcedureType::Query,
         input: serde_json::Value::Null,
-        output: serde_json::Value::Null,
+        output: Some(serde_json::Value::Null),
+        chunk_output: None,
         error: None,
       },
     );

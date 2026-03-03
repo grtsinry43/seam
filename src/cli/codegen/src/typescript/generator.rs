@@ -138,12 +138,15 @@ fn generate_procedure_meta(manifest: &Manifest) -> String {
       ProcedureType::Query => "query",
       ProcedureType::Command => "command",
       ProcedureType::Subscription => "subscription",
+      ProcedureType::Stream => "stream",
     };
     let (input_name, output_name) = if channel_event_names.contains(name) {
       // Channel event subscription: types follow channel naming convention
       let ch_name = name.strip_suffix(".events").expect("channel event name has .events suffix");
       let ch_pascal = to_pascal_case(ch_name);
       (format!("{ch_pascal}ChannelInput"), format!("{ch_pascal}Event"))
+    } else if schema.proc_type == ProcedureType::Stream {
+      (format!("{pascal}Input"), format!("{pascal}Chunk"))
     } else {
       (format!("{pascal}Input"), format!("{pascal}Output"))
     };
@@ -219,10 +222,19 @@ pub fn generate_typescript(
 
   let has_channels = !manifest.channels.is_empty();
 
+  // Detect stream procedures early for imports
+  let has_stream_procedures = manifest.procedures.values().any(|s| s.proc_type == ProcedureType::Stream);
+
   out.push_str("import { createClient } from \"@canmi/seam-client\";\n");
-  out.push_str(
-    "import type { SeamClient, SeamClientError, ProcedureKind, Unsubscribe } from \"@canmi/seam-client\";\n\n",
-  );
+  if has_stream_procedures {
+    out.push_str(
+      "import type { SeamClient, SeamClientError, ProcedureKind, Unsubscribe, StreamHandle } from \"@canmi/seam-client\";\n\n",
+    );
+  } else {
+    out.push_str(
+      "import type { SeamClient, SeamClientError, ProcedureKind, Unsubscribe } from \"@canmi/seam-client\";\n\n",
+    );
+  }
 
   out.push_str("export { DATA_ID } from \"./meta.js\";\n\n");
 
@@ -230,7 +242,6 @@ pub fn generate_typescript(
 
   let mut iface_lines: Vec<String> = Vec::new();
   let mut factory_lines: Vec<String> = Vec::new();
-
   for (name, schema) in &manifest.procedures {
     // Skip channel-owned procedures from standalone generation
     if channel_owned.contains(name) {
@@ -240,17 +251,21 @@ pub fn generate_typescript(
     let pascal = to_pascal_case(name);
     let key = quote_key(name);
     let is_subscription = schema.proc_type == ProcedureType::Subscription;
+    let is_stream = schema.proc_type == ProcedureType::Stream;
 
     let input_name = format!("{pascal}Input");
-    let output_name = format!("{pascal}Output");
+    // Stream uses "Chunk" suffix to clarify it's the chunk type, not a single output
+    let output_name = if is_stream { format!("{pascal}Chunk") } else { format!("{pascal}Output") };
 
     let input_decl = render_top_level(&input_name, &schema.input)?;
-    let output_decl = render_top_level(&output_name, &schema.output)?;
-
     out.push_str(&input_decl);
     out.push('\n');
-    out.push_str(&output_decl);
-    out.push('\n');
+
+    if let Some(output_schema) = schema.effective_output() {
+      let output_decl = render_top_level(&output_name, output_schema)?;
+      out.push_str(&output_decl);
+      out.push('\n');
+    }
 
     if let Some(ref error_schema) = schema.error {
       let error_name = format!("{pascal}Error");
@@ -262,7 +277,14 @@ pub fn generate_typescript(
     let wire_name =
       rpc_hashes.and_then(|m| m.procedures.get(name)).map(String::as_str).unwrap_or(name.as_str());
 
-    if is_subscription {
+    if is_stream {
+      iface_lines.push(format!(
+        "  {key}(input: {input_name}): StreamHandle<{output_name}>;"
+      ));
+      factory_lines.push(format!(
+        "    {key}: (input) => client.stream(\"{wire_name}\", input) as StreamHandle<{output_name}>,"
+      ));
+    } else if is_subscription {
       iface_lines.push(format!(
         "  {key}(input: {input_name}, onData: (data: {output_name}) => void, onError?: (err: SeamClientError) => void): Unsubscribe;"
       ));
