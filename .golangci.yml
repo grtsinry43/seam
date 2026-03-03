@@ -21,8 +21,3 @@ linters:
       rules:
         - name: exported
           disabled: true
-
-issues:
-  exclude-dirs:
-    - vendor
-    - pkg
