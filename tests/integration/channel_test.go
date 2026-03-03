@@ -74,7 +74,7 @@ func TestChannelSubscription(t *testing.T) {
 				// Unique room to avoid cross-test interference
 				roomID := fmt.Sprintf("sse-test-%d", time.Now().UnixNano())
 				sseURL := fmt.Sprintf("%s/_seam/procedure/chat.events?input=%s",
-					b.BaseURL, url.QueryEscape(fmt.Sprintf(`{"roomId":"%s"}`, roomID)))
+					b.BaseURL, url.QueryEscape(fmt.Sprintf(`{"roomId":%q}`, roomID)))
 
 				// chat.events is an infinite stream. Bun won't flush SSE headers
 				// until the first data chunk, so http.Get blocks until an event
@@ -95,11 +95,12 @@ func TestChannelSubscription(t *testing.T) {
 					var current sseEvent
 					for scanner.Scan() {
 						line := scanner.Text()
-						if strings.HasPrefix(line, "event: ") {
+						switch {
+						case strings.HasPrefix(line, "event: "):
 							current.Event = strings.TrimPrefix(line, "event: ")
-						} else if strings.HasPrefix(line, "data: ") {
+						case strings.HasPrefix(line, "data: "):
 							current.Data = strings.TrimPrefix(line, "data: ")
-						} else if line == "" && current.Event != "" {
+						case line == "" && current.Event != "":
 							eventCh <- current
 							current = sseEvent{}
 						}
@@ -124,7 +125,7 @@ func TestChannelSubscription(t *testing.T) {
 				var resp *http.Response
 				select {
 				case resp = <-connOkCh:
-					defer resp.Body.Close()
+					defer func() { _ = resp.Body.Close() }()
 				case err := <-connErrCh:
 					t.Fatalf("SSE connection error: %v", err)
 				case <-time.After(5 * time.Second):
@@ -303,7 +304,7 @@ func TestChannelCoexistence(t *testing.T) {
 				sseURL := fmt.Sprintf("%s/_seam/procedure/onCount?input=%s",
 					b.BaseURL, url.QueryEscape(`{"max":2}`))
 				resp, events := readSSEResp(t, sseURL)
-				defer resp.Body.Close()
+				defer func() { _ = resp.Body.Close() }()
 				dataCount := 0
 				for _, ev := range events {
 					if ev.Event == "data" {

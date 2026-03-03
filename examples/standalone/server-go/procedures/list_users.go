@@ -15,7 +15,7 @@ type UserSummary struct {
 	Name string `json:"name"`
 }
 
-func ListUsers() seam.ProcedureDef {
+func ListUsers() *seam.ProcedureDef {
 	return seam.Query[ListUsersInput, []UserSummary]("listUsers",
 		func(ctx context.Context, in ListUsersInput) ([]UserSummary, error) {
 			return []UserSummary{

@@ -11,7 +11,7 @@ import (
 	"testing"
 )
 
-func postJSON(t *testing.T, url string, payload any) (int, map[string]any) {
+func postJSON(t *testing.T, url string, payload any) (statusCode int, result map[string]any) {
 	t.Helper()
 	body, err := json.Marshal(payload)
 	if err != nil {
@@ -21,7 +21,7 @@ func postJSON(t *testing.T, url string, payload any) (int, map[string]any) {
 	if err != nil {
 		t.Fatalf("POST %s: %v", url, err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	raw, err := io.ReadAll(resp.Body)
 	if err != nil {
 		t.Fatalf("read body: %v", err)
@@ -33,13 +33,13 @@ func postJSON(t *testing.T, url string, payload any) (int, map[string]any) {
 	return resp.StatusCode, m
 }
 
-func postRaw(t *testing.T, url, contentType string, raw string) (int, map[string]any) {
+func postRaw(t *testing.T, url, contentType, raw string) (code int, body map[string]any) {
 	t.Helper()
 	resp, err := http.Post(url, contentType, strings.NewReader(raw))
 	if err != nil {
 		t.Fatalf("POST %s: %v", url, err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	data, err := io.ReadAll(resp.Body)
 	if err != nil {
 		t.Fatalf("read body: %v", err)
@@ -51,13 +51,13 @@ func postRaw(t *testing.T, url, contentType string, raw string) (int, map[string
 	return resp.StatusCode, m
 }
 
-func getJSON(t *testing.T, url string) (int, map[string]any) {
+func getJSON(t *testing.T, url string) (code int, body map[string]any) { //nolint:unparam // consistent API with postJSON
 	t.Helper()
 	resp, err := http.Get(url)
 	if err != nil {
 		t.Fatalf("GET %s: %v", url, err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	raw, err := io.ReadAll(resp.Body)
 	if err != nil {
 		t.Fatalf("read body: %v", err)
@@ -69,7 +69,7 @@ func getJSON(t *testing.T, url string) (int, map[string]any) {
 	return resp.StatusCode, m
 }
 
-func postJSONRaw(t *testing.T, url string, payload any) (int, []byte) {
+func postJSONRaw(t *testing.T, url string, payload any) (statusCode int, respBody []byte) {
 	t.Helper()
 	body, err := json.Marshal(payload)
 	if err != nil {
@@ -79,7 +79,7 @@ func postJSONRaw(t *testing.T, url string, payload any) (int, []byte) {
 	if err != nil {
 		t.Fatalf("POST %s: %v", url, err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	raw, err := io.ReadAll(resp.Body)
 	if err != nil {
 		t.Fatalf("read body: %v", err)
@@ -93,7 +93,7 @@ func fetchRaw(t *testing.T, url string) []byte {
 	if err != nil {
 		t.Fatalf("GET %s: %v", url, err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	raw, err := io.ReadAll(resp.Body)
 	if err != nil {
 		t.Fatalf("read body: %v", err)

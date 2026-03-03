@@ -198,7 +198,7 @@ func buildManifest(procedures []ProcedureDef, subscriptions []SubscriptionDef, c
 
 func (s *appState) handleManifest(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
-	w.Write(s.manifestJSON)
+	_, _ = w.Write(s.manifestJSON)
 }
 
 // --- RPC handler ---
@@ -262,7 +262,7 @@ func (s *appState) handleRPC(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]any{"ok": true, "data": result})
+	_ = json.NewEncoder(w).Encode(map[string]any{"ok": true, "data": result})
 }
 
 // --- helpers ---
@@ -270,7 +270,7 @@ func (s *appState) handleRPC(w http.ResponseWriter, r *http.Request) {
 func writeError(w http.ResponseWriter, status int, e *Error) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
-	json.NewEncoder(w).Encode(map[string]any{
+	_ = json.NewEncoder(w).Encode(map[string]any{
 		"ok": false,
 		"error": map[string]any{
 			"code":      e.Code,

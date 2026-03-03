@@ -10,8 +10,8 @@ import (
 // Query creates a ProcedureDef from a typed handler function.
 // It generates JTD schemas from the In/Out type parameters and handles
 // JSON deserialization/serialization automatically.
-func Query[In, Out any](name string, fn func(context.Context, In) (Out, error)) ProcedureDef {
-	return ProcedureDef{
+func Query[In, Out any](name string, fn func(context.Context, In) (Out, error)) *ProcedureDef {
+	return &ProcedureDef{
 		Name:         name,
 		InputSchema:  SchemaOf[In](),
 		OutputSchema: SchemaOf[Out](),
@@ -26,8 +26,8 @@ func Query[In, Out any](name string, fn func(context.Context, In) (Out, error)) 
 }
 
 // Command creates a ProcedureDef with type "command" from a typed handler function.
-func Command[In, Out any](name string, fn func(context.Context, In) (Out, error)) ProcedureDef {
-	return ProcedureDef{
+func Command[In, Out any](name string, fn func(context.Context, In) (Out, error)) *ProcedureDef {
+	return &ProcedureDef{
 		Name:         name,
 		Type:         "command",
 		InputSchema:  SchemaOf[In](),

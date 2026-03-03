@@ -19,15 +19,15 @@ type sseEvent struct {
 }
 
 // readSSEResp returns the raw http.Response alongside parsed events for header inspection.
-func readSSEResp(t *testing.T, url string) (*http.Response, []sseEvent) {
+func readSSEResp(t *testing.T, targetURL string) (*http.Response, []sseEvent) {
 	t.Helper()
-	resp, err := http.Get(url)
+	resp, err := http.Get(targetURL)
 	if err != nil {
-		t.Fatalf("GET %s: %v", url, err)
+		t.Fatalf("GET %s: %v", targetURL, err)
 	}
 
 	if resp.StatusCode != 200 {
-		resp.Body.Close()
+		_ = resp.Body.Close()
 		t.Fatalf("status = %d, want 200", resp.StatusCode)
 	}
 
@@ -36,11 +36,12 @@ func readSSEResp(t *testing.T, url string) (*http.Response, []sseEvent) {
 	var current sseEvent
 	for scanner.Scan() {
 		line := scanner.Text()
-		if strings.HasPrefix(line, "event: ") {
+		switch {
+		case strings.HasPrefix(line, "event: "):
 			current.Event = strings.TrimPrefix(line, "event: ")
-		} else if strings.HasPrefix(line, "data: ") {
+		case strings.HasPrefix(line, "data: "):
 			current.Data = strings.TrimPrefix(line, "data: ")
-		} else if line == "" && current.Event != "" {
+		case line == "" && current.Event != "":
 			events = append(events, current)
 			current = sseEvent{}
 		}
@@ -61,7 +62,7 @@ func TestSubscribeEndpoint(t *testing.T) {
 				sseURL := fmt.Sprintf("%s/_seam/procedure/onCount?input=%s",
 					b.BaseURL, url.QueryEscape(`{"max":3}`))
 				resp, events := readSSEResp(t, sseURL)
-				defer resp.Body.Close()
+				defer func() { _ = resp.Body.Close() }()
 
 				assertContentType(t, resp, "text/event-stream")
 
@@ -103,7 +104,7 @@ func TestSubscribeEndpoint(t *testing.T) {
 			t.Run("unknown subscription returns error event", func(t *testing.T) {
 				sseURL := b.BaseURL + "/_seam/procedure/nonexistent?input=%7B%7D"
 				resp, events := readSSEResp(t, sseURL)
-				defer resp.Body.Close()
+				defer func() { _ = resp.Body.Close() }()
 
 				if len(events) == 0 {
 					t.Fatal("expected at least one SSE event")

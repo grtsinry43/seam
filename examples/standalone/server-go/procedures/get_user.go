@@ -35,7 +35,7 @@ var users = []userData{
 	{id: 3, name: "Charlie", email: "charlie@example.com", avatar: nil},
 }
 
-func GetUser() seam.ProcedureDef {
+func GetUser() *seam.ProcedureDef {
 	return seam.Query[GetUserInput, GetUserOutput]("getUser",
 		func(ctx context.Context, in GetUserInput) (GetUserOutput, error) {
 			for _, u := range users {

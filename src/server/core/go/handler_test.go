@@ -40,7 +40,7 @@ func TestRPCTimeout(t *testing.T) {
 	}
 
 	var resp map[string]map[string]string
-	json.Unmarshal(w.Body.Bytes(), &resp)
+	_ = json.Unmarshal(w.Body.Bytes(), &resp)
 	if resp["error"]["message"] != "RPC timed out" {
 		t.Fatalf("unexpected error message: %s", resp["error"]["message"])
 	}
@@ -79,7 +79,7 @@ func TestPageTimeout(t *testing.T) {
 		HandlerOptions{PageTimeout: 10 * time.Millisecond},
 	)
 
-	req := httptest.NewRequest("GET", "/_seam/page/test", nil)
+	req := httptest.NewRequest("GET", "/_seam/page/test", http.NoBody)
 	w := httptest.NewRecorder()
 	handler.ServeHTTP(w, req)
 
@@ -88,7 +88,7 @@ func TestPageTimeout(t *testing.T) {
 	}
 
 	var resp map[string]map[string]string
-	json.Unmarshal(w.Body.Bytes(), &resp)
+	_ = json.Unmarshal(w.Body.Bytes(), &resp)
 	if resp["error"]["message"] != "Page loader timed out" {
 		t.Fatalf("unexpected error message: %s", resp["error"]["message"])
 	}
@@ -110,7 +110,7 @@ func TestSSEIdleTimeout(t *testing.T) {
 		HandlerOptions{SSEIdleTimeout: 50 * time.Millisecond},
 	)
 
-	req := httptest.NewRequest("GET", "/_seam/procedure/idle-test", nil)
+	req := httptest.NewRequest("GET", "/_seam/procedure/idle-test", http.NoBody)
 	w := httptest.NewRecorder()
 	handler.ServeHTTP(w, req)
 
@@ -139,7 +139,7 @@ func TestSSEZeroIdleTimeout(t *testing.T) {
 		HandlerOptions{SSEIdleTimeout: 0},
 	)
 
-	req := httptest.NewRequest("GET", "/_seam/procedure/no-idle", nil)
+	req := httptest.NewRequest("GET", "/_seam/procedure/no-idle", http.NoBody)
 	w := httptest.NewRecorder()
 	handler.ServeHTTP(w, req)
 

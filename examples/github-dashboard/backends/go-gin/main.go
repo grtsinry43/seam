@@ -4,6 +4,7 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"net"
 	"net/http"
 	"os"
@@ -44,8 +45,8 @@ func main() {
 		fmt.Fprintf(os.Stderr, "No build output at %s: %v (API-only mode)\n", buildDir, err)
 	} else {
 		fmt.Fprintf(os.Stderr, "Loaded %d pages from %s\n", len(pages), buildDir)
-		for _, page := range pages {
-			r.Page(page)
+		for i := range pages {
+			r.Page(&pages[i])
 		}
 	}
 
@@ -98,7 +99,7 @@ func main() {
 	}
 	actualPort := ln.Addr().(*net.TCPAddr).Port
 	fmt.Printf("GitHub Dashboard (go-gin) running on http://localhost:%d\n", actualPort)
-	g.RunListener(ln)
+	log.Fatal(g.RunListener(ln))
 }
 
 // printManifest outputs the procedure manifest to stdout for build-time
@@ -116,6 +117,6 @@ func printManifest() {
 		fmt.Fprintf(os.Stderr, "manifest: %v\n", err)
 		os.Exit(1)
 	}
-	os.Stdout.Write(data)
-	os.Stdout.Write([]byte("\n"))
+	_, _ = os.Stdout.Write(data)
+	_, _ = os.Stdout.WriteString("\n")
 }

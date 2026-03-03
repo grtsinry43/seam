@@ -15,7 +15,7 @@ import (
 )
 
 func ghGet(apiURL string) (*http.Response, error) {
-	req, err := http.NewRequest("GET", apiURL, nil)
+	req, err := http.NewRequest("GET", apiURL, http.NoBody)
 	if err != nil {
 		return nil, err
 	}
@@ -26,8 +26,8 @@ func ghGet(apiURL string) (*http.Response, error) {
 	return http.DefaultClient.Do(req)
 }
 
-func GetSession() seam.ProcedureDef {
-	return seam.ProcedureDef{
+func GetSession() *seam.ProcedureDef {
+	return &seam.ProcedureDef{
 		Name:         "getSession",
 		InputSchema:  json.RawMessage(`{"properties":{}}`),
 		OutputSchema: json.RawMessage(`{"properties":{"username":{"type":"string"},"theme":{"type":"string"}}}`),
@@ -37,8 +37,8 @@ func GetSession() seam.ProcedureDef {
 	}
 }
 
-func GetHomeData() seam.ProcedureDef {
-	return seam.ProcedureDef{
+func GetHomeData() *seam.ProcedureDef {
+	return &seam.ProcedureDef{
 		Name:         "getHomeData",
 		InputSchema:  json.RawMessage(`{"properties":{}}`),
 		OutputSchema: json.RawMessage(`{"properties":{"tagline":{"type":"string"}}}`),
@@ -48,8 +48,8 @@ func GetHomeData() seam.ProcedureDef {
 	}
 }
 
-func GetUser() seam.ProcedureDef {
-	return seam.ProcedureDef{
+func GetUser() *seam.ProcedureDef {
+	return &seam.ProcedureDef{
 		Name:         "getUser",
 		InputSchema:  json.RawMessage(`{"properties":{"username":{"type":"string"}}}`),
 		OutputSchema: json.RawMessage(`{"properties":{"login":{"type":"string"},"avatar_url":{"type":"string"},"name":{"nullable":true,"type":"string"},"bio":{"nullable":true,"type":"string"},"location":{"nullable":true,"type":"string"},"public_repos":{"type":"uint32"},"followers":{"type":"uint32"},"following":{"type":"uint32"}}}`),
@@ -65,13 +65,15 @@ func GetUser() seam.ProcedureDef {
 			if err != nil {
 				return nil, fmt.Errorf("GitHub API error: %w", err)
 			}
-			defer resp.Body.Close()
+			defer func() { _ = resp.Body.Close() }()
 			body, _ := io.ReadAll(resp.Body)
 			if resp.StatusCode != 200 {
 				return nil, fmt.Errorf("GitHub API %d: %s", resp.StatusCode, string(body))
 			}
 			var data map[string]interface{}
-			json.Unmarshal(body, &data)
+			if err := json.Unmarshal(body, &data); err != nil {
+				return nil, fmt.Errorf("failed to decode GitHub user: %w", err)
+			}
 
 			return map[string]interface{}{
 				"login":        data["login"],
@@ -87,8 +89,8 @@ func GetUser() seam.ProcedureDef {
 	}
 }
 
-func GetUserRepos() seam.ProcedureDef {
-	return seam.ProcedureDef{
+func GetUserRepos() *seam.ProcedureDef {
+	return &seam.ProcedureDef{
 		Name:         "getUserRepos",
 		InputSchema:  json.RawMessage(`{"properties":{"username":{"type":"string"}}}`),
 		OutputSchema: json.RawMessage(`{"elements":{"properties":{"id":{"type":"uint32"},"name":{"type":"string"},"description":{"nullable":true,"type":"string"},"language":{"nullable":true,"type":"string"},"stargazers_count":{"type":"uint32"},"forks_count":{"type":"uint32"},"html_url":{"type":"string"}}}}`),
@@ -104,13 +106,15 @@ func GetUserRepos() seam.ProcedureDef {
 			if err != nil {
 				return nil, fmt.Errorf("GitHub API error: %w", err)
 			}
-			defer resp.Body.Close()
+			defer func() { _ = resp.Body.Close() }()
 			body, _ := io.ReadAll(resp.Body)
 			if resp.StatusCode != 200 {
 				return nil, fmt.Errorf("GitHub API %d: %s", resp.StatusCode, string(body))
 			}
 			var repos []map[string]interface{}
-			json.Unmarshal(body, &repos)
+			if err := json.Unmarshal(body, &repos); err != nil {
+				return nil, fmt.Errorf("failed to decode GitHub repos: %w", err)
+			}
 
 			var result []map[string]interface{}
 			for _, r := range repos {

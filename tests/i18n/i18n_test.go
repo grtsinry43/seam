@@ -38,7 +38,7 @@ func freePort() int {
 		panic(err)
 	}
 	port := ln.Addr().(*net.TCPAddr).Port
-	ln.Close()
+	_ = ln.Close()
 	return port
 }
 
@@ -68,11 +68,11 @@ func waitReady(baseURL string, timeout time.Duration) bool {
 		// Use /_seam/page/ directly — both modes register this internal route.
 		resp, err := http.Get(baseURL + "/_seam/page/")
 		if err == nil && resp.StatusCode == 200 {
-			resp.Body.Close()
+			_ = resp.Body.Close()
 			return true
 		}
 		if resp != nil {
-			resp.Body.Close()
+			_ = resp.Body.Close()
 		}
 		time.Sleep(200 * time.Millisecond)
 	}
@@ -110,8 +110,8 @@ func TestMain(m *testing.M) {
 	hiddenCmd, err := startServer("hidden", hiddenPort, buildDir)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "failed to start hidden server: %v\n", err)
-		prefixCmd.Process.Kill()
-		prefixCmd.Wait()
+		_ = prefixCmd.Process.Kill()
+		_ = prefixCmd.Wait()
 		os.Exit(1)
 	}
 	hiddenBaseURL = fmt.Sprintf("http://localhost:%d", hiddenPort)
@@ -119,39 +119,39 @@ func TestMain(m *testing.M) {
 	// Wait for both servers
 	if !waitReady(prefixBaseURL, 15*time.Second) {
 		fmt.Fprintln(os.Stderr, "prefix server did not become ready within 15s")
-		prefixCmd.Process.Kill()
-		hiddenCmd.Process.Kill()
-		prefixCmd.Wait()
-		hiddenCmd.Wait()
+		_ = prefixCmd.Process.Kill()
+		_ = hiddenCmd.Process.Kill()
+		_ = prefixCmd.Wait()
+		_ = hiddenCmd.Wait()
 		os.Exit(1)
 	}
 	if !waitReady(hiddenBaseURL, 15*time.Second) {
 		fmt.Fprintln(os.Stderr, "hidden server did not become ready within 15s")
-		prefixCmd.Process.Kill()
-		hiddenCmd.Process.Kill()
-		prefixCmd.Wait()
-		hiddenCmd.Wait()
+		_ = prefixCmd.Process.Kill()
+		_ = hiddenCmd.Process.Kill()
+		_ = prefixCmd.Wait()
+		_ = hiddenCmd.Wait()
 		os.Exit(1)
 	}
 
 	code := m.Run()
 
-	prefixCmd.Process.Kill()
-	hiddenCmd.Process.Kill()
-	prefixCmd.Wait()
-	hiddenCmd.Wait()
+	_ = prefixCmd.Process.Kill()
+	_ = hiddenCmd.Process.Kill()
+	_ = prefixCmd.Wait()
+	_ = hiddenCmd.Wait()
 	os.Exit(code)
 }
 
 // -- Helpers --
 
-func getHTML(t *testing.T, url string) (int, string) {
+func getHTML(t *testing.T, url string) (status int, html string) {
 	t.Helper()
 	resp, err := http.Get(url)
 	if err != nil {
 		t.Fatalf("GET %s: %v", url, err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	raw, err := io.ReadAll(resp.Body)
 	if err != nil {
 		t.Fatalf("read body: %v", err)
@@ -159,9 +159,9 @@ func getHTML(t *testing.T, url string) (int, string) {
 	return resp.StatusCode, string(raw)
 }
 
-func getHTMLWithHeaders(t *testing.T, url string, headers map[string]string) (int, string) {
+func getHTMLWithHeaders(t *testing.T, url string, headers map[string]string) (status int, html string) {
 	t.Helper()
-	req, err := http.NewRequest("GET", url, nil)
+	req, err := http.NewRequest("GET", url, http.NoBody)
 	if err != nil {
 		t.Fatalf("new request: %v", err)
 	}
@@ -178,7 +178,7 @@ func getHTMLWithHeaders(t *testing.T, url string, headers map[string]string) (in
 	if err != nil {
 		t.Fatalf("GET %s: %v", url, err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	raw, err := io.ReadAll(resp.Body)
 	if err != nil {
 		t.Fatalf("read body: %v", err)

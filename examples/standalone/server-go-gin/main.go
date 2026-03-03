@@ -4,6 +4,7 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"os"
 
 	"github.com/gin-gonic/gin"
@@ -35,5 +36,5 @@ func main() {
 	// http.Server + srv.Shutdown, or use seam.ListenAndServe.
 	addr := fmt.Sprintf(":%s", port)
 	fmt.Printf("Seam Go+Gin backend running on http://localhost:%s\n", port)
-	g.Run(addr)
+	log.Fatal(g.Run(addr))
 }

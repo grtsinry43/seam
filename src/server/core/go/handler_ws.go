@@ -123,34 +123,42 @@ func (s *appState) handleChannelWs(w http.ResponseWriter, r *http.Request) {
 				if !ok {
 					// Subscription closed; close the WebSocket
 					writeMu.Lock()
-					conn.WriteMessage(websocket.CloseMessage,
+					_ = conn.WriteMessage(websocket.CloseMessage,
 						websocket.FormatCloseMessage(websocket.CloseNormalClosure, "subscription ended"))
 					writeMu.Unlock()
 					cancel()
 					return
 				}
 				if ev.Err != nil {
-					writeJSON(wsResponse{
+					if err := writeJSON(wsResponse{
 						Ok: false,
 						Error: &wsError{
 							Code:    ev.Err.Code,
 							Message: ev.Err.Message,
 						},
-					})
+					}); err != nil {
+						return
+					}
 					continue
 				}
 				// Channel subscription events are maps with "type" and "payload"
 				if m, ok := ev.Value.(map[string]interface{}); ok {
 					eventType, _ := m["type"].(string)
 					payload := m["payload"]
-					writeJSON(wsPush{Event: eventType, Payload: payload})
+					if err := writeJSON(wsPush{Event: eventType, Payload: payload}); err != nil {
+						return
+					}
 				} else {
 					// Fallback: send raw value as a "data" event
-					writeJSON(wsPush{Event: "data", Payload: ev.Value})
+					if err := writeJSON(wsPush{Event: "data", Payload: ev.Value}); err != nil {
+						return
+					}
 				}
 
 			case <-ticker.C:
-				writeJSON(wsHeartbeat{Heartbeat: true})
+				if err := writeJSON(wsHeartbeat{Heartbeat: true}); err != nil {
+					return
+				}
 
 			case <-ctx.Done():
 				return
@@ -173,28 +181,32 @@ func (s *appState) handleChannelWs(w http.ResponseWriter, r *http.Request) {
 
 			var uplink wsUplink
 			if err := json.Unmarshal(message, &uplink); err != nil {
-				writeJSON(wsResponse{
+				if err := writeJSON(wsResponse{
 					ID: "",
 					Ok: false,
 					Error: &wsError{
 						Code:    "VALIDATION_ERROR",
 						Message: "Invalid uplink JSON",
 					},
-				})
+				}); err != nil {
+					return
+				}
 				continue
 			}
 
 			// Validate procedure belongs to this channel (and is not .events)
 			prefix := channelName + "."
 			if !strings.HasPrefix(uplink.Procedure, prefix) || uplink.Procedure == channelName+".events" {
-				writeJSON(wsResponse{
+				if err := writeJSON(wsResponse{
 					ID: uplink.ID,
 					Ok: false,
 					Error: &wsError{
 						Code:    "VALIDATION_ERROR",
 						Message: fmt.Sprintf("Procedure '%s' is not a command of channel '%s'", uplink.Procedure, channelName),
 					},
-				})
+				}); err != nil {
+					return
+				}
 				continue
 			}
 
@@ -203,14 +215,16 @@ func (s *appState) handleChannelWs(w http.ResponseWriter, r *http.Request) {
 			if s.hashToName != nil {
 				resolved, ok := s.hashToName[procName]
 				if !ok {
-					writeJSON(wsResponse{
+					if err := writeJSON(wsResponse{
 						ID: uplink.ID,
 						Ok: false,
 						Error: &wsError{
 							Code:    "NOT_FOUND",
 							Message: fmt.Sprintf("Procedure '%s' not found", procName),
 						},
-					})
+					}); err != nil {
+						return
+					}
 					continue
 				}
 				procName = resolved
@@ -218,14 +232,16 @@ func (s *appState) handleChannelWs(w http.ResponseWriter, r *http.Request) {
 
 			proc, ok := s.handlers[procName]
 			if !ok {
-				writeJSON(wsResponse{
+				if err := writeJSON(wsResponse{
 					ID: uplink.ID,
 					Ok: false,
 					Error: &wsError{
 						Code:    "NOT_FOUND",
 						Message: fmt.Sprintf("Procedure '%s' not found", procName),
 					},
-				})
+				}); err != nil {
+					return
+				}
 				continue
 			}
 
@@ -245,7 +261,7 @@ func (s *appState) handleChannelWs(w http.ResponseWriter, r *http.Request) {
 			}
 			if err != nil {
 				if rpcCtx.Err() == context.DeadlineExceeded {
-					writeJSON(wsResponse{
+					if err := writeJSON(wsResponse{
 						ID: uplink.ID,
 						Ok: false,
 						Error: &wsError{
@@ -253,41 +269,49 @@ func (s *appState) handleChannelWs(w http.ResponseWriter, r *http.Request) {
 							Message:   "RPC timed out",
 							Transient: true,
 						},
-					})
+					}); err != nil {
+						return
+					}
 					continue
 				}
 				if seamErr, ok := err.(*Error); ok {
-					writeJSON(wsResponse{
+					if err := writeJSON(wsResponse{
 						ID: uplink.ID,
 						Ok: false,
 						Error: &wsError{
 							Code:    seamErr.Code,
 							Message: seamErr.Message,
 						},
-					})
+					}); err != nil {
+						return
+					}
 				} else {
-					writeJSON(wsResponse{
+					if err := writeJSON(wsResponse{
 						ID: uplink.ID,
 						Ok: false,
 						Error: &wsError{
 							Code:    "INTERNAL_ERROR",
 							Message: err.Error(),
 						},
-					})
+					}); err != nil {
+						return
+					}
 				}
 				continue
 			}
 
-			writeJSON(wsResponse{
+			if err := writeJSON(wsResponse{
 				ID:   uplink.ID,
 				Ok:   true,
 				Data: result,
-			})
+			}); err != nil {
+				return
+			}
 		}
 	}()
 
 	wg.Wait()
-	conn.Close()
+	_ = conn.Close()
 }
 
 // mergeJSONInputs merges two JSON objects (channel input + uplink input).

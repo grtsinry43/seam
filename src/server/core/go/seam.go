@@ -178,8 +178,8 @@ func NewRouter() *Router {
 	return &Router{}
 }
 
-func (r *Router) Procedure(def ProcedureDef) *Router {
-	r.procedures = append(r.procedures, def)
+func (r *Router) Procedure(def *ProcedureDef) *Router {
+	r.procedures = append(r.procedures, *def)
 	return r
 }
 
@@ -193,8 +193,8 @@ func (r *Router) Channel(def ChannelDef) *Router {
 	return r
 }
 
-func (r *Router) Page(def PageDef) *Router {
-	r.pages = append(r.pages, def)
+func (r *Router) Page(def *PageDef) *Router {
+	r.pages = append(r.pages, *def)
 	return r
 }
 

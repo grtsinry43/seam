@@ -26,8 +26,8 @@ func loadTemplate() string {
 
 var userTemplate = loadTemplate()
 
-func UserPage() seam.PageDef {
-	return seam.PageDef{
+func UserPage() *seam.PageDef {
+	return &seam.PageDef{
 		Route:    "/user/:id",
 		Template: userTemplate,
 		Loaders: []seam.LoaderDef{

@@ -76,7 +76,7 @@ func TestRPCSuccess(t *testing.T) {
 
 			t.Run("content type", func(t *testing.T) {
 				resp := postJSONResp(t, procURL+"greet", map[string]any{"name": "Test"})
-				defer resp.Body.Close()
+				defer func() { _ = resp.Body.Close() }()
 				assertContentType(t, resp, "application/json")
 			})
 		})

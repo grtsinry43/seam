@@ -95,7 +95,7 @@ func (s *appState) handleBatch(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]any{"ok": true, "data": map[string]any{"results": results}})
+	_ = json.NewEncoder(w).Encode(map[string]any{"ok": true, "data": map[string]any{"results": results}})
 }
 
 // --- subscribe handler ---
@@ -168,7 +168,7 @@ func (s *appState) handleSubscribe(w http.ResponseWriter, r *http.Request) {
 	}
 
 complete:
-	fmt.Fprintf(w, "event: complete\ndata: {}\n\n")
+	_, _ = fmt.Fprintf(w, "event: complete\ndata: {}\n\n")
 	if canFlush {
 		flusher.Flush()
 	}
@@ -176,18 +176,18 @@ complete:
 
 func writeSSEEvent(w http.ResponseWriter, ev SubscriptionEvent) {
 	if ev.Err != nil {
-		fmt.Fprintf(w, "event: error\ndata: %s\n\n", mustJSON(map[string]any{
+		_, _ = fmt.Fprintf(w, "event: error\ndata: %s\n\n", mustJSON(map[string]any{
 			"code": ev.Err.Code, "message": ev.Err.Message, "transient": false,
 		}))
 	} else {
-		fmt.Fprintf(w, "event: data\ndata: %s\n\n", mustJSON(ev.Value))
+		_, _ = fmt.Fprintf(w, "event: data\ndata: %s\n\n", mustJSON(ev.Value))
 	}
 }
 
 func writeSSEError(w http.ResponseWriter, e *Error) {
 	w.Header().Set("Content-Type", "text/event-stream")
 	w.Header().Set("Cache-Control", "no-cache")
-	fmt.Fprintf(w, "event: error\ndata: %s\n\n", mustJSON(map[string]any{
+	_, _ = fmt.Fprintf(w, "event: error\ndata: %s\n\n", mustJSON(map[string]any{
 		"code": e.Code, "message": e.Message, "transient": false,
 	}))
 	if f, ok := w.(http.Flusher); ok {

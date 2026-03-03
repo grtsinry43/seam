@@ -79,14 +79,15 @@ func schemaForStruct(t reflect.Type) any {
 			continue
 		}
 
-		name, omit := jsonFieldName(field)
+		name, omit := jsonFieldName(&field)
 		if name == "-" {
 			continue
 		}
 
 		isPtr := field.Type.Kind() == reflect.Ptr
 
-		if omit {
+		switch {
+		case omit:
 			// omitempty: field may be absent (optionalProperties)
 			inner := field.Type
 			if isPtr {
@@ -99,7 +100,7 @@ func schemaForStruct(t reflect.Type) any {
 				}
 			}
 			optProps[name] = schema
-		} else if isPtr {
+		case isPtr:
 			// Pointer without omitempty: required but nullable (properties + nullable)
 			inner := field.Type.Elem()
 			schema := schemaFor(inner)
@@ -107,7 +108,7 @@ func schemaForStruct(t reflect.Type) any {
 				m["nullable"] = true
 			}
 			props[name] = schema
-		} else {
+		default:
 			props[name] = schemaFor(field.Type)
 		}
 	}
@@ -120,7 +121,7 @@ func schemaForStruct(t reflect.Type) any {
 }
 
 // jsonFieldName extracts the JSON key from the struct tag and whether omitempty is set.
-func jsonFieldName(f reflect.StructField) (string, bool) {
+func jsonFieldName(f *reflect.StructField) (string, bool) {
 	tag := f.Tag.Get("json")
 	if tag == "" {
 		return f.Name, false

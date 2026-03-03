@@ -44,7 +44,7 @@ func TestMain(m *testing.M) {
 		os.Exit(1)
 	}
 	port := ln.Addr().(*net.TCPAddr).Port
-	ln.Close()
+	_ = ln.Close()
 
 	serverEntry := filepath.Join(buildDir, "server", "index.js")
 	cmd := exec.Command("bun", "run", serverEntry)
@@ -65,12 +65,12 @@ func TestMain(m *testing.M) {
 		for time.Now().Before(deadline) {
 			resp, err := http.Get(baseURL + "/")
 			if err == nil && resp.StatusCode == 200 {
-				resp.Body.Close()
+				_ = resp.Body.Close()
 				close(ready)
 				return
 			}
 			if resp != nil {
-				resp.Body.Close()
+				_ = resp.Body.Close()
 			}
 			time.Sleep(200 * time.Millisecond)
 		}
@@ -80,26 +80,26 @@ func TestMain(m *testing.M) {
 	case <-ready:
 	case <-time.After(15 * time.Second):
 		fmt.Fprintln(os.Stderr, "server did not become ready within 15s")
-		cmd.Process.Kill()
-		cmd.Wait()
+		_ = cmd.Process.Kill()
+		_ = cmd.Wait()
 		os.Exit(1)
 	}
 
 	code := m.Run()
-	cmd.Process.Kill()
-	cmd.Wait()
+	_ = cmd.Process.Kill()
+	_ = cmd.Wait()
 	os.Exit(code)
 }
 
 // -- Helpers --
 
-func getHTML(t *testing.T, url string) (int, string) {
+func getHTML(t *testing.T, url string) (status int, body string) {
 	t.Helper()
 	resp, err := http.Get(url)
 	if err != nil {
 		t.Fatalf("GET %s: %v", url, err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	raw, err := io.ReadAll(resp.Body)
 	if err != nil {
 		t.Fatalf("read body: %v", err)
@@ -107,13 +107,13 @@ func getHTML(t *testing.T, url string) (int, string) {
 	return resp.StatusCode, string(raw)
 }
 
-func getJSON(t *testing.T, url string) (int, map[string]any) {
+func getJSON(t *testing.T, url string) (code int, body map[string]any) {
 	t.Helper()
 	resp, err := http.Get(url)
 	if err != nil {
 		t.Fatalf("GET %s: %v", url, err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	raw, err := io.ReadAll(resp.Body)
 	if err != nil {
 		t.Fatalf("read body: %v", err)
@@ -125,7 +125,7 @@ func getJSON(t *testing.T, url string) (int, map[string]any) {
 	return resp.StatusCode, m
 }
 
-func postJSON(t *testing.T, url string, payload any) (int, map[string]any) {
+func postJSON(t *testing.T, url string, payload any) (code int, respBody map[string]any) {
 	t.Helper()
 	body, err := json.Marshal(payload)
 	if err != nil {
@@ -135,7 +135,7 @@ func postJSON(t *testing.T, url string, payload any) (int, map[string]any) {
 	if err != nil {
 		t.Fatalf("POST %s: %v", url, err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	raw, err := io.ReadAll(resp.Body)
 	if err != nil {
 		t.Fatalf("read body: %v", err)
@@ -338,7 +338,7 @@ func TestRPCInvalidBody(t *testing.T) {
 	if err != nil {
 		t.Fatalf("POST: %v", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode != 400 {
 		t.Fatalf("status = %d, want 400", resp.StatusCode)
 	}

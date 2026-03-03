@@ -20,7 +20,7 @@ func TestManifest(t *testing.T) {
 				if err != nil {
 					t.Fatalf("GET %s: %v", url, err)
 				}
-				defer resp.Body.Close()
+				defer func() { _ = resp.Body.Close() }()
 				if resp.StatusCode != 200 {
 					t.Errorf("status = %d, want 200", resp.StatusCode)
 				}
@@ -69,15 +69,8 @@ func TestManifest(t *testing.T) {
 					if _, ok := proc["input"].(map[string]any); !ok {
 						t.Errorf("procedure %q: input not an object", name)
 					}
-					// getUserRepos has array output, others have object output
-					if name == "getUserRepos" {
-						if _, ok := proc["output"].(map[string]any); !ok {
-							t.Errorf("procedure %q: output not an object", name)
-						}
-					} else {
-						if _, ok := proc["output"].(map[string]any); !ok {
-							t.Errorf("procedure %q: output not an object", name)
-						}
+					if _, ok := proc["output"].(map[string]any); !ok {
+						t.Errorf("procedure %q: output not an object", name)
 					}
 				}
 			})

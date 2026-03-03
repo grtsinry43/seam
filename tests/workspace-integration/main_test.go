@@ -30,7 +30,7 @@ func projectRoot() string {
 	return abs
 }
 
-func runBuild(dir string, label string, name string, args ...string) {
+func runBuild(dir, label, name string, args ...string) {
 	cmd := exec.Command(name, args...)
 	cmd.Dir = dir
 	cmd.Stdout = os.Stderr
@@ -43,10 +43,10 @@ func runBuild(dir string, label string, name string, args ...string) {
 
 func killAll(cmds []*exec.Cmd) {
 	for _, c := range cmds {
-		c.Process.Kill()
+		_ = c.Process.Kill()
 	}
 	for _, c := range cmds {
-		c.Wait()
+		_ = c.Wait()
 	}
 }
 
@@ -83,7 +83,7 @@ func startDaemon(daemons *[]*exec.Cmd, dir, label string, env []string, name str
 				break
 			}
 		}
-		io.Copy(os.Stderr, stdout)
+		_, _ = io.Copy(os.Stderr, stdout)
 	}()
 
 	select {
@@ -143,7 +143,7 @@ func TestMain(m *testing.M) {
 					allUp = false
 					break
 				}
-				resp.Body.Close()
+				_ = resp.Body.Close()
 			}
 			if allUp {
 				close(ready)

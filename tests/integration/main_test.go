@@ -31,7 +31,7 @@ func projectRoot() string {
 }
 
 // runBuild executes a build command synchronously and exits on failure.
-func runBuild(root string, label string, name string, args ...string) {
+func runBuild(root, label, name string, args ...string) {
 	cmd := exec.Command(name, args...)
 	cmd.Dir = root
 	cmd.Stdout = os.Stderr
@@ -44,10 +44,10 @@ func runBuild(root string, label string, name string, args ...string) {
 
 func killAll(cmds []*exec.Cmd) {
 	for _, c := range cmds {
-		c.Process.Kill()
+		_ = c.Process.Kill()
 	}
 	for _, c := range cmds {
-		c.Wait()
+		_ = c.Wait()
 	}
 }
 
@@ -56,7 +56,7 @@ var portRe = regexp.MustCompile(`http://localhost:(\d+)`)
 // startDaemon starts a long-running process with PORT=0 (OS-assigned port).
 // It reads stdout until the backend logs its URL, extracts the actual port,
 // and returns the base URL. On failure, kills all previously started daemons.
-func startDaemon(daemons *[]*exec.Cmd, root, label string, name string, args ...string) string {
+func startDaemon(daemons *[]*exec.Cmd, root, label, name string, args ...string) string {
 	cmd := exec.Command(name, args...)
 	cmd.Dir = root
 	cmd.Env = append(os.Environ(), "PORT=0")
@@ -89,7 +89,7 @@ func startDaemon(daemons *[]*exec.Cmd, root, label string, name string, args ...
 			}
 		}
 		// Keep draining stdout to prevent blocking
-		io.Copy(os.Stderr, stdout)
+		_, _ = io.Copy(os.Stderr, stdout)
 	}()
 
 	select {
@@ -146,7 +146,7 @@ func TestMain(m *testing.M) {
 					allUp = false
 					break
 				}
-				resp.Body.Close()
+				_ = resp.Body.Close()
 			}
 			if allUp {
 				close(ready)

@@ -9,7 +9,7 @@ import (
 )
 
 func makeRequest(cookie, acceptLanguage string) *http.Request {
-	r := httptest.NewRequest("GET", "/", nil)
+	r := httptest.NewRequest("GET", "/", http.NoBody)
 	if cookie != "" {
 		r.Header.Set("Cookie", cookie)
 	}
@@ -27,7 +27,7 @@ func TestFromUrlPrefix(t *testing.T) {
 	t.Run("valid locale", func(t *testing.T) {
 		s := FromUrlPrefix()
 		got := s.Resolve(&ResolveData{
-			Request:    httptest.NewRequest("GET", "/", nil),
+			Request:    httptest.NewRequest("GET", "/", http.NoBody),
 			PathLocale: "zh",
 			Locales:    locales,
 		})
@@ -39,7 +39,7 @@ func TestFromUrlPrefix(t *testing.T) {
 	t.Run("invalid locale returns empty", func(t *testing.T) {
 		s := FromUrlPrefix()
 		got := s.Resolve(&ResolveData{
-			Request:    httptest.NewRequest("GET", "/", nil),
+			Request:    httptest.NewRequest("GET", "/", http.NoBody),
 			PathLocale: "fr",
 			Locales:    locales,
 		})
@@ -51,7 +51,7 @@ func TestFromUrlPrefix(t *testing.T) {
 	t.Run("empty PathLocale returns empty", func(t *testing.T) {
 		s := FromUrlPrefix()
 		got := s.Resolve(&ResolveData{
-			Request:    httptest.NewRequest("GET", "/", nil),
+			Request:    httptest.NewRequest("GET", "/", http.NoBody),
 			PathLocale: "",
 			Locales:    locales,
 		})
@@ -109,7 +109,7 @@ func TestFromCookie(t *testing.T) {
 
 	t.Run("custom cookie name", func(t *testing.T) {
 		s := FromCookie("my-lang")
-		r := httptest.NewRequest("GET", "/", nil)
+		r := httptest.NewRequest("GET", "/", http.NoBody)
 		r.Header.Set("Cookie", "my-lang=ja")
 		got := s.Resolve(&ResolveData{
 			Request: r,
@@ -204,7 +204,7 @@ func TestFromUrlQuery(t *testing.T) {
 
 	t.Run("valid query param", func(t *testing.T) {
 		s := FromUrlQuery("lang")
-		r := httptest.NewRequest("GET", "/?lang=zh", nil)
+		r := httptest.NewRequest("GET", "/?lang=zh", http.NoBody)
 		got := s.Resolve(&ResolveData{
 			Request: r,
 			Locales: locales,
@@ -216,7 +216,7 @@ func TestFromUrlQuery(t *testing.T) {
 
 	t.Run("missing query param", func(t *testing.T) {
 		s := FromUrlQuery("lang")
-		r := httptest.NewRequest("GET", "/", nil)
+		r := httptest.NewRequest("GET", "/", http.NoBody)
 		got := s.Resolve(&ResolveData{
 			Request: r,
 			Locales: locales,
@@ -228,7 +228,7 @@ func TestFromUrlQuery(t *testing.T) {
 
 	t.Run("invalid locale in query", func(t *testing.T) {
 		s := FromUrlQuery("lang")
-		r := httptest.NewRequest("GET", "/?lang=fr", nil)
+		r := httptest.NewRequest("GET", "/?lang=fr", http.NoBody)
 		got := s.Resolve(&ResolveData{
 			Request: r,
 			Locales: locales,
@@ -240,7 +240,7 @@ func TestFromUrlQuery(t *testing.T) {
 
 	t.Run("custom param name", func(t *testing.T) {
 		s := FromUrlQuery("locale")
-		r := httptest.NewRequest("GET", "/?locale=ja", nil)
+		r := httptest.NewRequest("GET", "/?locale=ja", http.NoBody)
 		got := s.Resolve(&ResolveData{
 			Request: r,
 			Locales: locales,
@@ -308,7 +308,7 @@ func TestResolveChain(t *testing.T) {
 	})
 
 	t.Run("custom chain composition", func(t *testing.T) {
-		r := httptest.NewRequest("GET", "/?lang=ja", nil)
+		r := httptest.NewRequest("GET", "/?lang=ja", http.NoBody)
 		got := ResolveChain(
 			[]ResolveStrategy{FromUrlQuery("lang"), FromCookie("seam-locale")},
 			&ResolveData{Request: r, Locales: locales, DefaultLocale: "en"},
