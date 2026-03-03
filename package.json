@@ -67,6 +67,7 @@
     "typecheck": "bash scripts/ci/typecheck.sh",
     "verify": "bash scripts/verify-all.sh",
     "pkg": "bash scripts/publish.sh",
+    "scol": "tokei",
     "push": "bash scripts/push.sh"
   },
   "devDependencies": {

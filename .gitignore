@@ -16,6 +16,7 @@ tests/e2e/playwright-report/
 
 # Demo
 examples/standalone/server-go/server-go
+examples/standalone/server-go-gin/server-go-gin
 examples/github-dashboard/backends/go-gin/go-gin
 examples/github-dashboard/backends/go-gin/server
 examples/github-dashboard/backends/go-gin/server-go
