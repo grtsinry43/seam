@@ -7,18 +7,16 @@ use anyhow::{Context, Result};
 use super::super::config::BuildConfig;
 use super::super::route::generate_types;
 use super::super::route::{
-  export_i18n, package_static_assets, process_routes, read_i18n_messages, run_skeleton_renderer,
-  validate_procedure_references,
+  BundleContext, RenderContext, export_i18n, package_static_assets, process_routes,
+  read_i18n_messages, validate_procedure_references,
 };
-use super::super::types::{AssetFiles, read_bundle_manifest};
+use super::super::types::AssetFiles;
 use super::helpers;
 use super::helpers::{
-  RebuildMode, dispatch_extract_manifest, maybe_generate_rpc_hashes, print_cache_stats,
-  run_bundler, vite_info_from_config,
+  RebuildMode, dispatch_extract_manifest, maybe_generate_rpc_hashes, vite_info_from_config,
 };
+use super::steps;
 use crate::config::SeamConfig;
-use crate::shell::resolve_node_module;
-use crate::ui;
 
 /// Incremental rebuild for dev mode — skips banner/summary to keep output compact.
 /// In Vite mode, skips bundler + manifest read + asset packaging (Vite serves assets directly).
@@ -49,43 +47,20 @@ pub fn run_incremental_rebuild(
   }
 
   // Frontend steps: bundle + skeletons + assets (bundle/assets skipped in Vite mode)
-  let hash_length_str = build_config.hash_length.to_string();
   let rpc_map_path = out_dir.join("rpc-hash-map.json");
   let rpc_map_path_str =
     if rpc_map_path.exists() { rpc_map_path.to_string_lossy().to_string() } else { String::new() };
-  let dist_dir_str = build_config.dist_dir().to_string();
-  let bundler_env: Vec<(&str, &str)> = vec![
-    ("SEAM_OBFUSCATE", if build_config.obfuscate { "1" } else { "0" }),
-    ("SEAM_SOURCEMAP", if build_config.sourcemap { "1" } else { "0" }),
-    ("SEAM_TYPE_HINT", if build_config.type_hint { "1" } else { "0" }),
-    ("SEAM_HASH_LENGTH", &hash_length_str),
-    ("SEAM_RPC_MAP_PATH", &rpc_map_path_str),
-    ("SEAM_DIST_DIR", &dist_dir_str),
-  ];
+  let bundler_env = steps::build_bundler_env(build_config, &rpc_map_path_str);
   let assets = if is_vite {
     AssetFiles { css: vec![], js: vec![] }
   } else {
-    run_bundler(base_dir, &build_config.bundler_mode, &dist_dir_str, &bundler_env)?;
-    let manifest_path = base_dir.join(&build_config.bundler_manifest);
-    read_bundle_manifest(&manifest_path)?
+    steps::bundle_frontend(build_config, base_dir, &bundler_env)?
   };
 
-  let script_path = resolve_node_module(base_dir, "@canmi/seam-react/scripts/build-skeletons.mjs")
-    .ok_or_else(|| anyhow::anyhow!("build-skeletons.mjs not found -- install @canmi/seam-react"))?;
-  let routes_path = base_dir.join(&build_config.routes);
-  let manifest_json_path = out_dir.join("seam-manifest.json");
-  let skeleton_output = run_skeleton_renderer(
-    &script_path,
-    &routes_path,
-    &manifest_json_path,
-    base_dir,
-    build_config.i18n.as_ref(),
-  )?;
-  for w in &skeleton_output.warnings {
-    ui::detail_warn(w);
-  }
-  print_cache_stats(&skeleton_output.cache);
+  let skeleton_output =
+    steps::render_skeletons(build_config, base_dir, &out_dir.join("seam-manifest.json"))?;
 
+  let manifest_json_path = out_dir.join("seam-manifest.json");
   let manifest_str = std::fs::read_to_string(&manifest_json_path)
     .with_context(|| format!("failed to read {}", manifest_json_path.display()))?;
   let manifest: seam_codegen::Manifest = serde_json::from_str(&manifest_str)
@@ -100,18 +75,21 @@ pub fn run_incremental_rebuild(
     None => None,
   };
   // Rebuild path: no per-page splitting (dev mode)
+  let render = RenderContext {
+    root_id: &build_config.root_id,
+    data_id: &build_config.data_id,
+    dev_mode: true,
+    vite: vite.as_ref(),
+  };
+  let bundle_ctx = BundleContext { manifest: None, source_file_map: None };
   let mut route_manifest = process_routes(
     &skeleton_output.layouts,
     &skeleton_output.routes,
     &templates_dir,
     &assets,
-    true,
-    vite.as_ref(),
-    &build_config.root_id,
-    &build_config.data_id,
+    &render,
     build_config.i18n.as_ref(),
-    None,
-    None,
+    &bundle_ctx,
   )?;
   if let (Some(msgs), Some(cfg)) = (&i18n_messages, &build_config.i18n) {
     export_i18n(&out_dir, msgs, &mut route_manifest, cfg)?;

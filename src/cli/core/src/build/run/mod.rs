@@ -6,6 +6,7 @@ mod frontend;
 mod fullstack;
 mod helpers;
 mod rebuild;
+pub(crate) mod steps;
 
 #[cfg(test)]
 mod tests;

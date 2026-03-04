@@ -7,12 +7,11 @@ use anyhow::{Context, Result};
 
 use super::super::config::BuildConfig;
 use super::super::route::{
-  export_i18n, print_asset_files, process_routes, read_i18n_messages, run_skeleton_renderer,
+  BundleContext, RenderContext, export_i18n, print_asset_files, process_routes, read_i18n_messages,
 };
-use super::super::types::{read_bundle_manifest, read_bundle_manifest_extended};
+use super::super::types::read_bundle_manifest_extended;
 use super::helpers;
-use super::helpers::{print_cache_stats, run_bundler};
-use crate::shell::resolve_node_module;
+use super::steps;
 use crate::ui::{self, BRIGHT_CYAN, BRIGHT_GREEN, DIM, RESET, StepTracker, col};
 
 // -- Step registry --
@@ -31,7 +30,6 @@ fn frontend_steps(build_config: &BuildConfig) -> Vec<&'static str> {
 
 // -- Frontend-only build --
 
-#[allow(clippy::too_many_lines)]
 pub(super) fn run_frontend_build(build_config: &BuildConfig, base_dir: &Path) -> Result<()> {
   let started = Instant::now();
 
@@ -49,37 +47,19 @@ pub(super) fn run_frontend_build(build_config: &BuildConfig, base_dir: &Path) ->
 
   // -- Bundling frontend --
   let t = tracker.begin();
-  let dist_dir_str = build_config.dist_dir().to_string();
-  let routes_path_str = base_dir.join(&build_config.routes).to_string_lossy().to_string();
-  run_bundler(
-    base_dir,
-    &build_config.bundler_mode,
-    &dist_dir_str,
-    &[("SEAM_DIST_DIR", &dist_dir_str), ("SEAM_ROUTES_FILE", &routes_path_str)],
-  )?;
-
+  let mut bundler_env = steps::build_bundler_env(build_config, "");
+  bundler_env.push((
+    "SEAM_ROUTES_FILE".into(),
+    base_dir.join(&build_config.routes).to_string_lossy().to_string(),
+  ));
   let manifest_path = base_dir.join(&build_config.bundler_manifest);
-  let assets = read_bundle_manifest(&manifest_path)?;
+  let assets = steps::bundle_frontend(build_config, base_dir, &bundler_env)?;
   print_asset_files(base_dir, build_config.dist_dir(), &assets);
   tracker.end_with(t, &format!("{} files", assets.js.len() + assets.css.len()));
 
   // -- Rendering skeletons --
   let t = tracker.begin();
-  let script_path = resolve_node_module(base_dir, "@canmi/seam-react/scripts/build-skeletons.mjs")
-    .ok_or_else(|| anyhow::anyhow!("build-skeletons.mjs not found -- install @canmi/seam-react"))?;
-  let routes_path = base_dir.join(&build_config.routes);
-  let none_path = Path::new("none");
-  let skeleton_output = run_skeleton_renderer(
-    &script_path,
-    &routes_path,
-    none_path,
-    base_dir,
-    build_config.i18n.as_ref(),
-  )?;
-  for w in &skeleton_output.warnings {
-    ui::detail_warn(w);
-  }
-  print_cache_stats(&skeleton_output.cache);
+  let skeleton_output = steps::render_skeletons(build_config, base_dir, Path::new("none"))?;
   ui::detail_ok(&format!("{} routes found", skeleton_output.routes.len()));
   tracker.end_with(t, &format!("{} routes", skeleton_output.routes.len()));
 
@@ -109,18 +89,24 @@ pub(super) fn run_frontend_build(build_config: &BuildConfig, base_dir: &Path) ->
     None => &assets,
   };
 
+  let render = RenderContext {
+    root_id: &build_config.root_id,
+    data_id: &build_config.data_id,
+    dev_mode: false,
+    vite: None,
+  };
+  let bundle_ctx = BundleContext {
+    manifest: bundle_manifest.as_ref(),
+    source_file_map: skeleton_output.source_file_map.as_ref(),
+  };
   let mut route_manifest = process_routes(
     &skeleton_output.layouts,
     &skeleton_output.routes,
     &templates_dir,
     template_assets,
-    false,
-    None,
-    &build_config.root_id,
-    &build_config.data_id,
+    &render,
     build_config.i18n.as_ref(),
-    bundle_manifest.as_ref(),
-    skeleton_output.source_file_map.as_ref(),
+    &bundle_ctx,
   )?;
 
   if build_config.i18n.is_none() {

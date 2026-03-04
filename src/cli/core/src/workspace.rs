@@ -10,13 +10,13 @@ use anyhow::{Context, Result, bail};
 
 use crate::build::config::BuildConfig;
 use crate::build::route::{
-  extract_manifest, extract_manifest_command, generate_types, package_static_assets,
-  print_asset_files, print_procedure_breakdown, process_routes, run_skeleton_renderer,
+  BundleContext, RenderContext, extract_manifest, extract_manifest_command, generate_types,
+  package_static_assets, print_asset_files, print_procedure_breakdown, process_routes,
   run_typecheck, validate_procedure_references,
 };
-use crate::build::types::read_bundle_manifest;
+use crate::build::run::steps;
 use crate::config::{SeamConfig, resolve_member_config, validate_workspace};
-use crate::shell::{resolve_node_module, run_command};
+use crate::shell::run_command;
 use crate::ui::{self, DIM, GREEN, RESET, col};
 use seam_codegen::Manifest;
 
@@ -134,8 +134,140 @@ fn extract_member_manifest(
   }
 }
 
+/// Build output from the reference member (first member in workspace).
+struct ReferenceOutput {
+  manifest: Manifest,
+  route_count: usize,
+  asset_count: usize,
+}
+
+/// Build the reference member: compile backend, extract manifest, bundle frontend,
+/// generate skeletons, process routes, and package output.
+fn build_reference_member(
+  first: &ResolvedMember,
+  base_dir: &Path,
+  shared_out_dir: &Path,
+) -> Result<ReferenceOutput> {
+  // [1.1] Compile backend
+  ui::detail(&format!("{}[{}/backend]{} compiling...", col(DIM), first.name, col(RESET)));
+  if let Some(cmd) = &first.build_config.backend_build_command {
+    run_command(&first.member_dir, cmd, "backend build", &[])?;
+  }
+
+  // [1.2] Extract manifest
+  ui::detail(&format!("{}[{}/manifest]{} extracting...", col(DIM), first.name, col(RESET)));
+  let manifest = extract_member_manifest(&first.build_config, &first.member_dir, shared_out_dir)?;
+  print_procedure_breakdown(&manifest);
+
+  let rpc_hashes = super::build::run::maybe_generate_rpc_hashes_pub(
+    &first.build_config,
+    &manifest,
+    shared_out_dir,
+  )?;
+
+  // [1.3] Generate client types (shared)
+  ui::detail(&format!("{}[shared]{} generating client types", col(DIM), col(RESET)));
+  generate_types(&manifest, &first.merged_config, rpc_hashes.as_ref())?;
+
+  // [1.4] Bundle frontend (shared)
+  ui::detail(&format!("{}[shared]{} bundling frontend", col(DIM), col(RESET)));
+  let rpc_map_path_str = if rpc_hashes.is_some() {
+    shared_out_dir.join("rpc-hash-map.json").to_string_lossy().to_string()
+  } else {
+    String::new()
+  };
+  let bundler_env = steps::build_bundler_env(&first.build_config, &rpc_map_path_str);
+  let assets = steps::bundle_frontend(&first.build_config, base_dir, &bundler_env)?;
+  print_asset_files(base_dir, first.build_config.dist_dir(), &assets);
+
+  // [1.5] Type check (optional)
+  if let Some(cmd) = &first.build_config.typecheck_command {
+    ui::detail(&format!("{}[shared]{} type checking", col(DIM), col(RESET)));
+    run_typecheck(base_dir, cmd)?;
+  }
+
+  // [1.6] Generate skeletons + process routes
+  ui::detail(&format!("{}[shared]{} generating skeletons", col(DIM), col(RESET)));
+  let skeleton_output = steps::render_skeletons(
+    &first.build_config,
+    base_dir,
+    &shared_out_dir.join("seam-manifest.json"),
+  )?;
+  validate_procedure_references(&manifest, &skeleton_output)?;
+
+  let templates_dir = shared_out_dir.join("templates");
+  std::fs::create_dir_all(&templates_dir)
+    .with_context(|| format!("failed to create {}", templates_dir.display()))?;
+  let render = RenderContext {
+    root_id: &first.build_config.root_id,
+    data_id: &first.build_config.data_id,
+    dev_mode: false,
+    vite: None,
+  };
+  let bundle_ctx = BundleContext { manifest: None, source_file_map: None };
+  let route_manifest = process_routes(
+    &skeleton_output.layouts,
+    &skeleton_output.routes,
+    &templates_dir,
+    &assets,
+    &render,
+    first.build_config.i18n.as_ref(),
+    &bundle_ctx,
+  )?;
+
+  let route_manifest_path = shared_out_dir.join("route-manifest.json");
+  let route_manifest_json = serde_json::to_string_pretty(&route_manifest)?;
+  std::fs::write(&route_manifest_path, &route_manifest_json)
+    .with_context(|| format!("failed to write {}", route_manifest_path.display()))?;
+  ui::detail_ok("route-manifest.json");
+
+  // [1.7] Package output
+  let first_member_out = shared_out_dir.join(&first.name);
+  std::fs::create_dir_all(&first_member_out)?;
+  package_static_assets(base_dir, &assets, shared_out_dir, first.build_config.dist_dir())?;
+  crate::build::run::copy_wasm_binary_pub(base_dir, shared_out_dir)?;
+  ui::detail_ok(&format!("{}{}{} build complete", col(GREEN), first.name, col(RESET)));
+
+  let route_count = skeleton_output.routes.len();
+  let asset_count = assets.js.len() + assets.css.len();
+  Ok(ReferenceOutput { manifest, route_count, asset_count })
+}
+
+/// Build and validate a subsequent workspace member against the reference manifest.
+fn build_validate_member(
+  member: &ResolvedMember,
+  reference_manifest: &Manifest,
+  reference_name: &str,
+  shared_out_dir: &Path,
+) -> Result<()> {
+  ui::detail(&format!("{}[{}]{} compiling backend...", col(DIM), member.name, col(RESET)));
+
+  if let Some(cmd) = &member.build_config.backend_build_command {
+    run_command(&member.member_dir, cmd, "backend build", &[])?;
+  }
+
+  let member_out = shared_out_dir.join(&member.name);
+  std::fs::create_dir_all(&member_out)?;
+  let member_manifest =
+    extract_member_manifest(&member.build_config, &member.member_dir, &member_out)?;
+
+  validate_manifest_compatibility(
+    reference_manifest,
+    reference_name,
+    &member_manifest,
+    &member.name,
+  )?;
+
+  ui::detail_ok(&format!(
+    "{}{}{} manifest compatible, build complete",
+    col(GREEN),
+    member.name,
+    col(RESET)
+  ));
+  Ok(())
+}
+
 /// Run workspace build: build frontend once, then compile + validate each backend member.
-#[allow(clippy::too_many_lines)]
 pub fn run_workspace_build(root: &SeamConfig, base_dir: &Path, filter: Option<&str>) -> Result<()> {
   let started = Instant::now();
   let members = resolve_members(root, base_dir, filter)?;
@@ -145,164 +277,32 @@ pub fn run_workspace_build(root: &SeamConfig, base_dir: &Path, filter: Option<&s
     if member_count == 1 { "1 member".to_string() } else { format!("{member_count} members") };
   ui::banner("workspace build", Some(&format!("{} — {total_label}", root.project.name)));
 
-  // Use first member as the reference for shared frontend steps
   let first = &members[0];
   let shared_out_dir = base_dir.join(&first.build_config.out_dir);
 
-  // -- Phase 1: First member full build --
+  // -- Phase 1: Reference member full build --
   ui::step(1, 2, &format!("Building reference member: {}", first.name));
   println!();
-
-  // [1.1] Compile backend
-  ui::detail(&format!("{}[{}/backend]{} compiling...", col(DIM), first.name, col(RESET)));
-  if let Some(cmd) = &first.build_config.backend_build_command {
-    run_command(&first.member_dir, cmd, "backend build", &[])?;
-  }
-
-  // [1.2] Extract manifest
-  ui::detail(&format!("{}[{}/manifest]{} extracting...", col(DIM), first.name, col(RESET)));
-  let reference_manifest =
-    extract_member_manifest(&first.build_config, &first.member_dir, &shared_out_dir)?;
-  print_procedure_breakdown(&reference_manifest);
-
-  let rpc_hashes = super::build::run::maybe_generate_rpc_hashes_pub(
-    &first.build_config,
-    &reference_manifest,
-    &shared_out_dir,
-  )?;
-
-  // [1.3] Generate client types (shared)
-  ui::detail(&format!("{}[shared]{} generating client types", col(DIM), col(RESET)));
-  generate_types(&reference_manifest, &first.merged_config, rpc_hashes.as_ref())?;
-
-  // [1.4] Bundle frontend (shared)
-  ui::detail(&format!("{}[shared]{} bundling frontend", col(DIM), col(RESET)));
-  let hash_length_str = first.build_config.hash_length.to_string();
-  let rpc_map_path_str = if rpc_hashes.is_some() {
-    shared_out_dir.join("rpc-hash-map.json").to_string_lossy().to_string()
-  } else {
-    String::new()
-  };
-  let dist_dir_str = first.build_config.dist_dir().to_string();
-  let bundler_env: Vec<(&str, &str)> = vec![
-    ("SEAM_OBFUSCATE", if first.build_config.obfuscate { "1" } else { "0" }),
-    ("SEAM_SOURCEMAP", if first.build_config.sourcemap { "1" } else { "0" }),
-    ("SEAM_TYPE_HINT", if first.build_config.type_hint { "1" } else { "0" }),
-    ("SEAM_HASH_LENGTH", &hash_length_str),
-    ("SEAM_RPC_MAP_PATH", &rpc_map_path_str),
-    ("SEAM_DIST_DIR", &dist_dir_str),
-  ];
-  match &first.build_config.bundler_mode {
-    crate::build::config::BundlerMode::BuiltIn { entry } => {
-      crate::shell::run_builtin_bundler(base_dir, entry, &dist_dir_str, &bundler_env)?;
-    }
-    crate::build::config::BundlerMode::Custom { command } => {
-      run_command(base_dir, command, "bundler", &bundler_env)?;
-    }
-  }
-  let manifest_path = base_dir.join(&first.build_config.bundler_manifest);
-  let assets = read_bundle_manifest(&manifest_path)?;
-  print_asset_files(base_dir, first.build_config.dist_dir(), &assets);
-
-  // [1.5] Type check (optional)
-  if let Some(cmd) = &first.build_config.typecheck_command {
-    ui::detail(&format!("{}[shared]{} type checking", col(DIM), col(RESET)));
-    run_typecheck(base_dir, cmd)?;
-  }
-
-  // [1.6] Generate skeletons (shared)
-  ui::detail(&format!("{}[shared]{} generating skeletons", col(DIM), col(RESET)));
-  let script_path = resolve_node_module(base_dir, "@canmi/seam-react/scripts/build-skeletons.mjs")
-    .ok_or_else(|| anyhow::anyhow!("build-skeletons.mjs not found -- install @canmi/seam-react"))?;
-  let routes_path = base_dir.join(&first.build_config.routes);
-  let manifest_json_path = shared_out_dir.join("seam-manifest.json");
-  let skeleton_output = run_skeleton_renderer(
-    &script_path,
-    &routes_path,
-    &manifest_json_path,
-    base_dir,
-    first.build_config.i18n.as_ref(),
-  )?;
-  for w in &skeleton_output.warnings {
-    ui::detail_warn(w);
-  }
-  validate_procedure_references(&reference_manifest, &skeleton_output)?;
-
-  let templates_dir = shared_out_dir.join("templates");
-  std::fs::create_dir_all(&templates_dir)
-    .with_context(|| format!("failed to create {}", templates_dir.display()))?;
-  let route_manifest = process_routes(
-    &skeleton_output.layouts,
-    &skeleton_output.routes,
-    &templates_dir,
-    &assets,
-    false,
-    None,
-    &first.build_config.root_id,
-    &first.build_config.data_id,
-    first.build_config.i18n.as_ref(),
-    None,
-    None,
-  )?;
-
-  // Write route-manifest.json
-  let route_manifest_path = shared_out_dir.join("route-manifest.json");
-  let route_manifest_json = serde_json::to_string_pretty(&route_manifest)?;
-  std::fs::write(&route_manifest_path, &route_manifest_json)
-    .with_context(|| format!("failed to write {}", route_manifest_path.display()))?;
-  ui::detail_ok("route-manifest.json");
-
-  // [1.7] Package first member output
-  let first_member_out = shared_out_dir.join(&first.name);
-  std::fs::create_dir_all(&first_member_out)?;
-  package_static_assets(base_dir, &assets, &shared_out_dir, first.build_config.dist_dir())?;
-  crate::build::run::copy_wasm_binary_pub(base_dir, &shared_out_dir)?;
-  ui::detail_ok(&format!("{}{}{} build complete", col(GREEN), first.name, col(RESET)));
+  let ref_output = build_reference_member(first, base_dir, &shared_out_dir)?;
   println!();
 
-  // -- Phase 2: Subsequent members (compile + validate + package) --
+  // -- Phase 2: Subsequent members (compile + validate) --
   if members.len() > 1 {
     ui::step(2, 2, &format!("Building {} additional members", members.len() - 1));
     println!();
-
     for member in &members[1..] {
-      ui::detail(&format!("{}[{}]{} compiling backend...", col(DIM), member.name, col(RESET)));
-
-      if let Some(cmd) = &member.build_config.backend_build_command {
-        run_command(&member.member_dir, cmd, "backend build", &[])?;
-      }
-
-      // Extract manifest and validate compatibility
-      let member_out = shared_out_dir.join(&member.name);
-      std::fs::create_dir_all(&member_out)?;
-      let member_manifest =
-        extract_member_manifest(&member.build_config, &member.member_dir, &member_out)?;
-
-      validate_manifest_compatibility(
-        &reference_manifest,
-        &first.name,
-        &member_manifest,
-        &member.name,
-      )?;
-
-      ui::detail_ok(&format!(
-        "{}{}{} manifest compatible, build complete",
-        col(GREEN),
-        member.name,
-        col(RESET)
-      ));
+      build_validate_member(member, &ref_output.manifest, &first.name, &shared_out_dir)?;
     }
     println!();
   }
 
   // Summary
   let elapsed = started.elapsed().as_secs_f64();
-  let proc_count = reference_manifest.procedures.len();
-  let template_count = skeleton_output.routes.len();
-  let asset_count = assets.js.len() + assets.css.len();
+  let proc_count = ref_output.manifest.procedures.len();
   ui::ok(&format!("workspace build complete in {elapsed:.1}s"));
   ui::detail(&format!(
-    "{member_count} members \u{00b7} {proc_count} procedures \u{00b7} {template_count} templates \u{00b7} {asset_count} assets",
+    "{member_count} members \u{00b7} {proc_count} procedures \u{00b7} {} templates \u{00b7} {} assets",
+    ref_output.route_count, ref_output.asset_count,
   ));
 
   Ok(())

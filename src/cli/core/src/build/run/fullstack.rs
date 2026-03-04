@@ -9,18 +9,17 @@ use super::super::config::BuildConfig;
 use super::super::route::export_i18n;
 use super::super::route::generate_types;
 use super::super::route::{
-  package_static_assets, print_asset_files, print_procedure_breakdown, process_routes,
-  read_i18n_messages, run_skeleton_renderer, run_typecheck, validate_procedure_references,
+  BundleContext, RenderContext, package_static_assets, print_asset_files,
+  print_procedure_breakdown, process_routes, read_i18n_messages, run_typecheck,
+  validate_procedure_references,
 };
-use super::super::types::{AssetFiles, read_bundle_manifest, read_bundle_manifest_extended};
+use super::super::types::{AssetFiles, read_bundle_manifest_extended};
 use super::helpers;
-use super::helpers::{
-  dispatch_extract_manifest, maybe_generate_rpc_hashes, print_cache_stats, run_bundler,
-  vite_info_from_config,
-};
+use super::helpers::{dispatch_extract_manifest, maybe_generate_rpc_hashes, vite_info_from_config};
 use super::rebuild::copy_wasm_binary;
+use super::steps;
 use crate::config::SeamConfig;
-use crate::shell::{resolve_node_module, run_command};
+use crate::shell::run_command;
 use crate::ui::{self, BRIGHT_CYAN, BRIGHT_GREEN, DIM, RESET, StepTracker, col};
 
 // -- Step registry --
@@ -133,25 +132,17 @@ pub(super) fn run_fullstack_build(
 
   // -- Bundling frontend --
   let t = tracker.begin();
-  let hash_length_str = build_config.hash_length.to_string();
   let rpc_map_path_str = if rpc_hashes.is_some() {
     out_dir.join("rpc-hash-map.json").to_string_lossy().to_string()
   } else {
     String::new()
   };
-  let dist_dir_str = build_config.dist_dir().to_string();
-  let routes_path_str = base_dir.join(&build_config.routes).to_string_lossy().to_string();
-  let bundler_env: Vec<(&str, &str)> = vec![
-    ("SEAM_OBFUSCATE", if build_config.obfuscate { "1" } else { "0" }),
-    ("SEAM_SOURCEMAP", if build_config.sourcemap { "1" } else { "0" }),
-    ("SEAM_TYPE_HINT", if build_config.type_hint { "1" } else { "0" }),
-    ("SEAM_HASH_LENGTH", &hash_length_str),
-    ("SEAM_RPC_MAP_PATH", &rpc_map_path_str),
-    ("SEAM_DIST_DIR", &dist_dir_str),
-    ("SEAM_ROUTES_FILE", &routes_path_str),
-  ];
-  run_bundler(base_dir, &build_config.bundler_mode, &dist_dir_str, &bundler_env)?;
-  let assets = read_bundle_manifest(&manifest_path)?;
+  let mut bundler_env = steps::build_bundler_env(build_config, &rpc_map_path_str);
+  bundler_env.push((
+    "SEAM_ROUTES_FILE".into(),
+    base_dir.join(&build_config.routes).to_string_lossy().to_string(),
+  ));
+  let assets = steps::bundle_frontend(build_config, base_dir, &bundler_env)?;
   print_asset_files(base_dir, build_config.dist_dir(), &assets);
   tracker.end_with(t, &format!("{} files", assets.js.len() + assets.css.len()));
 
@@ -164,21 +155,8 @@ pub(super) fn run_fullstack_build(
 
   // -- Rendering skeletons --
   let t = tracker.begin();
-  let script_path = resolve_node_module(base_dir, "@canmi/seam-react/scripts/build-skeletons.mjs")
-    .ok_or_else(|| anyhow::anyhow!("build-skeletons.mjs not found -- install @canmi/seam-react"))?;
-  let routes_path = base_dir.join(&build_config.routes);
-  let manifest_json_path = out_dir.join("seam-manifest.json");
-  let skeleton_output = run_skeleton_renderer(
-    &script_path,
-    &routes_path,
-    &manifest_json_path,
-    base_dir,
-    build_config.i18n.as_ref(),
-  )?;
-  for w in &skeleton_output.warnings {
-    ui::detail_warn(w);
-  }
-  print_cache_stats(&skeleton_output.cache);
+  let skeleton_output =
+    steps::render_skeletons(build_config, base_dir, &out_dir.join("seam-manifest.json"))?;
   validate_procedure_references(&manifest, &skeleton_output)?;
   tracker.end_with(t, &format!("{} routes", skeleton_output.routes.len()));
 
@@ -209,18 +187,24 @@ pub(super) fn run_fullstack_build(
     None => (&assets, &assets),
   };
 
+  let render = RenderContext {
+    root_id: &build_config.root_id,
+    data_id: &build_config.data_id,
+    dev_mode: false,
+    vite: None,
+  };
+  let bundle_ctx = BundleContext {
+    manifest: bundle_manifest.as_ref(),
+    source_file_map: skeleton_output.source_file_map.as_ref(),
+  };
   let mut route_manifest = process_routes(
     &skeleton_output.layouts,
     &skeleton_output.routes,
     &templates_dir,
     template_assets,
-    false,
-    None,
-    &build_config.root_id,
-    &build_config.data_id,
+    &render,
     build_config.i18n.as_ref(),
-    bundle_manifest.as_ref(),
-    skeleton_output.source_file_map.as_ref(),
+    &bundle_ctx,
   )?;
 
   // Write route-manifest.json now if no i18n step follows, otherwise defer
@@ -312,28 +296,17 @@ pub fn run_dev_build(
   tracker.end(t);
 
   // -- Bundling frontend (skipped in Vite mode) --
-  let hash_length_str = build_config.hash_length.to_string();
   let rpc_map_path_str = if rpc_hashes.is_some() {
     out_dir.join("rpc-hash-map.json").to_string_lossy().to_string()
   } else {
     String::new()
   };
-  let dist_dir_str = build_config.dist_dir().to_string();
-  let bundler_env: Vec<(&str, &str)> = vec![
-    ("SEAM_OBFUSCATE", if build_config.obfuscate { "1" } else { "0" }),
-    ("SEAM_SOURCEMAP", if build_config.sourcemap { "1" } else { "0" }),
-    ("SEAM_TYPE_HINT", if build_config.type_hint { "1" } else { "0" }),
-    ("SEAM_HASH_LENGTH", &hash_length_str),
-    ("SEAM_RPC_MAP_PATH", &rpc_map_path_str),
-    ("SEAM_DIST_DIR", &dist_dir_str),
-  ];
+  let bundler_env = steps::build_bundler_env(build_config, &rpc_map_path_str);
   let assets = if is_vite {
     AssetFiles { css: vec![], js: vec![] }
   } else {
     let t = tracker.begin();
-    run_bundler(base_dir, &build_config.bundler_mode, &dist_dir_str, &bundler_env)?;
-    let manifest_path = base_dir.join(&build_config.bundler_manifest);
-    let a = read_bundle_manifest(&manifest_path)?;
+    let a = steps::bundle_frontend(build_config, base_dir, &bundler_env)?;
     print_asset_files(base_dir, build_config.dist_dir(), &a);
     tracker.end_with(t, &format!("{} files", a.js.len() + a.css.len()));
     a
@@ -341,21 +314,8 @@ pub fn run_dev_build(
 
   // -- Rendering skeletons --
   let t = tracker.begin();
-  let script_path = resolve_node_module(base_dir, "@canmi/seam-react/scripts/build-skeletons.mjs")
-    .ok_or_else(|| anyhow::anyhow!("build-skeletons.mjs not found -- install @canmi/seam-react"))?;
-  let routes_path = base_dir.join(&build_config.routes);
-  let manifest_json_path = out_dir.join("seam-manifest.json");
-  let skeleton_output = run_skeleton_renderer(
-    &script_path,
-    &routes_path,
-    &manifest_json_path,
-    base_dir,
-    build_config.i18n.as_ref(),
-  )?;
-  for w in &skeleton_output.warnings {
-    ui::detail_warn(w);
-  }
-  print_cache_stats(&skeleton_output.cache);
+  let skeleton_output =
+    steps::render_skeletons(build_config, base_dir, &out_dir.join("seam-manifest.json"))?;
   validate_procedure_references(&manifest, &skeleton_output)?;
   tracker.end_with(t, &format!("{} routes", skeleton_output.routes.len()));
 
@@ -369,18 +329,21 @@ pub fn run_dev_build(
     None => None,
   };
   // Dev mode: no per-page splitting (no extended manifest)
+  let render = RenderContext {
+    root_id: &build_config.root_id,
+    data_id: &build_config.data_id,
+    dev_mode: true,
+    vite: vite.as_ref(),
+  };
+  let bundle_ctx = BundleContext { manifest: None, source_file_map: None };
   let mut route_manifest = process_routes(
     &skeleton_output.layouts,
     &skeleton_output.routes,
     &templates_dir,
     &assets,
-    true,
-    vite.as_ref(),
-    &build_config.root_id,
-    &build_config.data_id,
+    &render,
     build_config.i18n.as_ref(),
-    None,
-    None,
+    &bundle_ctx,
   )?;
 
   if build_config.i18n.is_none() {
