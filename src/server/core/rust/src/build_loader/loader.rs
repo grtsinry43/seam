@@ -6,7 +6,9 @@ use std::sync::Arc;
 
 use crate::page::{LoaderDef, PageDef};
 
-use super::types::{LoaderConfig, ParamConfig, RouteManifest, RpcHashMap, pick_template};
+use super::types::{
+  LayoutEntry, LoaderConfig, ParamConfig, RouteEntry, RouteManifest, RpcHashMap, pick_template,
+};
 
 /// Build a LoaderInputFn closure from the loader config's param mappings.
 /// For params with `from: "route"`, extracts the value from route params.
@@ -60,16 +62,21 @@ pub(super) fn parse_loaders(loaders: &serde_json::Value) -> Vec<LoaderDef> {
     .collect()
 }
 
+/// Layout template: (html_content, parent_layout_id).
+type LayoutTemplate = (String, Option<String>);
+
+/// Per-locale layout templates: locale -> layout_id -> template.
+type LocaleLayoutMap = HashMap<String, HashMap<String, LayoutTemplate>>;
+
 /// Resolve a layout chain: walk from child to root, collecting templates.
 /// Returns the full document template with <!--seam:outlet--> replaced by page content.
 pub(super) fn resolve_layout_chain(
   layout_id: &str,
   page_template: &str,
-  layouts: &HashMap<String, (String, Option<String>)>,
+  layouts: &HashMap<String, LayoutTemplate>,
 ) -> String {
   let mut result = page_template.to_string();
   let mut current = Some(layout_id.to_string());
-
   while let Some(id) = current {
     if let Some((tmpl, parent)) = layouts.get(&id) {
       result = tmpl.replace("<!--seam:outlet-->", &result);
@@ -78,40 +85,49 @@ pub(super) fn resolve_layout_chain(
       break;
     }
   }
-
   result
 }
 
-/// Load page definitions from seam build output on disk.
-/// Reads route-manifest.json, loads templates, constructs PageDef with loaders.
-#[allow(clippy::too_many_lines)]
-pub fn load_build_output(dir: &str) -> Result<Vec<PageDef>, Box<dyn std::error::Error>> {
-  let base = Path::new(dir);
-  let manifest_path = base.join("route-manifest.json");
-  let content = std::fs::read_to_string(&manifest_path)?;
-  let manifest: RouteManifest = serde_json::from_str(&content)?;
-  let default_locale = manifest.i18n.as_ref().map(|c| c.default.as_str());
+/// Walk a layout entry chain from child to root, calling `f(id, entry)` at each level.
+fn walk_layout_chain(
+  start: &str,
+  layouts: &HashMap<String, LayoutEntry>,
+  mut f: impl FnMut(&str, &LayoutEntry),
+) {
+  let mut current = Some(start.to_string());
+  while let Some(id) = current {
+    if let Some(entry) = layouts.get(&id) {
+      f(&id, entry);
+      current = entry.parent.clone();
+    } else {
+      break;
+    }
+  }
+}
 
-  // Load layout templates (default locale)
-  let mut layout_templates: HashMap<String, (String, Option<String>)> = HashMap::new();
+/// Load default and per-locale layout templates from disk.
+fn load_layout_templates(
+  base: &Path,
+  manifest: &RouteManifest,
+  default_locale: Option<&str>,
+) -> Result<(HashMap<String, LayoutTemplate>, LocaleLayoutMap), Box<dyn std::error::Error>> {
+  // Default locale templates
+  let mut defaults: HashMap<String, LayoutTemplate> = HashMap::new();
   for (id, entry) in &manifest.layouts {
     if let Some(tmpl_path) = pick_template(&entry.template, &entry.templates, default_locale) {
-      let full_path = base.join(&tmpl_path);
-      let tmpl = std::fs::read_to_string(&full_path)?;
-      layout_templates.insert(id.clone(), (tmpl, entry.parent.clone()));
+      let tmpl = std::fs::read_to_string(base.join(&tmpl_path))?;
+      defaults.insert(id.clone(), (tmpl, entry.parent.clone()));
     }
   }
 
-  // Load layout templates per locale for locale-specific resolution
-  let mut layout_locale_templates: HashMap<String, HashMap<String, (String, Option<String>)>> =
-    HashMap::new();
+  // Per-locale templates (only when i18n is active)
+  let mut per_locale: LocaleLayoutMap = HashMap::new();
   if manifest.i18n.is_some() {
     for (id, entry) in &manifest.layouts {
       if let Some(ref templates) = entry.templates {
         for (locale, tmpl_path) in templates {
-          let full_path = base.join(tmpl_path);
-          let tmpl = std::fs::read_to_string(&full_path)?;
-          layout_locale_templates
+          let tmpl = std::fs::read_to_string(base.join(tmpl_path))?;
+          per_locale
             .entry(locale.clone())
             .or_default()
             .insert(id.clone(), (tmpl, entry.parent.clone()));
@@ -120,102 +136,89 @@ pub fn load_build_output(dir: &str) -> Result<Vec<PageDef>, Box<dyn std::error::
     }
   }
 
+  Ok((defaults, per_locale))
+}
+
+/// Collect loaders and layout chain entries by walking from the given layout to root.
+fn collect_layout_loaders(
+  layout_id: &str,
+  layouts: &HashMap<String, LayoutEntry>,
+) -> (Vec<LoaderDef>, Vec<crate::page::LayoutChainEntry>) {
+  let mut all_loaders = Vec::new();
+  let mut layout_chain = Vec::new();
+  walk_layout_chain(layout_id, layouts, |id, entry| {
+    let loaders = parse_loaders(&entry.loaders);
+    let loader_keys: Vec<String> = loaders.iter().map(|l| l.data_key.clone()).collect();
+    layout_chain.push(crate::page::LayoutChainEntry { id: id.to_string(), loader_keys });
+    all_loaders.extend(loaders);
+  });
+  // Walked inner->outer, want outer->inner (matching TS)
+  layout_chain.reverse();
+  (all_loaders, layout_chain)
+}
+
+/// Merge i18n keys from the layout chain (inner->root) and the route itself.
+fn collect_i18n_keys(entry: &RouteEntry, layouts: &HashMap<String, LayoutEntry>) -> Vec<String> {
+  let mut keys = Vec::new();
+  if let Some(ref layout_id) = entry.layout {
+    walk_layout_chain(layout_id, layouts, |_, layout_entry| {
+      keys.extend(layout_entry.i18n_keys.iter().cloned());
+    });
+  }
+  keys.extend(entry.i18n_keys.iter().cloned());
+  keys
+}
+
+/// Load page definitions from seam build output on disk.
+/// Reads route-manifest.json, loads templates, constructs PageDef with loaders.
+pub fn load_build_output(dir: &str) -> Result<Vec<PageDef>, Box<dyn std::error::Error>> {
+  let base = Path::new(dir);
+  let manifest_path = base.join("route-manifest.json");
+  let content = std::fs::read_to_string(&manifest_path)?;
+  let manifest: RouteManifest = serde_json::from_str(&content)?;
+  let default_locale = manifest.i18n.as_ref().map(|c| c.default.as_str());
+
+  let (layout_templates, layout_locale_templates) =
+    load_layout_templates(base, &manifest, default_locale)?;
+
   let mut pages = Vec::new();
 
   for (route_path, entry) in &manifest.routes {
-    // Load page template (default locale)
     let page_template =
       if let Some(tmpl_path) = pick_template(&entry.template, &entry.templates, default_locale) {
-        let full_path = base.join(&tmpl_path);
-        std::fs::read_to_string(&full_path)?
+        std::fs::read_to_string(base.join(&tmpl_path))?
       } else {
         continue;
       };
 
-    // Resolve layout chain if this page has a layout
-    let template = if let Some(ref layout_id) = entry.layout {
-      let mut full = resolve_layout_chain(layout_id, &page_template, &layout_templates);
-      // Inject head_meta into layout's <head> if present
-      if let Some(ref meta) = entry.head_meta {
-        full = full.replace("</head>", &format!("{meta}</head>"));
-      }
-      full
-    } else {
-      page_template
-    };
+    // Resolve layout chain and inject head_meta
+    let template =
+      resolve_with_head_meta(&entry.layout, &page_template, &layout_templates, &entry.head_meta);
 
     // Build locale-specific pre-resolved templates when i18n is active
-    let locale_templates = if manifest.i18n.is_some() {
-      if let Some(ref templates) = entry.templates {
-        let mut lt = HashMap::new();
-        for (locale, tmpl_path) in templates {
-          let full_path = base.join(tmpl_path);
-          let page_tmpl = std::fs::read_to_string(&full_path)?;
-          let resolved = if let Some(ref layout_id) = entry.layout {
-            let locale_layouts = layout_locale_templates.get(locale).unwrap_or(&layout_templates);
-            let mut full = resolve_layout_chain(layout_id, &page_tmpl, locale_layouts);
-            if let Some(ref meta) = entry.head_meta {
-              full = full.replace("</head>", &format!("{meta}</head>"));
-            }
-            full
-          } else {
-            page_tmpl
-          };
-          lt.insert(locale.clone(), resolved);
-        }
-        if lt.is_empty() { None } else { Some(lt) }
-      } else {
-        None
-      }
-    } else {
-      None
-    };
+    let locale_templates = build_locale_templates(
+      base,
+      entry,
+      &layout_templates,
+      &layout_locale_templates,
+      manifest.i18n.is_some(),
+    )?;
 
-    // Convert route path from client format (/:param) to Axum format (/{param})
     let axum_route = convert_route_path(route_path);
 
-    // Parse loaders: combine layout loaders + route loaders
-    // Also build layout chain with per-layout loader key assignments
-    let mut all_loaders = Vec::new();
-    let mut layout_chain = Vec::new();
-    if let Some(ref layout_id) = entry.layout {
-      // Collect loaders from the layout chain (inner->outer walk)
-      let mut chain = Some(layout_id.clone());
-      while let Some(id) = chain {
-        if let Some(layout_entry) = manifest.layouts.get(&id) {
-          let layout_loaders = parse_loaders(&layout_entry.loaders);
-          let loader_keys: Vec<String> =
-            layout_loaders.iter().map(|l| l.data_key.clone()).collect();
-          layout_chain.push(crate::page::LayoutChainEntry { id, loader_keys });
-          all_loaders.extend(layout_loaders);
-          chain = layout_entry.parent.clone();
-        } else {
-          break;
-        }
-      }
-      // Reverse: walked inner->outer, want outer->inner (matching TS)
-      layout_chain.reverse();
-    }
+    // Combine layout loaders + page loaders
+    let (mut all_loaders, layout_chain) = if let Some(ref layout_id) = entry.layout {
+      collect_layout_loaders(layout_id, &manifest.layouts)
+    } else {
+      (Vec::new(), Vec::new())
+    };
     let page_loaders = parse_loaders(&entry.loaders);
     let page_loader_keys: Vec<String> = page_loaders.iter().map(|l| l.data_key.clone()).collect();
     all_loaders.extend(page_loaders);
 
-    // Merge i18n_keys from layout chain + route
-    let mut i18n_keys = Vec::new();
-    if let Some(ref layout_id) = entry.layout {
-      let mut chain = Some(layout_id.clone());
-      while let Some(id) = chain {
-        if let Some(layout_entry) = manifest.layouts.get(&id) {
-          i18n_keys.extend(layout_entry.i18n_keys.iter().cloned());
-          chain = layout_entry.parent.clone();
-        } else {
-          break;
-        }
-      }
-    }
-    i18n_keys.extend(entry.i18n_keys.iter().cloned());
-
+    let i18n_keys = collect_i18n_keys(entry, &manifest.layouts);
     let data_id = manifest.data_id.clone().unwrap_or_else(|| "__data".to_string());
+
     pages.push(PageDef {
       route: axum_route,
       template,
@@ -229,6 +232,51 @@ pub fn load_build_output(dir: &str) -> Result<Vec<PageDef>, Box<dyn std::error::
   }
 
   Ok(pages)
+}
+
+/// Resolve layout chain for a page template and inject head_meta if present.
+fn resolve_with_head_meta(
+  layout_id: &Option<String>,
+  page_template: &str,
+  layout_templates: &HashMap<String, LayoutTemplate>,
+  head_meta: &Option<String>,
+) -> String {
+  if let Some(id) = layout_id {
+    let mut full = resolve_layout_chain(id, page_template, layout_templates);
+    if let Some(meta) = head_meta {
+      full = full.replace("</head>", &format!("{meta}</head>"));
+    }
+    full
+  } else {
+    page_template.to_string()
+  }
+}
+
+/// Build per-locale pre-resolved templates when i18n is active.
+fn build_locale_templates(
+  base: &Path,
+  entry: &RouteEntry,
+  layout_templates: &HashMap<String, LayoutTemplate>,
+  layout_locale_templates: &LocaleLayoutMap,
+  has_i18n: bool,
+) -> Result<Option<HashMap<String, String>>, Box<dyn std::error::Error>> {
+  if !has_i18n {
+    return Ok(None);
+  }
+  let Some(ref templates) = entry.templates else {
+    return Ok(None);
+  };
+
+  let mut lt = HashMap::new();
+  for (locale, tmpl_path) in templates {
+    let page_tmpl = std::fs::read_to_string(base.join(tmpl_path))?;
+    let locale_layouts = layout_locale_templates.get(locale).unwrap_or(layout_templates);
+    let resolved =
+      resolve_with_head_meta(&entry.layout, &page_tmpl, locale_layouts, &entry.head_meta);
+    lt.insert(locale.clone(), resolved);
+  }
+
+  Ok(if lt.is_empty() { None } else { Some(lt) })
 }
 
 /// Load i18n configuration and locale messages from build output.

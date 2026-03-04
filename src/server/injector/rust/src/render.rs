@@ -129,23 +129,29 @@ pub(crate) fn render(nodes: &[AstNode], data: &Value, ctx: &mut RenderContext) -
   out
 }
 
+/// Find the byte offset where the tag name ends (first whitespace, `>`, or `/`).
+fn find_tag_name_end(html: &str, abs_start: usize) -> usize {
+  let bytes = html.as_bytes();
+  let mut end = abs_start + 1;
+  while end < bytes.len()
+    && bytes[end] != b' '
+    && bytes[end] != b'>'
+    && bytes[end] != b'/'
+    && bytes[end] != b'\n'
+    && bytes[end] != b'\t'
+  {
+    end += 1;
+  }
+  end
+}
+
 pub(crate) fn inject_attributes(mut html: String, attrs: &[AttrEntry]) -> String {
   for entry in attrs.iter().rev() {
     if let Some(pos) = html.find(&entry.marker) {
       html = format!("{}{}", &html[..pos], &html[pos + entry.marker.len()..]);
       if let Some(tag_rel) = html[pos..].find('<') {
         let abs_start = pos + tag_rel;
-        let mut tag_name_end = abs_start + 1;
-        let bytes = html.as_bytes();
-        while tag_name_end < bytes.len()
-          && bytes[tag_name_end] != b' '
-          && bytes[tag_name_end] != b'>'
-          && bytes[tag_name_end] != b'/'
-          && bytes[tag_name_end] != b'\n'
-          && bytes[tag_name_end] != b'\t'
-        {
-          tag_name_end += 1;
-        }
+        let tag_name_end = find_tag_name_end(&html, abs_start);
         let injection = format!(r#" {}="{}""#, entry.attr_name, entry.value);
         html = format!("{}{}{}", &html[..tag_name_end], injection, &html[tag_name_end..]);
       }
@@ -176,17 +182,7 @@ pub(crate) fn inject_style_attributes(mut html: String, entries: &[StyleAttrEntr
           html.insert_str(style_val_end, &injection);
         } else {
           // Insert new style attribute after tag name
-          let mut tag_name_end = abs_start + 1;
-          let bytes = html.as_bytes();
-          while tag_name_end < bytes.len()
-            && bytes[tag_name_end] != b' '
-            && bytes[tag_name_end] != b'>'
-            && bytes[tag_name_end] != b'/'
-            && bytes[tag_name_end] != b'\n'
-            && bytes[tag_name_end] != b'\t'
-          {
-            tag_name_end += 1;
-          }
+          let tag_name_end = find_tag_name_end(&html, abs_start);
           let injection = format!(r#" style="{}:{}""#, entry.css_property, entry.value);
           html = format!("{}{}{}", &html[..tag_name_end], injection, &html[tag_name_end..]);
         }

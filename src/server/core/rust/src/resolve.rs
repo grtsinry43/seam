@@ -16,6 +16,13 @@ pub struct ResolveData<'a> {
   pub default_locale: &'a str,
 }
 
+impl<'a> ResolveData<'a> {
+  /// Build a locale lookup set from the configured locales.
+  pub fn locale_set(&self) -> HashSet<&'a str> {
+    self.locales.iter().map(String::as_str).collect()
+  }
+}
+
 // -- FromUrlPrefix --
 
 pub struct FromUrlPrefix;
@@ -27,8 +34,7 @@ impl ResolveStrategy for FromUrlPrefix {
 
   fn resolve(&self, data: &ResolveData) -> Option<String> {
     let loc = data.path_locale?;
-    let locale_set: HashSet<&str> = data.locales.iter().map(std::string::String::as_str).collect();
-    if locale_set.contains(loc) { Some(loc.to_string()) } else { None }
+    if data.locale_set().contains(loc) { Some(loc.to_string()) } else { None }
   }
 }
 
@@ -49,7 +55,7 @@ impl ResolveStrategy for FromCookie {
 
   fn resolve(&self, data: &ResolveData) -> Option<String> {
     let header = data.cookie_header?;
-    let locale_set: HashSet<&str> = data.locales.iter().map(std::string::String::as_str).collect();
+    let locale_set = data.locale_set();
     for pair in header.split(';') {
       let pair = pair.trim();
       if let Some((k, v)) = pair.split_once('=')
@@ -84,7 +90,7 @@ impl ResolveStrategy for FromAcceptLanguage {
       return None;
     }
 
-    let locale_set: HashSet<&str> = data.locales.iter().map(std::string::String::as_str).collect();
+    let locale_set = data.locale_set();
 
     let mut entries: Vec<(&str, f64)> = Vec::new();
     for part in header.split(',') {
@@ -142,7 +148,7 @@ impl ResolveStrategy for FromUrlQuery {
 
   fn resolve(&self, data: &ResolveData) -> Option<String> {
     let query_str = data.url.split_once('?').map(|(_, q)| q)?;
-    let locale_set: HashSet<&str> = data.locales.iter().map(std::string::String::as_str).collect();
+    let locale_set = data.locale_set();
     for pair in query_str.split('&') {
       if let Some((k, v)) = pair.split_once('=')
         && k == self.param

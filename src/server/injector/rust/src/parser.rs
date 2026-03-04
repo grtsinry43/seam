@@ -40,7 +40,6 @@ fn is_orphan_block_close(directive: &str) -> bool {
     || directive.starts_with("when:")
 }
 
-#[allow(clippy::too_many_lines)]
 fn parse_until(
   tokens: &[Token],
   pos: &mut usize,
@@ -61,92 +60,11 @@ fn parse_until(
         }
 
         if let Some(path) = directive.strip_prefix("match:") {
-          let path = path.to_string();
-          *pos += 1;
-          let mut branches: Vec<(String, Vec<AstNode>)> = Vec::new();
-          let mut closed = false;
-          while *pos < tokens.len() {
-            if let Token::Marker(d) = &tokens[*pos] {
-              if d == "endmatch" {
-                *pos += 1;
-                closed = true;
-                break;
-              }
-              if let Some(value) = d.strip_prefix("when:") {
-                let value = value.to_string();
-                *pos += 1;
-                let body = parse_until(
-                  tokens,
-                  pos,
-                  &|d| d.starts_with("when:") || d == "endmatch",
-                  diagnostics,
-                );
-                branches.push((value, body));
-              } else {
-                // Skip unexpected tokens between match and first when
-                *pos += 1;
-              }
-            } else {
-              *pos += 1;
-            }
-          }
-          nodes.push(AstNode::Match { path: path.clone(), branches });
-          if !closed {
-            diagnostics.push(ParseDiagnostic {
-              kind: DiagnosticKind::UnclosedBlock,
-              directive: format!("match:{path}"),
-            });
-          }
+          nodes.push(parse_match_block(path, tokens, pos, diagnostics));
         } else if let Some(path) = directive.strip_prefix("if:") {
-          let path = path.to_string();
-          *pos += 1;
-          let endif_tag = format!("endif:{path}");
-          let then_nodes =
-            parse_until(tokens, pos, &|d| d == "else" || d == endif_tag, diagnostics);
-
-          let else_nodes = if *pos < tokens.len() {
-            if let Token::Marker(d) = &tokens[*pos] {
-              if d == "else" {
-                *pos += 1;
-                parse_until(tokens, pos, &|d| d == endif_tag, diagnostics)
-              } else {
-                Vec::new()
-              }
-            } else {
-              Vec::new()
-            }
-          } else {
-            Vec::new()
-          };
-
-          // Skip endif token; if absent we hit EOF
-          let closed = *pos < tokens.len();
-          if closed {
-            *pos += 1;
-          }
-          nodes.push(AstNode::If { path: path.clone(), then_nodes, else_nodes });
-          if !closed {
-            diagnostics.push(ParseDiagnostic {
-              kind: DiagnosticKind::UnclosedBlock,
-              directive: format!("if:{path}"),
-            });
-          }
+          nodes.push(parse_if_block(path, tokens, pos, diagnostics));
         } else if let Some(path) = directive.strip_prefix("each:") {
-          let path = path.to_string();
-          *pos += 1;
-          let body_nodes = parse_until(tokens, pos, &|d| d == "endeach", diagnostics);
-          // Skip endeach token; if absent we hit EOF
-          let closed = *pos < tokens.len();
-          if closed {
-            *pos += 1;
-          }
-          nodes.push(AstNode::Each { path: path.clone(), body_nodes });
-          if !closed {
-            diagnostics.push(ParseDiagnostic {
-              kind: DiagnosticKind::UnclosedBlock,
-              directive: format!("each:{path}"),
-            });
-          }
+          nodes.push(parse_each_block(path, tokens, pos, diagnostics));
         } else if let Some(rest) = directive.find(":style:") {
           let path = directive[..rest].to_string();
           let css_property = directive[rest + 7..].to_string();
@@ -177,6 +95,116 @@ fn parse_until(
   }
 
   nodes
+}
+
+/// Parse `match:path ... when:value ... endmatch` block.
+fn parse_match_block(
+  path: &str,
+  tokens: &[Token],
+  pos: &mut usize,
+  diagnostics: &mut Vec<ParseDiagnostic>,
+) -> AstNode {
+  let path = path.to_string();
+  *pos += 1;
+  let mut branches: Vec<(String, Vec<AstNode>)> = Vec::new();
+  let mut closed = false;
+  while *pos < tokens.len() {
+    if let Token::Marker(d) = &tokens[*pos] {
+      if d == "endmatch" {
+        *pos += 1;
+        closed = true;
+        break;
+      }
+      if let Some(value) = d.strip_prefix("when:") {
+        let value = value.to_string();
+        *pos += 1;
+        let body = parse_until(
+          tokens,
+          pos,
+          &|d| d.starts_with("when:") || d == "endmatch",
+          diagnostics,
+        );
+        branches.push((value, body));
+      } else {
+        // Skip unexpected tokens between match and first when
+        *pos += 1;
+      }
+    } else {
+      *pos += 1;
+    }
+  }
+  if !closed {
+    diagnostics.push(ParseDiagnostic {
+      kind: DiagnosticKind::UnclosedBlock,
+      directive: format!("match:{path}"),
+    });
+  }
+  AstNode::Match { path, branches }
+}
+
+/// Parse `if:path ... else ... endif:path` block.
+fn parse_if_block(
+  path: &str,
+  tokens: &[Token],
+  pos: &mut usize,
+  diagnostics: &mut Vec<ParseDiagnostic>,
+) -> AstNode {
+  let path = path.to_string();
+  *pos += 1;
+  let endif_tag = format!("endif:{path}");
+  let then_nodes = parse_until(tokens, pos, &|d| d == "else" || d == endif_tag, diagnostics);
+
+  let else_nodes = if *pos < tokens.len() {
+    if let Token::Marker(d) = &tokens[*pos] {
+      if d == "else" {
+        *pos += 1;
+        parse_until(tokens, pos, &|d| d == endif_tag, diagnostics)
+      } else {
+        Vec::new()
+      }
+    } else {
+      Vec::new()
+    }
+  } else {
+    Vec::new()
+  };
+
+  // Skip endif token; if absent we hit EOF
+  let closed = *pos < tokens.len();
+  if closed {
+    *pos += 1;
+  }
+  if !closed {
+    diagnostics.push(ParseDiagnostic {
+      kind: DiagnosticKind::UnclosedBlock,
+      directive: format!("if:{path}"),
+    });
+  }
+  AstNode::If { path, then_nodes, else_nodes }
+}
+
+/// Parse `each:path ... endeach` block.
+fn parse_each_block(
+  path: &str,
+  tokens: &[Token],
+  pos: &mut usize,
+  diagnostics: &mut Vec<ParseDiagnostic>,
+) -> AstNode {
+  let path = path.to_string();
+  *pos += 1;
+  let body_nodes = parse_until(tokens, pos, &|d| d == "endeach", diagnostics);
+  // Skip endeach token; if absent we hit EOF
+  let closed = *pos < tokens.len();
+  if closed {
+    *pos += 1;
+  }
+  if !closed {
+    diagnostics.push(ParseDiagnostic {
+      kind: DiagnosticKind::UnclosedBlock,
+      directive: format!("each:{path}"),
+    });
+  }
+  AstNode::Each { path, body_nodes }
 }
 
 #[cfg(test)]
