@@ -39,7 +39,8 @@ let root: Root;
 
 function readState() {
   const el = container.querySelector("#result");
-  return JSON.parse(el!.textContent!);
+  if (!el?.textContent) throw new Error("#result element or its text content is missing");
+  return JSON.parse(el.textContent);
 }
 
 function StreamComp(props: { baseUrl: string; procedure: string; input: unknown }) {

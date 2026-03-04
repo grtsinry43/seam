@@ -128,6 +128,88 @@ function createAutoChannelHandle(
   );
 }
 
+function subscribeToSse(
+  baseUrl: string,
+  name: string,
+  input: unknown,
+  onData: (data: unknown) => void,
+  onError?: (err: SeamClientError) => void,
+): Unsubscribe {
+  const params = new URLSearchParams({ input: JSON.stringify(input) });
+  const url = `${baseUrl}/_seam/procedure/${name}?${params.toString()}`;
+  const es = new EventSource(url);
+
+  es.addEventListener("data", (e) => {
+    try {
+      onData(JSON.parse(e.data as string) as unknown);
+    } catch {
+      onError?.(new SeamClientError("INTERNAL_ERROR", "Failed to parse SSE data", 0));
+    }
+  });
+
+  es.addEventListener("error", (e) => {
+    if (e instanceof MessageEvent) {
+      try {
+        const payload = JSON.parse(e.data as string) as { code?: string; message?: string };
+        const code = typeof payload.code === "string" ? payload.code : "INTERNAL_ERROR";
+        const message = typeof payload.message === "string" ? payload.message : "SSE error";
+        onError?.(new SeamClientError(code, message, 0));
+      } catch {
+        onError?.(new SeamClientError("INTERNAL_ERROR", "SSE error", 0));
+      }
+    } else {
+      onError?.(new SeamClientError("INTERNAL_ERROR", "SSE connection error", 0));
+    }
+    es.close();
+  });
+
+  es.addEventListener("complete", () => {
+    es.close();
+  });
+
+  return () => {
+    es.close();
+  };
+}
+
+function createStreamHandle(baseUrl: string, name: string, input: unknown): StreamHandle {
+  const controller = new AbortController();
+  return {
+    subscribe(onChunk: (chunk: unknown) => void, onError?: (err: SeamClientError) => void) {
+      const url = `${baseUrl}/_seam/procedure/${name}`;
+      fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(input),
+        signal: controller.signal,
+      })
+        .then((res) => {
+          if (!res.ok || !res.body) {
+            onError?.(new SeamClientError("INTERNAL_ERROR", `HTTP ${res.status}`, res.status));
+            return;
+          }
+          return parseSseStream(res.body.getReader(), {
+            onData: onChunk,
+            onError(err) {
+              onError?.(new SeamClientError(err.code, err.message, 0));
+            },
+            onComplete() {
+              // stream finished normally
+            },
+          });
+        })
+        .catch((err: Error) => {
+          if (err.name === "AbortError") return;
+          onError?.(new SeamClientError("INTERNAL_ERROR", err.message ?? "Stream failed", 0));
+        });
+      return () => controller.abort();
+    },
+    cancel() {
+      controller.abort();
+    },
+  };
+}
+
 export function createClient(opts: ClientOptions): SeamClient {
   const baseUrl = opts.baseUrl.replace(/\/+$/, "");
   const batchPath = opts.batchEndpoint ?? "_batch";
@@ -160,79 +242,11 @@ export function createClient(opts: ClientOptions): SeamClient {
     },
 
     subscribe(name, input, onData, onError) {
-      const params = new URLSearchParams({ input: JSON.stringify(input) });
-      const url = `${baseUrl}/_seam/procedure/${name}?${params.toString()}`;
-      const es = new EventSource(url);
-
-      es.addEventListener("data", (e) => {
-        try {
-          onData(JSON.parse(e.data as string) as unknown);
-        } catch {
-          onError?.(new SeamClientError("INTERNAL_ERROR", "Failed to parse SSE data", 0));
-        }
-      });
-
-      es.addEventListener("error", (e) => {
-        if (e instanceof MessageEvent) {
-          try {
-            const payload = JSON.parse(e.data as string) as { code?: string; message?: string };
-            const code = typeof payload.code === "string" ? payload.code : "INTERNAL_ERROR";
-            const message = typeof payload.message === "string" ? payload.message : "SSE error";
-            onError?.(new SeamClientError(code, message, 0));
-          } catch {
-            onError?.(new SeamClientError("INTERNAL_ERROR", "SSE error", 0));
-          }
-        } else {
-          onError?.(new SeamClientError("INTERNAL_ERROR", "SSE connection error", 0));
-        }
-        es.close();
-      });
-
-      es.addEventListener("complete", () => {
-        es.close();
-      });
-
-      return () => {
-        es.close();
-      };
+      return subscribeToSse(baseUrl, name, input, onData, onError);
     },
 
     stream(name, input) {
-      const controller = new AbortController();
-      return {
-        subscribe(onChunk: (chunk: unknown) => void, onError?: (err: SeamClientError) => void) {
-          const url = `${baseUrl}/_seam/procedure/${name}`;
-          fetch(url, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(input),
-            signal: controller.signal,
-          })
-            .then((res) => {
-              if (!res.ok || !res.body) {
-                onError?.(new SeamClientError("INTERNAL_ERROR", `HTTP ${res.status}`, res.status));
-                return;
-              }
-              return parseSseStream(res.body.getReader(), {
-                onData: onChunk,
-                onError(err) {
-                  onError?.(new SeamClientError(err.code, err.message, 0));
-                },
-                onComplete() {
-                  // stream finished normally
-                },
-              });
-            })
-            .catch((err: Error) => {
-              if (err.name === "AbortError") return;
-              onError?.(new SeamClientError("INTERNAL_ERROR", err.message ?? "Stream failed", 0));
-            });
-          return () => controller.abort();
-        },
-        cancel() {
-          controller.abort();
-        },
-      };
+      return createStreamHandle(baseUrl, name, input);
     },
 
     channel(name, input, channelOpts) {

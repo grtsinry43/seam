@@ -118,7 +118,7 @@ describe("parseSseStream()", () => {
   });
 });
 
-describe("client.stream()", () => {
+describe("client.stream() — data delivery", () => {
   it("sends POST and delivers chunks via subscribe", async () => {
     const fetchMock = vi
       .fn()
@@ -174,7 +174,9 @@ describe("client.stream()", () => {
     handle.cancel();
     expect(abortSpy).toHaveBeenCalled();
   });
+});
 
+describe("client.stream() — error handling", () => {
   it("reports HTTP errors via onError", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(null, { status: 404 })));
 
@@ -231,7 +233,9 @@ describe("client.stream()", () => {
     );
 
     // Give time for the rejection to propagate
-    await new Promise((r) => setTimeout(r, 10));
+    await new Promise<void>((r) => {
+      setTimeout(r, 10);
+    });
     expect(errors).toHaveLength(0);
   });
 

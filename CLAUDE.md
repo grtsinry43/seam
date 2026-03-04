@@ -20,7 +20,7 @@
 - Before every `git commit`, run `bun fmt && bun lint` and fix any errors first; for TS-only changes also run `bun run test:ts`, for Rust changes run `bun run test:rs`
 - For full verification (fmt + lint + build + all tests): `bun run verify`
 - Run `git commit` after each plan mode phase completes, do not push
-- Commit messages: conventional commit format (`feat:`, `fix:`, `refactor:`, `docs:`, `test:`, `chore:`, `deps:`, `revert:`, `perf:`), optionally scoped (e.g. `feat(cli):`)
+- Commit messages: conventional commit format (`feat:`, `fix:`, `refactor:`, `docs:`, `test:`, `chore:`, `deps:`, `revert:`, `perf:`); scope is optional and should only be added when it genuinely clarifies context — roughly 1 in 3 commits should have a scope (e.g. `feat(cli):` when the change is CLI-specific), the rest use bare prefix (e.g. `refactor: extract shared helpers`)
 - Commit messages must not mention version bumps (e.g. "bump 0.4.9") — version bumps are handled by `bump-version.sh` and staged into the last logical commit silently
 - Never add AI co-authorship (e.g., "Co-Authored-By: Claude")
 
