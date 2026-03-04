@@ -112,11 +112,25 @@ export function seam<T extends DefinitionMap>(
     }
 
     const raw = c.req.raw;
+    const contentType = raw.headers.get("content-type") ?? "";
+    const isMultipart = contentType.startsWith("multipart/form-data");
+
+    let formDataCache: FormData | undefined;
+    const getFormData = async () => (formDataCache ??= await raw.formData());
+
     const result = await handler({
       method: raw.method,
       url: raw.url,
-      body: () => raw.json(),
+      body: isMultipart
+        ? async () => JSON.parse((await getFormData()).get("metadata") as string) as unknown
+        : () => raw.json(),
       header: (name) => raw.headers.get(name),
+      file: isMultipart
+        ? async () => {
+            const f = (await getFormData()).get("file") as File | null;
+            return f ? { stream: () => f.stream() } : null;
+          }
+        : undefined,
     });
 
     return toWebResponse(result);

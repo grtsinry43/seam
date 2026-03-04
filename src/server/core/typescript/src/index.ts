@@ -49,12 +49,14 @@ export type {
   CommandDef,
   SubscriptionDef,
   StreamDef,
+  UploadDef,
   DefinitionMap,
   ProcedureKind,
   Router,
   RouterOptions,
   PageRequestHeaders,
 } from "./router/index.js";
+export type { SeamFileHandle } from "./procedure.js";
 export type { ResolveStrategy, ResolveData } from "./resolve.js";
 export type { ProcedureManifest, ProcedureEntry, ProcedureType } from "./manifest/index.js";
 export type { HandleResult, BatchCall, BatchResultItem } from "./router/handler.js";

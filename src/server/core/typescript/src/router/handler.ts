@@ -6,6 +6,8 @@ import type {
   InternalProcedure,
   InternalSubscription,
   InternalStream,
+  InternalUpload,
+  SeamFileHandle,
 } from "../procedure.js";
 import { validateInput, formatValidationErrors } from "../validation/index.js";
 
@@ -118,6 +120,57 @@ export async function* handleSubscription(
       }
     }
     yield value;
+  }
+}
+
+export async function handleUploadRequest(
+  uploads: Map<string, InternalUpload>,
+  procedureName: string,
+  rawBody: unknown,
+  file: SeamFileHandle,
+  validateOutput?: boolean,
+): Promise<HandleResult> {
+  const upload = uploads.get(procedureName);
+  if (!upload) {
+    return {
+      status: 404,
+      body: new SeamError("NOT_FOUND", `Procedure '${procedureName}' not found`).toJSON(),
+    };
+  }
+
+  const validation = validateInput(upload.inputSchema, rawBody);
+  if (!validation.valid) {
+    const details = formatValidationErrors(validation.errors);
+    return {
+      status: 400,
+      body: new SeamError("VALIDATION_ERROR", `Input validation failed: ${details}`).toJSON(),
+    };
+  }
+
+  try {
+    const result = await upload.handler({ input: rawBody, file });
+
+    if (validateOutput) {
+      const outValidation = validateInput(upload.outputSchema, result);
+      if (!outValidation.valid) {
+        const details = formatValidationErrors(outValidation.errors);
+        return {
+          status: 500,
+          body: new SeamError("INTERNAL_ERROR", `Output validation failed: ${details}`).toJSON(),
+        };
+      }
+    }
+
+    return { status: 200, body: { ok: true, data: result } };
+  } catch (error) {
+    if (error instanceof SeamError) {
+      return { status: error.status, body: error.toJSON() };
+    }
+    const message = error instanceof Error ? error.message : "Unknown error";
+    return {
+      status: 500,
+      body: new SeamError("INTERNAL_ERROR", message).toJSON(),
+    };
   }
 }
 

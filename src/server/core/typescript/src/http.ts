@@ -3,6 +3,7 @@
 import { readFile } from "node:fs/promises";
 import { join, extname } from "node:path";
 import type { Router, DefinitionMap } from "./router/index.js";
+import type { SeamFileHandle } from "./procedure.js";
 import { SeamError } from "./errors.js";
 import { MIME_TYPES } from "./mime.js";
 
@@ -11,6 +12,7 @@ export interface HttpRequest {
   url: string;
   body: () => Promise<unknown>;
   header?: (name: string) => string | null;
+  file?: () => Promise<SeamFileHandle | null>;
 }
 
 export interface HttpBodyResponse {
@@ -242,6 +244,18 @@ export function createHttpHandler<T extends DefinitionMap>(
             stream: sseStreamForStream(router, name, body, controller.signal),
             onCancel: () => controller.abort(),
           };
+        }
+
+        if (router.getKind(name) === "upload") {
+          if (!req.file) {
+            return errorResponse(400, "VALIDATION_ERROR", "Upload requires multipart/form-data");
+          }
+          const file = await req.file();
+          if (!file) {
+            return errorResponse(400, "VALIDATION_ERROR", "Upload requires file in multipart body");
+          }
+          const result = await router.handleUpload(name, body, file);
+          return jsonResponse(result.status, result.body);
         }
 
         const result = await router.handle(name, body);

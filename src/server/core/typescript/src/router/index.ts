@@ -5,11 +5,18 @@ import { join } from "node:path";
 import type { SchemaNode } from "../types/schema.js";
 import type { ProcedureManifest } from "../manifest/index.js";
 import type { HandleResult, InternalProcedure } from "./handler.js";
+import type { SeamFileHandle } from "../procedure.js";
 import type { HandlePageResult } from "../page/handler.js";
 import type { PageDef, I18nConfig } from "../page/index.js";
 import type { ChannelResult, ChannelMeta } from "../channel.js";
 import { buildManifest } from "../manifest/index.js";
-import { handleRequest, handleSubscription, handleStream, handleBatchRequest } from "./handler.js";
+import {
+  handleRequest,
+  handleSubscription,
+  handleStream,
+  handleBatchRequest,
+  handleUploadRequest,
+} from "./handler.js";
 import type { BatchCall, BatchResultItem } from "./handler.js";
 import { handlePageRequest } from "../page/handler.js";
 import { RouteMatcher } from "../page/route-matcher.js";
@@ -17,7 +24,7 @@ import { defaultStrategies, resolveChain } from "../resolve.js";
 import type { ResolveStrategy } from "../resolve.js";
 import { categorizeProcedures } from "./categorize.js";
 
-export type ProcedureKind = "query" | "command" | "subscription" | "stream";
+export type ProcedureKind = "query" | "command" | "subscription" | "stream" | "upload";
 
 export interface ProcedureDef<TIn = unknown, TOut = unknown> {
   kind?: "query";
@@ -57,10 +64,22 @@ export interface StreamDef<TIn = unknown, TChunk = unknown> {
   handler: (params: { input: TIn }) => AsyncGenerator<TChunk>;
 }
 
+export interface UploadDef<TIn = unknown, TOut = unknown> {
+  kind: "upload";
+  input: SchemaNode<TIn>;
+  output: SchemaNode<TOut>;
+  error?: SchemaNode;
+  handler: (params: { input: TIn; file: SeamFileHandle }) => TOut | Promise<TOut>;
+}
+
 /* eslint-disable @typescript-eslint/no-explicit-any */
 export type DefinitionMap = Record<
   string,
-  ProcedureDef<any, any> | CommandDef<any, any> | SubscriptionDef<any, any> | StreamDef<any, any>
+  | ProcedureDef<any, any>
+  | CommandDef<any, any>
+  | SubscriptionDef<any, any>
+  | StreamDef<any, any>
+  | UploadDef<any, any>
 >;
 /* eslint-enable @typescript-eslint/no-explicit-any */
 
@@ -84,6 +103,7 @@ export interface Router<T extends DefinitionMap> {
   handleBatch(calls: BatchCall[]): Promise<{ results: BatchResultItem[] }>;
   handleSubscription(name: string, input: unknown): AsyncIterable<unknown>;
   handleStream(name: string, input: unknown): AsyncGenerator<unknown>;
+  handleUpload(name: string, body: unknown, file: SeamFileHandle): Promise<HandleResult>;
   getKind(name: string): ProcedureKind | null;
   handlePage(path: string, headers?: PageRequestHeaders): Promise<HandlePageResult | null>;
   readonly hasPages: boolean;
@@ -137,7 +157,8 @@ export function createRouter<T extends DefinitionMap>(
   procedures: T,
   opts?: RouterOptions,
 ): Router<T> {
-  const { procedureMap, subscriptionMap, streamMap, kindMap } = categorizeProcedures(procedures);
+  const { procedureMap, subscriptionMap, streamMap, uploadMap, kindMap } =
+    categorizeProcedures(procedures);
 
   const shouldValidateOutput =
     opts?.validateOutput ??
@@ -187,6 +208,9 @@ export function createRouter<T extends DefinitionMap>(
     },
     handleStream(name, input) {
       return handleStream(streamMap, name, input, shouldValidateOutput);
+    },
+    handleUpload(name, body, file) {
+      return handleUploadRequest(uploadMap, name, body, file, shouldValidateOutput);
     },
     getKind(name) {
       return kindMap.get(name) ?? null;

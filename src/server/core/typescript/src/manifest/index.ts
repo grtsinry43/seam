@@ -4,7 +4,7 @@ import type { Schema } from "jtd";
 import type { SchemaNode } from "../types/schema.js";
 import type { ChannelMeta } from "../channel.js";
 
-export type ProcedureType = "query" | "command" | "subscription" | "stream";
+export type ProcedureType = "query" | "command" | "subscription" | "stream" | "upload";
 
 export interface ProcedureEntry {
   kind: ProcedureType;
@@ -34,13 +34,15 @@ export function buildManifest(
   for (const [name, def] of Object.entries(definitions)) {
     const k = def.kind ?? def.type;
     const kind: ProcedureType =
-      k === "stream"
-        ? "stream"
-        : k === "subscription"
-          ? "subscription"
-          : k === "command"
-            ? "command"
-            : "query";
+      k === "upload"
+        ? "upload"
+        : k === "stream"
+          ? "stream"
+          : k === "subscription"
+            ? "subscription"
+            : k === "command"
+              ? "command"
+              : "query";
     const entry: ProcedureEntry = { kind, input: def.input._schema };
     if (kind === "stream") {
       entry.chunkOutput = def.output._schema;

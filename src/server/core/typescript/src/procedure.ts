@@ -24,3 +24,13 @@ export interface InternalStream {
   chunkOutputSchema: Schema;
   handler: (params: { input: unknown }) => AsyncGenerator<unknown>;
 }
+
+export interface SeamFileHandle {
+  stream(): ReadableStream<Uint8Array>;
+}
+
+export interface InternalUpload {
+  inputSchema: Schema;
+  outputSchema: Schema;
+  handler: (params: { input: unknown; file: SeamFileHandle }) => unknown;
+}

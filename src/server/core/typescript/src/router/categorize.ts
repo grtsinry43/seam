@@ -2,7 +2,7 @@
 
 import type { DefinitionMap, ProcedureKind } from "./index.js";
 import type { InternalProcedure } from "../procedure.js";
-import type { InternalSubscription, InternalStream } from "../procedure.js";
+import type { InternalSubscription, InternalStream, InternalUpload } from "../procedure.js";
 
 function resolveKind(name: string, def: DefinitionMap[string]): ProcedureKind {
   if ("kind" in def && def.kind) return def.kind;
@@ -19,6 +19,7 @@ export interface CategorizedProcedures {
   procedureMap: Map<string, InternalProcedure>;
   subscriptionMap: Map<string, InternalSubscription>;
   streamMap: Map<string, InternalStream>;
+  uploadMap: Map<string, InternalUpload>;
   kindMap: Map<string, ProcedureKind>;
 }
 
@@ -27,13 +28,20 @@ export function categorizeProcedures(definitions: DefinitionMap): CategorizedPro
   const procedureMap = new Map<string, InternalProcedure>();
   const subscriptionMap = new Map<string, InternalSubscription>();
   const streamMap = new Map<string, InternalStream>();
+  const uploadMap = new Map<string, InternalUpload>();
   const kindMap = new Map<string, ProcedureKind>();
 
   for (const [name, def] of Object.entries(definitions)) {
     const kind = resolveKind(name, def);
     kindMap.set(name, kind);
 
-    if (kind === "stream") {
+    if (kind === "upload") {
+      uploadMap.set(name, {
+        inputSchema: def.input._schema,
+        outputSchema: def.output._schema,
+        handler: def.handler as InternalUpload["handler"],
+      });
+    } else if (kind === "stream") {
       streamMap.set(name, {
         inputSchema: def.input._schema,
         chunkOutputSchema: def.output._schema,
@@ -54,5 +62,5 @@ export function categorizeProcedures(definitions: DefinitionMap): CategorizedPro
     }
   }
 
-  return { procedureMap, subscriptionMap, streamMap, kindMap };
+  return { procedureMap, subscriptionMap, streamMap, uploadMap, kindMap };
 }

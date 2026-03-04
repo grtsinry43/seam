@@ -59,11 +59,25 @@ export function serveBun<T extends DefinitionMap>(router: Router<T>, opts?: Serv
         }
       }
 
+      const contentType = req.headers.get("content-type") ?? "";
+      const isMultipart = contentType.startsWith("multipart/form-data");
+
+      let formDataCache: FormData | undefined;
+      const getFormData = async () => (formDataCache ??= await req.formData());
+
       const result = await handler({
         method: req.method,
         url: req.url,
-        body: () => req.json(),
+        body: isMultipart
+          ? async () => JSON.parse((await getFormData()).get("metadata") as string) as unknown
+          : () => req.json(),
         header: (name) => req.headers.get(name),
+        file: isMultipart
+          ? async () => {
+              const f = (await getFormData()).get("file") as File | null;
+              return f ? { stream: () => f.stream() } : null;
+            }
+          : undefined,
       });
       return toWebResponse(result);
     },
