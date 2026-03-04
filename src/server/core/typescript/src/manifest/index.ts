@@ -3,6 +3,7 @@
 import type { Schema } from "jtd";
 import type { SchemaNode } from "../types/schema.js";
 import type { ChannelMeta } from "../channel.js";
+import type { ContextConfig } from "../context.js";
 
 export type ProcedureType = "query" | "command" | "subscription" | "stream" | "upload";
 
@@ -16,6 +17,11 @@ export interface NormalizedInvalidateTarget {
   mapping?: Record<string, NormalizedMappingValue>;
 }
 
+export interface ContextManifestEntry {
+  extract: string;
+  schema: Schema;
+}
+
 export interface ProcedureEntry {
   kind: ProcedureType;
   input: Schema;
@@ -23,11 +29,12 @@ export interface ProcedureEntry {
   chunkOutput?: Schema;
   error?: Schema;
   invalidates?: NormalizedInvalidateTarget[];
+  context?: string[];
 }
 
 export interface ProcedureManifest {
   version: number;
-  context: Record<string, never>;
+  context: Record<string, ContextManifestEntry>;
   procedures: Record<string, ProcedureEntry>;
   channels?: Record<string, ChannelMeta>;
   transportDefaults: Record<string, never>;
@@ -63,10 +70,12 @@ export function buildManifest(
       kind?: string;
       type?: string;
       error?: SchemaNode;
+      context?: string[];
       invalidates?: InvalidateInput;
     }
   >,
   channels?: Record<string, ChannelMeta>,
+  contextConfig?: ContextConfig,
 ): ProcedureManifest {
   const mapped: ProcedureManifest["procedures"] = {};
 
@@ -94,12 +103,22 @@ export function buildManifest(
     if (kind === "command" && def.invalidates && def.invalidates.length > 0) {
       entry.invalidates = normalizeInvalidates(def.invalidates);
     }
+    if (def.context && def.context.length > 0) {
+      entry.context = def.context;
+    }
     mapped[name] = entry;
+  }
+
+  const context: Record<string, ContextManifestEntry> = {};
+  if (contextConfig) {
+    for (const [key, field] of Object.entries(contextConfig)) {
+      context[key] = { extract: field.extract, schema: field.schema._schema };
+    }
   }
 
   const manifest: ProcedureManifest = {
     version: 2,
-    context: {},
+    context,
     procedures: mapped,
     transportDefaults: {},
   };

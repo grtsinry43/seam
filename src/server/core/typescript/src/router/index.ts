@@ -9,6 +9,9 @@ import type { SeamFileHandle } from "../procedure.js";
 import type { HandlePageResult } from "../page/handler.js";
 import type { PageDef, I18nConfig } from "../page/index.js";
 import type { ChannelResult, ChannelMeta } from "../channel.js";
+import type { ContextConfig, RawContextMap } from "../context.js";
+import { contextExtractKeys, resolveContext } from "../context.js";
+import { SeamError } from "../errors.js";
 import { buildManifest } from "../manifest/index.js";
 import {
   handleRequest,
@@ -42,7 +45,8 @@ export interface ProcedureDef<TIn = unknown, TOut = unknown> {
   input: SchemaNode<TIn>;
   output: SchemaNode<TOut>;
   error?: SchemaNode;
-  handler: (params: { input: TIn }) => TOut | Promise<TOut>;
+  context?: string[];
+  handler: (params: { input: TIn; ctx: Record<string, unknown> }) => TOut | Promise<TOut>;
 }
 
 export interface CommandDef<TIn = unknown, TOut = unknown> {
@@ -52,8 +56,9 @@ export interface CommandDef<TIn = unknown, TOut = unknown> {
   input: SchemaNode<TIn>;
   output: SchemaNode<TOut>;
   error?: SchemaNode;
+  context?: string[];
   invalidates?: InvalidateTarget[];
-  handler: (params: { input: TIn }) => TOut | Promise<TOut>;
+  handler: (params: { input: TIn; ctx: Record<string, unknown> }) => TOut | Promise<TOut>;
 }
 
 export interface SubscriptionDef<TIn = unknown, TOut = unknown> {
@@ -63,7 +68,8 @@ export interface SubscriptionDef<TIn = unknown, TOut = unknown> {
   input: SchemaNode<TIn>;
   output: SchemaNode<TOut>;
   error?: SchemaNode;
-  handler: (params: { input: TIn }) => AsyncIterable<TOut>;
+  context?: string[];
+  handler: (params: { input: TIn; ctx: Record<string, unknown> }) => AsyncIterable<TOut>;
 }
 
 export interface StreamDef<TIn = unknown, TChunk = unknown> {
@@ -71,7 +77,8 @@ export interface StreamDef<TIn = unknown, TChunk = unknown> {
   input: SchemaNode<TIn>;
   output: SchemaNode<TChunk>;
   error?: SchemaNode;
-  handler: (params: { input: TIn }) => AsyncGenerator<TChunk>;
+  context?: string[];
+  handler: (params: { input: TIn; ctx: Record<string, unknown> }) => AsyncGenerator<TChunk>;
 }
 
 export interface UploadDef<TIn = unknown, TOut = unknown> {
@@ -79,7 +86,12 @@ export interface UploadDef<TIn = unknown, TOut = unknown> {
   input: SchemaNode<TIn>;
   output: SchemaNode<TOut>;
   error?: SchemaNode;
-  handler: (params: { input: TIn; file: SeamFileHandle }) => TOut | Promise<TOut>;
+  context?: string[];
+  handler: (params: {
+    input: TIn;
+    file: SeamFileHandle;
+    ctx: Record<string, unknown>;
+  }) => TOut | Promise<TOut>;
 }
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -99,6 +111,7 @@ export interface RouterOptions {
   validateOutput?: boolean;
   resolve?: ResolveStrategy[];
   channels?: ChannelResult[];
+  context?: ContextConfig;
 }
 
 export interface PageRequestHeaders {
@@ -109,13 +122,19 @@ export interface PageRequestHeaders {
 
 export interface Router<T extends DefinitionMap> {
   manifest(): ProcedureManifest;
-  handle(procedureName: string, body: unknown): Promise<HandleResult>;
-  handleBatch(calls: BatchCall[]): Promise<{ results: BatchResultItem[] }>;
-  handleSubscription(name: string, input: unknown): AsyncIterable<unknown>;
-  handleStream(name: string, input: unknown): AsyncGenerator<unknown>;
-  handleUpload(name: string, body: unknown, file: SeamFileHandle): Promise<HandleResult>;
+  handle(procedureName: string, body: unknown, rawCtx?: RawContextMap): Promise<HandleResult>;
+  handleBatch(calls: BatchCall[], rawCtx?: RawContextMap): Promise<{ results: BatchResultItem[] }>;
+  handleSubscription(name: string, input: unknown, rawCtx?: RawContextMap): AsyncIterable<unknown>;
+  handleStream(name: string, input: unknown, rawCtx?: RawContextMap): AsyncGenerator<unknown>;
+  handleUpload(
+    name: string,
+    body: unknown,
+    file: SeamFileHandle,
+    rawCtx?: RawContextMap,
+  ): Promise<HandleResult>;
   getKind(name: string): ProcedureKind | null;
   handlePage(path: string, headers?: PageRequestHeaders): Promise<HandlePageResult | null>;
+  contextExtractKeys(): string[];
   readonly hasPages: boolean;
   /** Exposed for adapter access to the definitions */
   readonly procedures: T;
@@ -138,6 +157,7 @@ function registerI18nQuery(procedureMap: Map<string, InternalProcedure>, config:
   procedureMap.set("__seam_i18n_query", {
     inputSchema: {},
     outputSchema: {},
+    contextKeys: [],
     handler: ({ input }) => {
       const { route, locale } = input as { route: string; locale: string };
       const messages = lookupI18nMessages(config, route, locale);
@@ -167,8 +187,11 @@ export function createRouter<T extends DefinitionMap>(
   procedures: T,
   opts?: RouterOptions,
 ): Router<T> {
-  const { procedureMap, subscriptionMap, streamMap, uploadMap, kindMap } =
-    categorizeProcedures(procedures);
+  const ctxConfig = opts?.context ?? {};
+  const { procedureMap, subscriptionMap, streamMap, uploadMap, kindMap } = categorizeProcedures(
+    procedures,
+    Object.keys(ctxConfig).length > 0 ? ctxConfig : undefined,
+  );
 
   const shouldValidateOutput =
     opts?.validateOutput ??
@@ -201,26 +224,66 @@ export function createRouter<T extends DefinitionMap>(
         )
       : undefined;
 
+  const extractKeys = contextExtractKeys(ctxConfig);
+
+  /** Resolve context for a procedure by name, looking up its contextKeys */
+  function resolveCtx(
+    map: Map<string, { contextKeys: string[] }>,
+    name: string,
+    rawCtx?: RawContextMap,
+  ): Record<string, unknown> | undefined {
+    if (!rawCtx || extractKeys.length === 0) return undefined;
+    const proc = map.get(name);
+    if (!proc || proc.contextKeys.length === 0) return undefined;
+    return resolveContext(ctxConfig, rawCtx, proc.contextKeys);
+  }
+
   return {
     procedures,
     hasPages: !!pages && Object.keys(pages).length > 0,
+    contextExtractKeys() {
+      return extractKeys;
+    },
     manifest() {
-      return buildManifest(procedures, channelsMeta);
+      return buildManifest(procedures, channelsMeta, ctxConfig);
     },
-    handle(procedureName, body) {
-      return handleRequest(procedureMap, procedureName, body, shouldValidateOutput);
+    async handle(procedureName, body, rawCtx) {
+      let ctx: Record<string, unknown> | undefined;
+      try {
+        ctx = resolveCtx(procedureMap, procedureName, rawCtx);
+      } catch (err) {
+        if (err instanceof SeamError) {
+          return { status: err.status, body: err.toJSON() };
+        }
+        throw err;
+      }
+      return handleRequest(procedureMap, procedureName, body, shouldValidateOutput, ctx);
     },
-    handleBatch(calls) {
-      return handleBatchRequest(procedureMap, calls, shouldValidateOutput);
+    handleBatch(calls, rawCtx) {
+      const ctxResolver = rawCtx
+        ? (name: string) => resolveCtx(procedureMap, name, rawCtx) ?? {}
+        : undefined;
+      return handleBatchRequest(procedureMap, calls, shouldValidateOutput, ctxResolver);
     },
-    handleSubscription(name, input) {
-      return handleSubscription(subscriptionMap, name, input, shouldValidateOutput);
+    handleSubscription(name, input, rawCtx) {
+      const ctx = resolveCtx(subscriptionMap, name, rawCtx);
+      return handleSubscription(subscriptionMap, name, input, shouldValidateOutput, ctx);
     },
-    handleStream(name, input) {
-      return handleStream(streamMap, name, input, shouldValidateOutput);
+    handleStream(name, input, rawCtx) {
+      const ctx = resolveCtx(streamMap, name, rawCtx);
+      return handleStream(streamMap, name, input, shouldValidateOutput, ctx);
     },
-    handleUpload(name, body, file) {
-      return handleUploadRequest(uploadMap, name, body, file, shouldValidateOutput);
+    async handleUpload(name, body, file, rawCtx) {
+      let ctx: Record<string, unknown> | undefined;
+      try {
+        ctx = resolveCtx(uploadMap, name, rawCtx);
+      } catch (err) {
+        if (err instanceof SeamError) {
+          return { status: err.status, body: err.toJSON() };
+        }
+        throw err;
+      }
+      return handleUploadRequest(uploadMap, name, body, file, shouldValidateOutput, ctx);
     },
     getKind(name) {
       return kindMap.get(name) ?? null;

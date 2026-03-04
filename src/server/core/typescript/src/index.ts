@@ -66,7 +66,9 @@ export type {
   ProcedureType,
   NormalizedInvalidateTarget,
   NormalizedMappingValue,
+  ContextManifestEntry,
 } from "./manifest/index.js";
+export type { ContextFieldDef, ContextConfig, RawContextMap } from "./context.js";
 export type { HandleResult, BatchCall, BatchResultItem } from "./router/handler.js";
 export type { HandlePageResult, PageTiming, I18nOpts } from "./page/handler.js";
 export type { PageDef, LayoutDef, LoaderFn, I18nConfig } from "./page/index.js";

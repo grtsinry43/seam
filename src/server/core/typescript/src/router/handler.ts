@@ -18,6 +18,7 @@ export async function handleRequest(
   procedureName: string,
   rawBody: unknown,
   validateOutput?: boolean,
+  ctx?: Record<string, unknown>,
 ): Promise<HandleResult> {
   const procedure = procedures.get(procedureName);
   if (!procedure) {
@@ -37,7 +38,7 @@ export async function handleRequest(
   }
 
   try {
-    const result = await procedure.handler({ input: rawBody });
+    const result = await procedure.handler({ input: rawBody, ctx: ctx ?? {} });
 
     if (validateOutput) {
       const outValidation = validateInput(procedure.outputSchema, result);
@@ -76,10 +77,18 @@ export async function handleBatchRequest(
   procedures: Map<string, InternalProcedure>,
   calls: BatchCall[],
   validateOutput?: boolean,
+  ctxResolver?: (procedureName: string) => Record<string, unknown>,
 ): Promise<{ results: BatchResultItem[] }> {
   const results = await Promise.all(
     calls.map(async (call) => {
-      const result = await handleRequest(procedures, call.procedure, call.input, validateOutput);
+      const ctx = ctxResolver ? ctxResolver(call.procedure) : undefined;
+      const result = await handleRequest(
+        procedures,
+        call.procedure,
+        call.input,
+        validateOutput,
+        ctx,
+      );
       if (result.status === 200) {
         const envelope = result.body as { ok: true; data: unknown };
         return { ok: true as const, data: envelope.data };
@@ -99,6 +108,7 @@ export async function* handleSubscription(
   name: string,
   rawInput: unknown,
   validateOutput?: boolean,
+  ctx?: Record<string, unknown>,
 ): AsyncIterable<unknown> {
   const sub = subscriptions.get(name);
   if (!sub) {
@@ -111,7 +121,7 @@ export async function* handleSubscription(
     throw new SeamError("VALIDATION_ERROR", `Input validation failed: ${details}`);
   }
 
-  for await (const value of sub.handler({ input: rawInput })) {
+  for await (const value of sub.handler({ input: rawInput, ctx: ctx ?? {} })) {
     if (validateOutput) {
       const outValidation = validateInput(sub.outputSchema, value);
       if (!outValidation.valid) {
@@ -129,6 +139,7 @@ export async function handleUploadRequest(
   rawBody: unknown,
   file: SeamFileHandle,
   validateOutput?: boolean,
+  ctx?: Record<string, unknown>,
 ): Promise<HandleResult> {
   const upload = uploads.get(procedureName);
   if (!upload) {
@@ -148,7 +159,7 @@ export async function handleUploadRequest(
   }
 
   try {
-    const result = await upload.handler({ input: rawBody, file });
+    const result = await upload.handler({ input: rawBody, file, ctx: ctx ?? {} });
 
     if (validateOutput) {
       const outValidation = validateInput(upload.outputSchema, result);
@@ -179,6 +190,7 @@ export async function* handleStream(
   name: string,
   rawInput: unknown,
   validateOutput?: boolean,
+  ctx?: Record<string, unknown>,
 ): AsyncGenerator<unknown> {
   const stream = streams.get(name);
   if (!stream) {
@@ -191,7 +203,7 @@ export async function* handleStream(
     throw new SeamError("VALIDATION_ERROR", `Input validation failed: ${details}`);
   }
 
-  for await (const value of stream.handler({ input: rawInput })) {
+  for await (const value of stream.handler({ input: rawInput, ctx: ctx ?? {} })) {
     if (validateOutput) {
       const outValidation = validateInput(stream.chunkOutputSchema, value);
       if (!outValidation.valid) {

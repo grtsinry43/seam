@@ -40,7 +40,7 @@ async function executeLoaders(
       const proc = procedures.get(procedure);
       if (!proc) throw new SeamError("INTERNAL_ERROR", `Procedure '${procedure}' not found`);
       // Skip JTD validation -- loader input is trusted server-side code
-      const result = await proc.handler({ input });
+      const result = await proc.handler({ input, ctx: {} });
       return [key, result] as const;
     }),
   );

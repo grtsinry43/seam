@@ -3,6 +3,7 @@
 import { readFile } from "node:fs/promises";
 import { join, extname } from "node:path";
 import type { Router, DefinitionMap } from "./router/index.js";
+import type { RawContextMap } from "./context.js";
 import type { SeamFileHandle } from "./procedure.js";
 import { SeamError } from "./errors.js";
 import { MIME_TYPES } from "./mime.js";
@@ -112,9 +113,10 @@ async function* sseStream<T extends DefinitionMap>(
   router: Router<T>,
   name: string,
   input: unknown,
+  rawCtx?: RawContextMap,
 ): AsyncIterable<string> {
   try {
-    for await (const value of router.handleSubscription(name, input)) {
+    for await (const value of router.handleSubscription(name, input, rawCtx)) {
       yield sseDataEvent(value);
     }
     yield sseCompleteEvent();
@@ -133,8 +135,9 @@ async function* sseStreamForStream<T extends DefinitionMap>(
   name: string,
   input: unknown,
   signal?: AbortSignal,
+  rawCtx?: RawContextMap,
 ): AsyncGenerator<string> {
-  const gen = router.handleStream(name, input);
+  const gen = router.handleStream(name, input, rawCtx);
   // Wire abort signal to terminate the generator
   if (signal) {
     signal.addEventListener(
@@ -165,6 +168,7 @@ async function handleBatchHttp<T extends DefinitionMap>(
   req: HttpRequest,
   router: Router<T>,
   hashToName: Map<string, string> | null,
+  rawCtx?: RawContextMap,
 ): Promise<HttpBodyResponse> {
   let body: unknown;
   try {
@@ -182,7 +186,7 @@ async function handleBatchHttp<T extends DefinitionMap>(
       input: c.input ?? {},
     }),
   );
-  const result = await router.handleBatch(calls);
+  const result = await router.handleBatch(calls, rawCtx);
   return jsonResponse(200, { ok: true, data: result });
 }
 
@@ -205,10 +209,17 @@ export function createHttpHandler<T extends DefinitionMap>(
     hashToName.set("__seam_i18n_query", "__seam_i18n_query");
   }
   const batchHash = opts?.rpcHashMap?.batch ?? null;
+  const ctxExtractKeys = router.contextExtractKeys();
 
   return async (req) => {
     const url = new URL(req.url, "http://localhost");
     const { pathname } = url;
+
+    // Build raw context map from request headers when context fields are defined
+    const rawCtx: RawContextMap | undefined =
+      ctxExtractKeys.length > 0 && req.header
+        ? Object.fromEntries(ctxExtractKeys.map((k) => [k, req.header!(k)]))
+        : undefined;
 
     if (req.method === "GET" && pathname === MANIFEST_PATH) {
       if (opts?.rpcHashMap) return errorResponse(403, "FORBIDDEN", "Manifest disabled");
@@ -223,7 +234,7 @@ export function createHttpHandler<T extends DefinitionMap>(
 
       if (req.method === "POST") {
         if (rawName === "_batch" || (batchHash && rawName === batchHash)) {
-          return handleBatchHttp(req, router, hashToName);
+          return handleBatchHttp(req, router, hashToName, rawCtx);
         }
 
         const name = resolveHashName(hashToName, rawName);
@@ -241,7 +252,7 @@ export function createHttpHandler<T extends DefinitionMap>(
           return {
             status: 200,
             headers: SSE_HEADER,
-            stream: sseStreamForStream(router, name, body, controller.signal),
+            stream: sseStreamForStream(router, name, body, controller.signal, rawCtx),
             onCancel: () => controller.abort(),
           };
         }
@@ -254,11 +265,11 @@ export function createHttpHandler<T extends DefinitionMap>(
           if (!file) {
             return errorResponse(400, "VALIDATION_ERROR", "Upload requires file in multipart body");
           }
-          const result = await router.handleUpload(name, body, file);
+          const result = await router.handleUpload(name, body, file, rawCtx);
           return jsonResponse(result.status, result.body);
         }
 
-        const result = await router.handle(name, body);
+        const result = await router.handle(name, body, rawCtx);
         return jsonResponse(result.status, result.body);
       }
 
@@ -274,7 +285,7 @@ export function createHttpHandler<T extends DefinitionMap>(
           return errorResponse(400, "VALIDATION_ERROR", "Invalid input query parameter");
         }
 
-        return { status: 200, headers: SSE_HEADER, stream: sseStream(router, name, input) };
+        return { status: 200, headers: SSE_HEADER, stream: sseStream(router, name, input, rawCtx) };
       }
     }
 
