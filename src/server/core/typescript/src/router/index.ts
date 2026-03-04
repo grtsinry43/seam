@@ -211,6 +211,59 @@ function resolveCtxFor(
   return resolveContext(ctxConfig, rawCtx, proc.contextKeys);
 }
 
+/** Resolve locale and match page route */
+async function matchAndHandlePage(
+  pageMatcher: RouteMatcher<PageDef>,
+  procedureMap: Map<string, InternalProcedure>,
+  i18nConfig: I18nConfig | null,
+  strategies: ResolveStrategy[],
+  hasUrlPrefix: boolean,
+  path: string,
+  headers?: PageRequestHeaders,
+): Promise<HandlePageResult | null> {
+  let pathLocale: string | null = null;
+  let routePath = path;
+
+  if (hasUrlPrefix && i18nConfig) {
+    const segments = path.split("/").filter(Boolean);
+    const localeSet = new Set(i18nConfig.locales);
+    const first = segments[0];
+    if (first && localeSet.has(first)) {
+      pathLocale = first;
+      routePath = "/" + segments.slice(1).join("/") || "/";
+    }
+  }
+
+  let locale: string | undefined;
+  if (i18nConfig) {
+    locale = resolveChain(strategies, {
+      url: headers?.url ?? "",
+      pathLocale,
+      cookie: headers?.cookie,
+      acceptLanguage: headers?.acceptLanguage,
+      locales: i18nConfig.locales,
+      defaultLocale: i18nConfig.default,
+    });
+  }
+
+  const match = pageMatcher.match(routePath);
+  if (!match) return null;
+
+  let searchParams: URLSearchParams | undefined;
+  if (headers?.url) {
+    try {
+      const url = new URL(headers.url, "http://localhost");
+      if (url.search) searchParams = url.searchParams;
+    } catch {
+      // Malformed URL — ignore
+    }
+  }
+
+  const i18nOpts =
+    locale && i18nConfig ? { locale, config: i18nConfig, routePattern: match.pattern } : undefined;
+  return handlePageRequest(match.value, match.params, procedureMap, i18nOpts, searchParams);
+}
+
 /** Catch context resolution errors and return them as HandleResult */
 function resolveCtxSafe(
   map: Map<string, { contextKeys: string[] }>,
@@ -300,50 +353,16 @@ export function createRouter<T extends DefinitionMap>(
     getKind(name) {
       return kindMap.get(name) ?? null;
     },
-    async handlePage(path, headers) {
-      let pathLocale: string | null = null;
-      let routePath = path;
-
-      if (hasUrlPrefix && i18nConfig) {
-        const segments = path.split("/").filter(Boolean);
-        const localeSet = new Set(i18nConfig.locales);
-        const first = segments[0];
-        if (first && localeSet.has(first)) {
-          pathLocale = first;
-          routePath = "/" + segments.slice(1).join("/") || "/";
-        }
-      }
-
-      let locale: string | undefined;
-      if (i18nConfig) {
-        locale = resolveChain(strategies, {
-          url: headers?.url ?? "",
-          pathLocale,
-          cookie: headers?.cookie,
-          acceptLanguage: headers?.acceptLanguage,
-          locales: i18nConfig.locales,
-          defaultLocale: i18nConfig.default,
-        });
-      }
-
-      const match = pageMatcher.match(routePath);
-      if (!match) return null;
-
-      let searchParams: URLSearchParams | undefined;
-      if (headers?.url) {
-        try {
-          const url = new URL(headers.url, "http://localhost");
-          if (url.search) searchParams = url.searchParams;
-        } catch {
-          // Malformed URL — ignore
-        }
-      }
-
-      const i18nOpts =
-        locale && i18nConfig
-          ? { locale, config: i18nConfig, routePattern: match.pattern }
-          : undefined;
-      return handlePageRequest(match.value, match.params, procedureMap, i18nOpts, searchParams);
+    handlePage(path, headers) {
+      return matchAndHandlePage(
+        pageMatcher,
+        procedureMap,
+        i18nConfig,
+        strategies,
+        hasUrlPrefix,
+        path,
+        headers,
+      );
     },
   };
 }
