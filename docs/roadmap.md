@@ -39,7 +39,14 @@ Everything listed here is planned and will be implemented. This is currently a s
 
 - [x] Channel abstraction (Level 1 -> Level 0 expansion)
 - [x] Codegen transport hint (automatic WebSocket selection)
-- [x] Query/Command distinction (3 procedure types)
+- [x] Query/Command distinction (5 procedure kinds: query, command, subscription, stream, upload)
+- [x] Stream procedures (POST + SSE response with chunkOutput)
+- [x] Upload procedures (multipart/form-data with SeamFileHandle)
+- [x] Declarative context extraction (manifest-level context definitions)
+- [x] Command invalidation (invalidates field with mapping support)
+- [x] Per-procedure transport configuration (prefer + fallback)
+- [x] Query params in page loaders (from: "query" mapping)
+- [x] Loader handoff (handoff: "client" for one-time server-fetched loaders)
 
 ## Router
 

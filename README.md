@@ -36,7 +36,7 @@ The server is defined by a protocol (`/_seam/*` endpoints), not a runtime. Any l
 
 ### [Transport Layer](docs/architecture/transport-layer.md)
 
-Procedure handlers are pure `(input) -> output` functions. The transport (HTTP, SSE, WebSocket, IPC) is a separate adapter layer. Today: HTTP RPC, batch RPC, and SSE. Planned: WebSocket, Tauri IPC, Electron IPC.
+Procedure handlers are pure `(input) -> output` functions. The transport (HTTP, SSE, WebSocket, IPC) is a separate adapter layer. Today: HTTP RPC, batch RPC, SSE, WebSocket, stream SSE, and upload. Planned: Tauri IPC, Electron IPC.
 
 ## Application Scenarios
 
@@ -68,7 +68,7 @@ Pure static pages can be built by any UI framework natively. SeamJS provides cro
 
 ## Current Status
 
-**Implemented**: React frontend (client, bindings, router, filesystem router, i18n, linter). Three backend runtimes (Rust, TypeScript, Go) with symmetric feature sets. HTTP RPC, batch RPC, SSE streaming, WebSocket channels. Full CLI (build, generate, dev, pull, clean). Locale resolution with URL prefix, cookie, accept-language, and query strategies.
+**Implemented**: React frontend (client, bindings, router, filesystem router, i18n, linter). Three backend runtimes (Rust, TypeScript, Go) with symmetric feature sets. Five procedure kinds (query, command, subscription, stream, upload). HTTP RPC, batch RPC, SSE streaming, WebSocket channels, stream SSE, multipart upload. Declarative context extraction, command invalidation, per-procedure transport config. Full CLI (build, generate, dev, pull, clean). Locale resolution with URL prefix, cookie, accept-language, and query strategies.
 
 **Next**: additional UI frameworks (Vue, Svelte), desktop adapters (Tauri/Electron).
 
