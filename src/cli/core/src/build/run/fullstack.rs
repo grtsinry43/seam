@@ -3,15 +3,13 @@
 use std::path::Path;
 use std::time::Instant;
 
-use anyhow::{Context, Result};
+use anyhow::Result;
 
 use super::super::config::BuildConfig;
-use super::super::route::export_i18n;
 use super::super::route::generate_types;
 use super::super::route::{
   BundleContext, RenderContext, package_static_assets, print_asset_files,
-  print_procedure_breakdown, process_routes, read_i18n_messages, run_typecheck,
-  validate_procedure_references,
+  print_procedure_breakdown, run_typecheck, validate_procedure_references,
 };
 use super::super::types::{AssetFiles, read_bundle_manifest_extended};
 use super::helpers;
@@ -20,7 +18,7 @@ use super::rebuild::copy_wasm_binary;
 use super::steps;
 use crate::config::SeamConfig;
 use crate::shell::run_command;
-use crate::ui::{self, BRIGHT_CYAN, BRIGHT_GREEN, DIM, RESET, StepTracker, col};
+use crate::ui::{self, BRIGHT_CYAN, BRIGHT_GREEN, RESET, StepTracker, col};
 
 // -- Step registry --
 
@@ -73,7 +71,6 @@ fn dev_steps(build_config: &BuildConfig, is_vite: bool) -> Vec<&'static str> {
 
 // -- Fullstack build --
 
-#[allow(clippy::too_many_lines)]
 pub(super) fn run_fullstack_build(
   config: &SeamConfig,
   build_config: &BuildConfig,
@@ -97,15 +94,11 @@ pub(super) fn run_fullstack_build(
 
   // -- Compiling backend --
   let t = tracker.begin();
-  run_command(
-    base_dir,
-    build_config
-      .backend_build_command
-      .as_deref()
-      .expect("backend_build_command required in fullstack mode"),
-    "backend build",
-    &[],
-  )?;
+  let backend_cmd = build_config
+    .backend_build_command
+    .as_deref()
+    .expect("backend_build_command required in fullstack mode");
+  run_command(base_dir, backend_cmd, "backend build", &[])?;
   copy_wasm_binary(base_dir, &out_dir)?;
   tracker.end(t);
 
@@ -160,33 +153,13 @@ pub(super) fn run_fullstack_build(
   validate_procedure_references(&manifest, &skeleton_output)?;
   tracker.end_with(t, &format!("{} routes", skeleton_output.routes.len()));
 
-  // -- Processing routes --
-  let t = tracker.begin();
-  let templates_dir = out_dir.join("templates");
-  std::fs::create_dir_all(&templates_dir)
-    .with_context(|| format!("failed to create {}", templates_dir.display()))?;
-  let i18n_messages = match &build_config.i18n {
-    Some(cfg) => Some(read_i18n_messages(base_dir, cfg)?),
-    None => None,
-  };
-
-  // When sourceFileMap is available, parse extended manifest for per-page splitting.
-  let bundle_manifest = if skeleton_output.source_file_map.is_some() {
-    let vite_path = manifest_path.with_file_name("vite-manifest.json");
-    read_bundle_manifest_extended(&vite_path)
-      .or_else(|_| read_bundle_manifest_extended(&manifest_path))
-      .ok()
-  } else {
-    None
-  };
-
-  // When splitting is active: template gets only main entry assets,
-  // packaging gets all assets (including shared chunks and page entries).
+  // -- Processing routes + Exporting i18n --
+  let bundle_manifest =
+    resolve_bundle_manifest(skeleton_output.source_file_map.as_ref(), &manifest_path);
   let (template_assets, package_assets) = match &bundle_manifest {
     Some(bm) => (&bm.template, &bm.global),
     None => (&assets, &assets),
   };
-
   let render = RenderContext {
     root_id: &build_config.root_id,
     data_id: &build_config.data_id,
@@ -197,60 +170,38 @@ pub(super) fn run_fullstack_build(
     manifest: bundle_manifest.as_ref(),
     source_file_map: skeleton_output.source_file_map.as_ref(),
   };
-  let mut route_manifest = process_routes(
-    &skeleton_output.layouts,
-    &skeleton_output.routes,
-    &templates_dir,
-    template_assets,
-    &render,
-    build_config.i18n.as_ref(),
-    &bundle_ctx,
+  steps::execute_route_steps(
+    &steps::RouteStepInput {
+      skeleton: &skeleton_output,
+      base_dir,
+      out_dir: &out_dir,
+      assets: template_assets,
+      render: &render,
+      bundle: &bundle_ctx,
+      build_config,
+    },
+    &mut tracker,
   )?;
-
-  // Write route-manifest.json now if no i18n step follows, otherwise defer
-  if build_config.i18n.is_none() {
-    write_route_manifest(&out_dir, &route_manifest)?;
-  }
-  let route_count = skeleton_output.routes.len();
-  let layout_count = skeleton_output.layouts.len();
-  if layout_count > 0 {
-    tracker.end_with(t, &format!("{route_count} routes, {layout_count} layouts"));
-  } else {
-    tracker.end_with(t, &format!("{route_count} routes"));
-  }
-
-  // -- Exporting i18n (conditional) --
-  if let (Some(msgs), Some(cfg)) = (&i18n_messages, &build_config.i18n) {
-    let t = tracker.begin();
-    export_i18n(&out_dir, msgs, &mut route_manifest, cfg)?;
-    write_route_manifest(&out_dir, &route_manifest)?;
-    tracker.end(t);
-  }
 
   // -- Packaging output --
   let t = tracker.begin();
   package_static_assets(base_dir, package_assets, &out_dir, build_config.dist_dir())?;
   tracker.end_with(t, &format!("{} files", package_assets.js.len() + package_assets.css.len()));
 
-  // Summary
-  ui::blank();
-  let elapsed = started.elapsed().as_secs_f64();
-  let proc_count = manifest.procedures.len();
-  let template_count = skeleton_output.routes.len();
-  let asset_count = package_assets.js.len() + package_assets.css.len();
-  let (bg, bc, r) = (col(BRIGHT_GREEN), col(BRIGHT_CYAN), col(RESET));
-  ui::ok(&format!("build complete in {bc}{elapsed:.1}s{r}"));
-  ui::detail(&format!(
-    "{bg}{proc_count}{r} procedures \u{00b7} {bg}{template_count}{r} templates \u{00b7} {bg}{asset_count}{r} assets \u{00b7} {}",
-    build_config.renderer,
-  ));
+  print_build_summary(
+    started,
+    manifest.procedures.len(),
+    skeleton_output.routes.len(),
+    &format!("{} assets", package_assets.js.len() + package_assets.css.len()),
+    &build_config.renderer,
+    "build",
+  );
 
   Ok(())
 }
 
 // -- Dev build --
 
-#[allow(clippy::too_many_lines)]
 pub fn run_dev_build(
   config: &SeamConfig,
   build_config: &BuildConfig,
@@ -319,16 +270,7 @@ pub fn run_dev_build(
   validate_procedure_references(&manifest, &skeleton_output)?;
   tracker.end_with(t, &format!("{} routes", skeleton_output.routes.len()));
 
-  // -- Processing routes --
-  let t = tracker.begin();
-  let templates_dir = out_dir.join("templates");
-  std::fs::create_dir_all(&templates_dir)
-    .with_context(|| format!("failed to create {}", templates_dir.display()))?;
-  let i18n_messages = match &build_config.i18n {
-    Some(cfg) => Some(read_i18n_messages(base_dir, cfg)?),
-    None => None,
-  };
-  // Dev mode: no per-page splitting (no extended manifest)
+  // -- Processing routes + Exporting i18n --
   let render = RenderContext {
     root_id: &build_config.root_id,
     data_id: &build_config.data_id,
@@ -336,34 +278,18 @@ pub fn run_dev_build(
     vite: vite.as_ref(),
   };
   let bundle_ctx = BundleContext { manifest: None, source_file_map: None };
-  let mut route_manifest = process_routes(
-    &skeleton_output.layouts,
-    &skeleton_output.routes,
-    &templates_dir,
-    &assets,
-    &render,
-    build_config.i18n.as_ref(),
-    &bundle_ctx,
+  steps::execute_route_steps(
+    &steps::RouteStepInput {
+      skeleton: &skeleton_output,
+      base_dir,
+      out_dir: &out_dir,
+      assets: &assets,
+      render: &render,
+      bundle: &bundle_ctx,
+      build_config,
+    },
+    &mut tracker,
   )?;
-
-  if build_config.i18n.is_none() {
-    write_route_manifest(&out_dir, &route_manifest)?;
-  }
-  let route_count = skeleton_output.routes.len();
-  let layout_count = skeleton_output.layouts.len();
-  if layout_count > 0 {
-    tracker.end_with(t, &format!("{route_count} routes, {layout_count} layouts"));
-  } else {
-    tracker.end_with(t, &format!("{route_count} routes"));
-  }
-
-  // -- Exporting i18n (conditional) --
-  if let (Some(msgs), Some(cfg)) = (&i18n_messages, &build_config.i18n) {
-    let t = tracker.begin();
-    export_i18n(&out_dir, msgs, &mut route_manifest, cfg)?;
-    write_route_manifest(&out_dir, &route_manifest)?;
-    tracker.end(t);
-  }
 
   // -- Packaging output (skipped in Vite mode) --
   if !is_vite {
@@ -372,38 +298,50 @@ pub fn run_dev_build(
     tracker.end_with(t, &format!("{} files", assets.js.len() + assets.css.len()));
   }
 
-  // Summary
-  ui::blank();
-  let elapsed = started.elapsed().as_secs_f64();
-  let proc_count = manifest.procedures.len();
-  let template_count = skeleton_output.routes.len();
-  let asset_count = assets.js.len() + assets.css.len();
-  let (bg, bc, r) = (col(BRIGHT_GREEN), col(BRIGHT_CYAN), col(RESET));
-  ui::ok(&format!("dev build complete in {bc}{elapsed:.1}s{r}"));
-  if is_vite {
-    ui::detail(&format!(
-      "{bg}{proc_count}{r} procedures \u{00b7} {bg}{template_count}{r} templates \u{00b7} vite mode \u{00b7} {}",
-      build_config.renderer,
-    ));
+  let extra = if is_vite {
+    "vite mode".to_string()
   } else {
-    ui::detail(&format!(
-      "{bg}{proc_count}{r} procedures \u{00b7} {bg}{template_count}{r} templates \u{00b7} {bg}{asset_count}{r} assets \u{00b7} {}",
-      build_config.renderer,
-    ));
-  }
+    format!("{} assets", assets.js.len() + assets.css.len())
+  };
+  print_build_summary(
+    started,
+    manifest.procedures.len(),
+    skeleton_output.routes.len(),
+    &extra,
+    &build_config.renderer,
+    "dev build",
+  );
 
   Ok(())
 }
 
 // -- Helpers --
 
-fn write_route_manifest(
-  out_dir: &Path,
-  route_manifest: &super::super::route::RouteManifest,
-) -> Result<()> {
-  let path = out_dir.join("route-manifest.json");
-  let json = serde_json::to_string_pretty(route_manifest)?;
-  std::fs::write(&path, &json).with_context(|| format!("failed to write {}", path.display()))?;
-  ui::detail_ok(&format!("{}route-manifest.json{}", col(DIM), col(RESET)));
-  Ok(())
+/// Parse extended bundle manifest for per-page asset splitting (when sourceFileMap is available).
+fn resolve_bundle_manifest(
+  source_file_map: Option<&std::collections::BTreeMap<String, String>>,
+  manifest_path: &Path,
+) -> Option<super::super::types::BundleManifest> {
+  source_file_map?;
+  let vite_path = manifest_path.with_file_name("vite-manifest.json");
+  read_bundle_manifest_extended(&vite_path)
+    .or_else(|_| read_bundle_manifest_extended(manifest_path))
+    .ok()
+}
+
+fn print_build_summary(
+  started: Instant,
+  proc_count: usize,
+  template_count: usize,
+  extra: &str,
+  renderer: &str,
+  label: &str,
+) {
+  ui::blank();
+  let elapsed = started.elapsed().as_secs_f64();
+  let (bg, bc, r) = (col(BRIGHT_GREEN), col(BRIGHT_CYAN), col(RESET));
+  ui::ok(&format!("{label} complete in {bc}{elapsed:.1}s{r}"));
+  ui::detail(&format!(
+    "{bg}{proc_count}{r} procedures \u{00b7} {bg}{template_count}{r} templates \u{00b7} {bg}{extra}{r} \u{00b7} {renderer}",
+  ));
 }

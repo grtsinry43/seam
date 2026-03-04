@@ -3,16 +3,14 @@
 use std::path::Path;
 use std::time::Instant;
 
-use anyhow::{Context, Result};
+use anyhow::Result;
 
 use super::super::config::BuildConfig;
-use super::super::route::{
-  BundleContext, RenderContext, export_i18n, print_asset_files, process_routes, read_i18n_messages,
-};
+use super::super::route::{BundleContext, RenderContext, print_asset_files};
 use super::super::types::read_bundle_manifest_extended;
 use super::helpers;
 use super::steps;
-use crate::ui::{self, BRIGHT_CYAN, BRIGHT_GREEN, DIM, RESET, StepTracker, col};
+use crate::ui::{self, BRIGHT_CYAN, BRIGHT_GREEN, RESET, StepTracker, col};
 
 // -- Step registry --
 
@@ -63,17 +61,8 @@ pub(super) fn run_frontend_build(build_config: &BuildConfig, base_dir: &Path) ->
   ui::detail_ok(&format!("{} routes found", skeleton_output.routes.len()));
   tracker.end_with(t, &format!("{} routes", skeleton_output.routes.len()));
 
-  // -- Processing routes --
-  let t = tracker.begin();
+  // -- Processing routes + Exporting i18n --
   let out_dir = base_dir.join(&build_config.out_dir);
-  let templates_dir = out_dir.join("templates");
-  std::fs::create_dir_all(&templates_dir)
-    .with_context(|| format!("failed to create {}", templates_dir.display()))?;
-  let i18n_messages = match &build_config.i18n {
-    Some(cfg) => Some(read_i18n_messages(base_dir, cfg)?),
-    None => None,
-  };
-
   // When sourceFileMap is available, parse extended manifest for per-page splitting.
   let bundle_manifest = if skeleton_output.source_file_map.is_some() {
     let vite_path = manifest_path.with_file_name("vite-manifest.json");
@@ -83,12 +72,10 @@ pub(super) fn run_frontend_build(build_config: &BuildConfig, base_dir: &Path) ->
   } else {
     None
   };
-
   let template_assets = match &bundle_manifest {
     Some(bm) => &bm.template,
     None => &assets,
   };
-
   let render = RenderContext {
     root_id: &build_config.root_id,
     data_id: &build_config.data_id,
@@ -99,34 +86,18 @@ pub(super) fn run_frontend_build(build_config: &BuildConfig, base_dir: &Path) ->
     manifest: bundle_manifest.as_ref(),
     source_file_map: skeleton_output.source_file_map.as_ref(),
   };
-  let mut route_manifest = process_routes(
-    &skeleton_output.layouts,
-    &skeleton_output.routes,
-    &templates_dir,
-    template_assets,
-    &render,
-    build_config.i18n.as_ref(),
-    &bundle_ctx,
+  steps::execute_route_steps(
+    &steps::RouteStepInput {
+      skeleton: &skeleton_output,
+      base_dir,
+      out_dir: &out_dir,
+      assets: template_assets,
+      render: &render,
+      bundle: &bundle_ctx,
+      build_config,
+    },
+    &mut tracker,
   )?;
-
-  if build_config.i18n.is_none() {
-    write_route_manifest(&out_dir, &route_manifest)?;
-  }
-  let route_count = skeleton_output.routes.len();
-  let layout_count = skeleton_output.layouts.len();
-  if layout_count > 0 {
-    tracker.end_with(t, &format!("{route_count} routes, {layout_count} layouts"));
-  } else {
-    tracker.end_with(t, &format!("{route_count} routes"));
-  }
-
-  // -- Exporting i18n (conditional) --
-  if let (Some(msgs), Some(cfg)) = (&i18n_messages, &build_config.i18n) {
-    let t = tracker.begin();
-    export_i18n(&out_dir, msgs, &mut route_manifest, cfg)?;
-    write_route_manifest(&out_dir, &route_manifest)?;
-    tracker.end(t);
-  }
 
   // Summary
   ui::blank();
@@ -140,16 +111,5 @@ pub(super) fn run_frontend_build(build_config: &BuildConfig, base_dir: &Path) ->
     build_config.renderer,
   ));
 
-  Ok(())
-}
-
-fn write_route_manifest(
-  out_dir: &Path,
-  route_manifest: &super::super::route::RouteManifest,
-) -> Result<()> {
-  let path = out_dir.join("route-manifest.json");
-  let json = serde_json::to_string_pretty(route_manifest)?;
-  std::fs::write(&path, &json).with_context(|| format!("failed to write {}", path.display()))?;
-  ui::detail_ok(&format!("{}route-manifest.json{}", col(DIM), col(RESET)));
   Ok(())
 }

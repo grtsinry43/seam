@@ -38,6 +38,15 @@ pub(crate) struct BundleContext<'a> {
   pub source_file_map: Option<&'a BTreeMap<String, String>>,
 }
 
+/// Internal routing context shared between i18n and single-route processing.
+struct RouteProcessCtx<'a> {
+  templates_dir: &'a Path,
+  assets: &'a AssetFiles,
+  render: &'a RenderContext<'a>,
+  i18n: Option<&'a I18nSection>,
+  bundle: &'a BundleContext<'a>,
+}
+
 pub(crate) fn process_routes(
   layouts: &[SkeletonLayout],
   routes: &[SkeletonRoute],
@@ -66,20 +75,12 @@ pub(crate) fn process_routes(
 
   process_layout_templates(layouts, templates_dir, assets, render, &mut manifest)?;
 
+  let ctx = RouteProcessCtx { templates_dir, assets, render, i18n, bundle };
   for route in routes {
     if let Some(ref locale_variants) = route.locale_variants {
-      process_i18n_route(
-        route,
-        locale_variants,
-        templates_dir,
-        assets,
-        render,
-        i18n,
-        bundle,
-        &mut manifest,
-      )?;
+      process_i18n_route(route, locale_variants, &ctx, &mut manifest)?;
     } else {
-      process_single_route(route, templates_dir, assets, render, bundle, &mut manifest)?;
+      process_single_route(route, &ctx, &mut manifest)?;
     }
   }
   Ok(manifest)
@@ -202,15 +203,10 @@ fn render_route_document(
 
 // -- i18n route processing --
 
-#[allow(clippy::too_many_arguments)]
 fn process_i18n_route(
   route: &SkeletonRoute,
   locale_variants: &BTreeMap<String, super::types::LocaleRouteData>,
-  templates_dir: &Path,
-  assets: &AssetFiles,
-  render: &RenderContext<'_>,
-  i18n: Option<&I18nSection>,
-  bundle: &BundleContext<'_>,
+  ctx: &RouteProcessCtx<'_>,
   manifest: &mut RouteManifest,
 ) -> Result<()> {
   let mut templates = BTreeMap::new();
@@ -223,7 +219,7 @@ fn process_i18n_route(
       &data.mock_html,
       &template,
       &route.mock,
-      render.data_id,
+      ctx.render.data_id,
     )?;
 
     if let Some(schema) = &route.page_schema {
@@ -233,9 +229,9 @@ fn process_i18n_route(
     }
 
     let (document, head_meta) =
-      render_route_document(&template, route.layout.is_some(), assets, render);
+      render_route_document(&template, route.layout.is_some(), ctx.assets, ctx.render);
 
-    let locale_dir = templates_dir.join(locale);
+    let locale_dir = ctx.templates_dir.join(locale);
     std::fs::create_dir_all(&locale_dir)
       .with_context(|| format!("failed to create {}", locale_dir.display()))?;
     let filename = path_to_filename(&route.path);
@@ -246,8 +242,9 @@ fn process_i18n_route(
     templates.insert(locale.clone(), format!("templates/{locale}/{filename}"));
 
     // Store head_meta from the default locale only
-    if i18n.is_some_and(|cfg| locale == &cfg.default) {
-      let route_assets = compute_route_assets(&route.path, bundle.source_file_map, bundle.manifest);
+    if ctx.i18n.is_some_and(|cfg| locale == &cfg.default) {
+      let route_assets =
+        compute_route_assets(&route.path, ctx.bundle.source_file_map, ctx.bundle.manifest);
       manifest.routes.entry(route.path.clone()).or_insert_with(|| RouteManifestEntry {
         template: None,
         templates: None,
@@ -273,7 +270,8 @@ fn process_i18n_route(
   if let Some(entry) = manifest.routes.get_mut(&route.path) {
     entry.templates = Some(templates);
   } else {
-    let route_assets = compute_route_assets(&route.path, bundle.source_file_map, bundle.manifest);
+    let route_assets =
+      compute_route_assets(&route.path, ctx.bundle.source_file_map, ctx.bundle.manifest);
     manifest.routes.insert(
       route.path.clone(),
       RouteManifestEntry {
@@ -294,10 +292,7 @@ fn process_i18n_route(
 
 fn process_single_route(
   route: &SkeletonRoute,
-  templates_dir: &Path,
-  assets: &AssetFiles,
-  render: &RenderContext<'_>,
-  bundle: &BundleContext<'_>,
+  ctx: &RouteProcessCtx<'_>,
   manifest: &mut RouteManifest,
 ) -> Result<()> {
   let axes = route.axes.as_ref().expect("axes required when i18n is off");
@@ -312,7 +307,7 @@ fn process_single_route(
     mock_html,
     &template,
     &route.mock,
-    render.data_id,
+    ctx.render.data_id,
   )?;
 
   if let Some(schema) = &route.page_schema {
@@ -322,10 +317,10 @@ fn process_single_route(
   }
 
   let (document, head_meta) =
-    render_route_document(&template, route.layout.is_some(), assets, render);
+    render_route_document(&template, route.layout.is_some(), ctx.assets, ctx.render);
 
   let filename = path_to_filename(&route.path);
-  let filepath = templates_dir.join(&filename);
+  let filepath = ctx.templates_dir.join(&filename);
   std::fs::write(&filepath, &document)
     .with_context(|| format!("failed to write {}", filepath.display()))?;
 
@@ -339,7 +334,8 @@ fn process_single_route(
     col(RESET)
   ));
 
-  let route_assets = compute_route_assets(&route.path, bundle.source_file_map, bundle.manifest);
+  let route_assets =
+    compute_route_assets(&route.path, ctx.bundle.source_file_map, ctx.bundle.manifest);
   manifest.routes.insert(
     route.path.clone(),
     RouteManifestEntry {
