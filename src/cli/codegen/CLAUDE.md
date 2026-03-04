@@ -6,15 +6,24 @@ See root CLAUDE.md for general conventions.
 
 ## Architecture
 
-| Module        | Responsibility                                                   |
-| ------------- | ---------------------------------------------------------------- |
-| `manifest.rs` | `Manifest`, `ProcedureSchema`, `ChannelSchema` serde types       |
-| `rpc_hash.rs` | RPC endpoint hash map generation (SHA256-based, collision-free)  |
-| `typescript/` | JTD schema to TypeScript interfaces + `createSeamClient` factory |
+| Module        | Responsibility                                                                                                                     |
+| ------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| `manifest.rs` | `Manifest`, `ProcedureSchema`, `ChannelSchema`, `ContextSchema`, `TransportConfig`, `InvalidateTarget`, `MappingValue` serde types |
+| `rpc_hash.rs` | RPC endpoint hash map generation (SHA256-based, collision-free)                                                                    |
+| `typescript/` | JTD schema to TypeScript interfaces + `createSeamClient` factory                                                                   |
+
+## Manifest Types (manifest.rs)
+
+- `ProcedureType`: query, command, subscription, stream, upload
+- `ProcedureSchema`: `kind` field (with `type` alias for v1 compat), `input`, `output`, `chunkOutput` (streams), `error`, `invalidates`, `context`, `transport`
+- `ContextSchema`: `extract` (extractor name) + `schema` (JTD)
+- `TransportConfig`: `prefer` + optional `fallback` array of `TransportPreference` (http/sse/ws/ipc)
+- `InvalidateTarget`: `query` + optional `mapping` with `MappingValue` (from + optional each)
+- `Manifest`: `version`, `context`, `procedures`, `channels`, `transportDefaults`
 
 ## TypeScript Codegen Sub-modules
 
-- `generator.rs` -- main entry point; builds `createSeamClient()` factory, procedure meta, channel types
+- `generator.rs` -- main entry point; builds `createSeamClient()` factory, procedure meta, channel types; handles all 5 procedure kinds, emits `chunkOutput` for streams
 - `render.rs` -- JTD schema to TypeScript type expressions (recursive renderer)
 
 ## Testing
@@ -23,4 +32,4 @@ See root CLAUDE.md for general conventions.
 cargo test -p seam-codegen
 ```
 
-45 tests covering full manifest rendering, error schemas, RPC hash maps, channel codegen, and type rendering.
+72 tests covering full manifest rendering, error schemas, RPC hash maps, channel codegen, type rendering, context refs validation, invalidation, transport config, and stream/upload deserialization.
