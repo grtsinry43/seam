@@ -78,7 +78,7 @@ export function useSeamStream<T>(
     };
   }, [baseUrl, procedure, inputKey]);
 
-  const latestChunk = chunks.length > 0 ? chunks[chunks.length - 1] : null;
+  const latestChunk: T | null = chunks.at(-1) ?? null;
 
   return { chunks, latestChunk, status, error, cancel };
 }
