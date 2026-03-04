@@ -67,27 +67,36 @@ After a `complete` event the server closes the connection.
 ## Manifest Integration
 
 Subscriptions appear in the procedure manifest alongside regular procedures.
-They are distinguished by the `type` field:
+They are distinguished by the `kind` field:
 
 ```json
 {
-  "version": 1,
+  "version": 2,
+  "context": {},
   "procedures": {
     "greet": {
-      "type": "query",
+      "kind": "query",
       "input": { "properties": { "name": { "type": "string" } } },
       "output": { "properties": { "message": { "type": "string" } } }
     },
     "onCount": {
-      "type": "subscription",
+      "kind": "subscription",
       "input": { "properties": { "max": { "type": "int32" } } },
       "output": { "properties": { "n": { "type": "int32" } } }
     }
-  }
+  },
+  "transportDefaults": {}
 }
 ```
 
-The `type` field defaults to `"query"` when absent (backward compatible).
+The `kind` field defaults to `"query"` when absent (backward compatible). The `"type"` alias is accepted for v1 compatibility.
+
+**Subscription vs Stream**: both use SSE, but they differ in direction and schema:
+
+- **Subscription** (`GET`, `output`): server pushes events without client input beyond the initial request.
+- **Stream** (`POST`, `chunkOutput`): client sends input via POST body, server responds with SSE events carrying incrementing `id` fields.
+
+See [Procedure Manifest](./procedure-manifest.md) for full stream details.
 
 ## WebSocket Alternative
 

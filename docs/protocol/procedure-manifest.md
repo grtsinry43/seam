@@ -17,41 +17,124 @@ Consumers of the manifest include:
 
 ```json
 {
-  "version": 1,
-  "procedures": {
-    "<procedureName>": {
-      "type": "query" | "command" | "subscription",
-      "input": <JTD schema>,
-      "output": <JTD schema>,
-      "error": <JTD schema>          // optional
-    }
+  "version": 2,
+  "context": {
+    "<contextKey>": { "extract": "<extractorName>", "schema": <JTD schema> }
   },
-  "channels": {                       // optional
+  "procedures": {
+    "<procedureName>": <ProcedureSchema>
+  },
+  "channels": {
     "<channelName>": <ChannelMeta>
+  },
+  "transportDefaults": {
+    "<procedureKind>": { "prefer": "<transport>", "fallback": ["<transport>"] }
   }
 }
 ```
 
-| Field        | Type                              | Description                                                                            |
-| ------------ | --------------------------------- | -------------------------------------------------------------------------------------- |
-| `version`    | `number`                          | Manifest format version. Currently `1`.                                                |
-| `procedures` | `Record<string, ProcedureSchema>` | Map of procedure name to its schema.                                                   |
-| `channels`   | `Record<string, ChannelMeta>`     | Optional. Channel metadata for codegen. See [Channel Protocol](./channel-protocol.md). |
+| Field               | Type                              | Description                                                                                          |
+| ------------------- | --------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| `version`           | `number`                          | Manifest format version. Currently `2`.                                                              |
+| `context`           | `Record<string, ContextSchema>`   | Declarative context extractors. Each key names a context field; the value defines how to extract it. |
+| `procedures`        | `Record<string, ProcedureSchema>` | Map of procedure name to its schema.                                                                 |
+| `channels`          | `Record<string, ChannelMeta>`     | Optional. Channel metadata for codegen. See [Channel Protocol](./channel-protocol.md).               |
+| `transportDefaults` | `Record<string, TransportConfig>` | Default transport preferences per procedure kind (e.g. `"subscription": { "prefer": "ws" }`).        |
 
-Each `ProcedureSchema` has:
+## ProcedureSchema
 
-| Field    | Type                                     | Description                                                              |
-| -------- | ---------------------------------------- | ------------------------------------------------------------------------ |
-| `type`   | `"query" \| "command" \| "subscription"` | Procedure type. Defaults to `"query"` if absent.                         |
-| `input`  | `JTDSchema`                              | JTD schema for the request body. Empty `{}` means no input.              |
-| `output` | `JTDSchema`                              | JTD schema for the response body. Empty `{}` means no structured output. |
-| `error`  | `JTDSchema`                              | Optional. JTD schema for typed error payloads.                           |
+| Field         | Type                                                             | Description                                                                                  |
+| ------------- | ---------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| `kind`        | `"query" \| "command" \| "subscription" \| "stream" \| "upload"` | Procedure kind. Defaults to `"query"` if absent.                                             |
+| `input`       | `JTDSchema`                                                      | JTD schema for the request body. Empty `{}` means no input.                                  |
+| `output`      | `JTDSchema`                                                      | JTD schema for the response body. Used by query, command, subscription, and upload.          |
+| `chunkOutput` | `JTDSchema`                                                      | JTD schema for each chunk in a stream. Used instead of `output` for stream procedures.       |
+| `error`       | `JTDSchema`                                                      | Optional. JTD schema for typed error payloads.                                               |
+| `invalidates` | `InvalidateTarget[]`                                             | Optional. Queries to invalidate when this command succeeds. Only valid on commands.          |
+| `context`     | `string[]`                                                       | Optional. Context keys this procedure requires (must reference keys in top-level `context`). |
+| `transport`   | `TransportConfig`                                                | Optional. Per-procedure transport preference, overrides `transportDefaults`.                 |
 
-Procedure types:
+## Procedure Kinds
 
 - **`query`** -- read-only operation. Safe to retry and cache.
-- **`command`** -- operation with side effects. Not safe to retry blindly.
-- **`subscription`** -- streaming operation via SSE or WebSocket. See [Subscription Protocol](./subscription-protocol.md).
+- **`command`** -- operation with side effects. Not safe to retry blindly. May declare `invalidates` to auto-invalidate cached queries.
+- **`subscription`** -- server-to-client streaming via SSE or WebSocket. Uses `output` for each emitted value. See [Subscription Protocol](./subscription-protocol.md).
+- **`stream`** -- client-initiated streaming via POST + SSE response. Uses `chunkOutput` for each chunk (not `output`). Each SSE event carries an incrementing `id`.
+- **`upload`** -- file upload via multipart/form-data. Receives a `SeamFileHandle` alongside JSON input. Uses `output` for the response.
+
+## Context
+
+Top-level `context` defines named extractors that pull values from the raw request context (headers, cookies, etc.). Procedures reference context keys via the `context` array field; at runtime the server resolves only the requested keys.
+
+```json
+{
+  "context": {
+    "auth": {
+      "extract": "extractAuth",
+      "schema": { "properties": { "userId": { "type": "string" } } }
+    }
+  }
+}
+```
+
+A `ContextSchema` has:
+
+| Field     | Type        | Description                                              |
+| --------- | ----------- | -------------------------------------------------------- |
+| `extract` | `string`    | Name of the extractor function registered on the server. |
+| `schema`  | `JTDSchema` | JTD schema for the extracted context value.              |
+
+## Invalidation
+
+Commands may declare which queries to invalidate on success:
+
+```json
+{
+  "invalidates": [
+    { "query": "getPost" },
+    { "query": "listPosts", "mapping": { "authorId": { "from": "userId" } } }
+  ]
+}
+```
+
+An `InvalidateTarget` has:
+
+| Field     | Type                           | Description                                                 |
+| --------- | ------------------------------ | ----------------------------------------------------------- |
+| `query`   | `string`                       | Name of the query procedure to invalidate.                  |
+| `mapping` | `Record<string, MappingValue>` | Optional. Maps command output fields to query input fields. |
+
+A `MappingValue` has:
+
+| Field  | Type      | Description                                                         |
+| ------ | --------- | ------------------------------------------------------------------- |
+| `from` | `string`  | Source field name from the command's output.                        |
+| `each` | `boolean` | Optional. When `true`, the source is an array; invalidate per item. |
+
+## Transport Configuration
+
+Transport preferences control how the client communicates with procedures. They can be set globally per procedure kind via `transportDefaults`, or per procedure via the `transport` field.
+
+```json
+{
+  "transportDefaults": {
+    "subscription": { "prefer": "ws", "fallback": ["sse"] }
+  }
+}
+```
+
+A `TransportConfig` has:
+
+| Field      | Type                    | Description                                                        |
+| ---------- | ----------------------- | ------------------------------------------------------------------ |
+| `prefer`   | `TransportPreference`   | Preferred transport: `"http"`, `"sse"`, `"ws"`, or `"ipc"`.        |
+| `fallback` | `TransportPreference[]` | Optional. Ordered fallback transports if preferred is unavailable. |
+
+Per-procedure `transport` overrides `transportDefaults` for that specific procedure.
+
+## Backward Compatibility
+
+The `"type"` field is accepted as an alias for `"kind"` when deserializing (v1 manifests use `"type"`). Serialization always outputs `"kind"`. The `version` field distinguishes v1 (`version: 1`, no `context`/`transportDefaults`) from v2.
 
 ## Procedure Naming
 
@@ -76,14 +159,36 @@ Returns the full procedure manifest as `application/json`.
 
 ### POST /\_seam/procedure/{procedureName}
 
-Executes a query or command procedure.
+Executes a query, command, stream, or upload procedure.
 
-**Request**:
+**Request** (query/command):
 
 - Content-Type: `application/json`
 - Body: JSON matching the procedure's `input` schema.
 
 **Response** (success):
+
+- Status: `200`
+- Content-Type: `application/json`
+- Body: `{ "ok": true, "data": <output> }`
+
+**Request** (stream):
+
+- Content-Type: `application/json`
+- Body: JSON matching the procedure's `input` schema.
+
+**Response** (stream):
+
+- Status: `200`
+- Content-Type: `text/event-stream`
+- Body: SSE events with incrementing `id`, each `data:` payload matching `chunkOutput` schema. Ends with `event: complete`.
+
+**Request** (upload):
+
+- Content-Type: `multipart/form-data`
+- Body: form data with JSON `input` field and file attachment.
+
+**Response** (upload success):
 
 - Status: `200`
 - Content-Type: `application/json`
@@ -184,9 +289,20 @@ See [Error Codes](./error-codes.md) for the error envelope format and standard e
 
 ```json
 {
-  "version": 1,
+  "version": 2,
+  "context": {
+    "auth": {
+      "extract": "extractAuth",
+      "schema": {
+        "properties": {
+          "userId": { "type": "string" }
+        }
+      }
+    }
+  },
   "procedures": {
     "greet": {
+      "kind": "query",
       "input": {
         "properties": {
           "name": { "type": "string" }
@@ -199,7 +315,7 @@ See [Error Codes](./error-codes.md) for the error envelope format and standard e
       }
     },
     "createUser": {
-      "type": "command",
+      "kind": "command",
       "input": {
         "properties": {
           "name": { "type": "string" },
@@ -212,19 +328,53 @@ See [Error Codes](./error-codes.md) for the error envelope format and standard e
           "name": { "type": "string" },
           "email": { "type": "string" }
         }
-      }
+      },
+      "invalidates": [{ "query": "listUsers" }],
+      "context": ["auth"]
     },
-    "listUsers": {
-      "input": {},
+    "onCount": {
+      "kind": "subscription",
+      "input": {
+        "properties": {
+          "max": { "type": "int32" }
+        }
+      },
       "output": {
-        "elements": {
-          "properties": {
-            "id": { "type": "uint32" },
-            "name": { "type": "string" }
-          }
+        "properties": {
+          "n": { "type": "int32" }
         }
       }
+    },
+    "generateReport": {
+      "kind": "stream",
+      "input": {
+        "properties": {
+          "topic": { "type": "string" }
+        }
+      },
+      "chunkOutput": {
+        "properties": {
+          "text": { "type": "string" }
+        }
+      }
+    },
+    "uploadAvatar": {
+      "kind": "upload",
+      "input": {
+        "properties": {
+          "userId": { "type": "string" }
+        }
+      },
+      "output": {
+        "properties": {
+          "url": { "type": "string" }
+        }
+      },
+      "context": ["auth"]
     }
+  },
+  "transportDefaults": {
+    "subscription": { "prefer": "ws", "fallback": ["sse"] }
   }
 }
 ```
@@ -245,6 +395,31 @@ Content-Type: application/json
 Content-Type: application/json
 
 { "ok": true, "data": { "message": "Hello, Alice!" } }
+```
+
+**generateReport (stream)**
+
+```
+POST /_seam/procedure/generateReport
+Content-Type: application/json
+
+{ "topic": "Q4 results" }
+```
+
+```
+200 OK
+Content-Type: text/event-stream
+
+id: 0
+event: data
+data: {"text":"## Q4 Results\n"}
+
+id: 1
+event: data
+data: {"text":"Revenue grew 15%..."}
+
+event: complete
+data: {}
 ```
 
 **createUser (not found)**
