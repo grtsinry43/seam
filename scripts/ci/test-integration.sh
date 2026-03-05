@@ -14,5 +14,10 @@ printf '\n==> Go integration tests\n'
 (cd "$ROOT/tests/i18n" && go test -v -count=1)
 (cd "$ROOT/tests/fs-router" && go test -v -count=1 ./...)
 
+printf '\n==> Feature demo tests\n'
+for demo in stream-upload context-auth query-mutation handoff-narrowing; do
+  (cd "$ROOT/tests/features/$demo" && go test -v -count=1)
+done
+
 printf '\n==> Workspace integration tests\n'
 (cd "$ROOT/tests/workspace-integration" && go test -v -count=1 -timeout 120s)

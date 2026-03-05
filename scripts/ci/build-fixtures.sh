@@ -22,6 +22,11 @@ printf '\n==> Build fs-router demo\n'
 FS_ROUTER_DIR="$ROOT/examples/fs-router-demo"
 (cd "$FS_ROUTER_DIR" && "$SEAM" build)
 
+printf '\n==> Build feature demos\n'
+for demo in stream-upload context-auth query-mutation handoff-narrowing; do
+  (cd "$ROOT/examples/features/$demo" && "$SEAM" build)
+done
+
 printf '\n==> Build workspace backends\n'
 (cd "$ROOT" && cargo build -p github-dashboard-axum --release)
 (cd "$WORKSPACE_DIR/backends/go-gin" && go build -o server .)
