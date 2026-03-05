@@ -33,7 +33,7 @@ See root CLAUDE.md for general conventions.
 - `src/main.rs` -- CLI definition and command dispatch
 - `src/config/` -- types (structs), loader (find/load), tests (parsing, workspace, i18n)
 - `src/build/run/` -- mod (run_build entry), helpers, frontend, fullstack, rebuild, tests
-- `src/build/route/` -- mod (re-exports), types, helpers, process, manifest, tests
+- `src/build/route/` -- mod (re-exports), types, helpers, process, manifest, tests/ (mod + validation + ref_graph)
 - `src/dev/` -- mod (run_dev entry), process, network, ui, fullstack
 
 ## Conventions
@@ -53,8 +53,8 @@ cargo test -p seam-codegen
 ```
 
 - Skeleton pipeline tests (170) are in `seam-skeleton`
-- Codegen tests (45) are in `seam-codegen`
-- Build orchestration and config tests (103) remain in `seam-cli`
+- Codegen tests (82) are in `seam-codegen`
+- Build orchestration and config tests (140) remain in `seam-cli`
 
 ## Gotchas
 
