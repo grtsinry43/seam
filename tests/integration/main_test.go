@@ -115,7 +115,7 @@ func TestMain(m *testing.M) {
 	runBuild(goDir, "go build server-go", "go", "build", "-o", goBin, ".")
 
 	// Build TS packages for Node example
-	for _, pkg := range []string{"server/injector", "server/core/typescript", "server/adapter/bun", "server/adapter/node"} {
+	for _, pkg := range []string{"server/injector/js", "server/core/typescript", "server/adapter/bun", "server/adapter/node"} {
 		runBuild(root, "build "+pkg, "bun", "run", "--cwd", filepath.Join("src", pkg), "build")
 	}
 
