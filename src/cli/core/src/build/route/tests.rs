@@ -6,6 +6,7 @@ use super::helpers::path_to_filename;
 use super::manifest::{did_you_mean, extract_manifest_command, levenshtein};
 use super::ref_graph::{
   build_reference_graph, validate_handoff_consistency, validate_procedure_references,
+  warn_unused_queries,
 };
 use super::types::{RouteManifestEntry, SkeletonLayout, SkeletonOutput, SkeletonRoute};
 use seam_skeleton::extract_head_metadata;
@@ -82,6 +83,7 @@ fn make_manifest(names: &[&str]) -> seam_codegen::Manifest {
         invalidates: None,
         context: None,
         transport: None,
+        suppress: None,
       },
     );
   }
@@ -333,6 +335,7 @@ fn make_manifest_with_procedures(
         invalidates,
         context: None,
         transport: None,
+        suppress: None,
       },
     );
   }
@@ -621,4 +624,95 @@ fn validate_from_graph_fails() {
   assert!(msg.contains("unknown procedure reference"));
   assert!(msg.contains("\"getMissing\""));
   assert!(msg.contains("Route \"/\""));
+}
+
+// -- warn_unused_queries tests --
+
+fn make_manifest_typed(
+  entries: Vec<(&str, seam_codegen::ProcedureType, Option<Vec<String>>)>,
+) -> seam_codegen::Manifest {
+  use seam_codegen::ProcedureSchema;
+  let mut procedures = BTreeMap::new();
+  for (name, proc_type, suppress) in entries {
+    procedures.insert(
+      name.to_string(),
+      ProcedureSchema {
+        proc_type,
+        input: serde_json::Value::Null,
+        output: Some(serde_json::Value::Null),
+        chunk_output: None,
+        error: None,
+        invalidates: None,
+        context: None,
+        transport: None,
+        suppress,
+      },
+    );
+  }
+  seam_codegen::Manifest {
+    version: 2,
+    context: BTreeMap::new(),
+    procedures,
+    channels: BTreeMap::new(),
+    transport_defaults: BTreeMap::new(),
+  }
+}
+
+#[test]
+fn unused_query_detected() {
+  use seam_codegen::ProcedureType;
+  let manifest = make_manifest_typed(vec![("getArchive", ProcedureType::Query, None)]);
+  let skeleton = make_skeleton(vec![("/", serde_json::json!({}))], vec![]);
+  let graph = build_reference_graph(&manifest, &skeleton);
+  // Should warn but not panic
+  warn_unused_queries(&graph, &manifest);
+}
+
+#[test]
+fn used_query_not_warned() {
+  use seam_codegen::ProcedureType;
+  let manifest = make_manifest_typed(vec![("getHome", ProcedureType::Query, None)]);
+  let skeleton =
+    make_skeleton(vec![("/", serde_json::json!({ "page": { "procedure": "getHome" } }))], vec![]);
+  let graph = build_reference_graph(&manifest, &skeleton);
+  warn_unused_queries(&graph, &manifest);
+}
+
+#[test]
+fn command_not_warned() {
+  use seam_codegen::ProcedureType;
+  let manifest = make_manifest_typed(vec![("createUser", ProcedureType::Command, None)]);
+  let skeleton = make_skeleton(vec![("/", serde_json::json!({}))], vec![]);
+  let graph = build_reference_graph(&manifest, &skeleton);
+  warn_unused_queries(&graph, &manifest);
+}
+
+#[test]
+fn subscription_not_warned() {
+  use seam_codegen::ProcedureType;
+  let manifest = make_manifest_typed(vec![("onUpdate", ProcedureType::Subscription, None)]);
+  let skeleton = make_skeleton(vec![("/", serde_json::json!({}))], vec![]);
+  let graph = build_reference_graph(&manifest, &skeleton);
+  warn_unused_queries(&graph, &manifest);
+}
+
+#[test]
+fn suppressed_query_skipped() {
+  use seam_codegen::ProcedureType;
+  let manifest = make_manifest_typed(vec![(
+    "getArchive",
+    ProcedureType::Query,
+    Some(vec!["unused".to_string()]),
+  )]);
+  let skeleton = make_skeleton(vec![("/", serde_json::json!({}))], vec![]);
+  let graph = build_reference_graph(&manifest, &skeleton);
+  warn_unused_queries(&graph, &manifest);
+}
+
+#[test]
+fn empty_manifest_no_warn() {
+  let manifest = make_manifest_typed(vec![]);
+  let skeleton = make_skeleton(vec![("/", serde_json::json!({}))], vec![]);
+  let graph = build_reference_graph(&manifest, &skeleton);
+  warn_unused_queries(&graph, &manifest);
 }

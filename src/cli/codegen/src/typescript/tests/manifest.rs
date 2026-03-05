@@ -29,6 +29,7 @@ fn full_manifest_render() {
           invalidates: None,
           context: None,
           transport: None,
+          suppress: None,
         },
       );
       m
@@ -72,6 +73,7 @@ fn subscription_codegen() {
           invalidates: None,
           context: None,
           transport: None,
+          suppress: None,
         },
       );
       m
@@ -113,6 +115,7 @@ fn full_manifest_render_with_hashes() {
           invalidates: None,
           context: None,
           transport: None,
+          suppress: None,
         },
       );
       m
@@ -161,6 +164,7 @@ fn codegen_without_hashes_unchanged() {
           invalidates: None,
           context: None,
           transport: None,
+          suppress: None,
         },
       );
       m
@@ -198,6 +202,7 @@ fn subscription_codegen_with_hashes() {
           invalidates: None,
           context: None,
           transport: None,
+          suppress: None,
         },
       );
       m
@@ -282,6 +287,7 @@ fn command_codegen() {
           invalidates: None,
           context: None,
           transport: None,
+          suppress: None,
         },
       );
       m
@@ -321,6 +327,7 @@ fn error_schema_codegen() {
           invalidates: None,
           context: None,
           transport: None,
+          suppress: None,
         },
       );
       m
@@ -359,6 +366,7 @@ fn error_schema_absent_no_error_type() {
           invalidates: None,
           context: None,
           transport: None,
+          suppress: None,
         },
       );
       m
@@ -396,6 +404,7 @@ fn command_with_hashes() {
           invalidates: None,
           context: None,
           transport: None,
+          suppress: None,
         },
       );
       m
@@ -439,6 +448,7 @@ fn stream_codegen() {
           invalidates: None,
           context: None,
           transport: None,
+          suppress: None,
         },
       );
       m
@@ -483,6 +493,7 @@ fn stream_codegen_with_hashes() {
           invalidates: None,
           context: None,
           transport: None,
+          suppress: None,
         },
       );
       m
@@ -527,6 +538,7 @@ fn upload_codegen() {
           invalidates: None,
           context: None,
           transport: None,
+          suppress: None,
         },
       );
       m
@@ -567,6 +579,7 @@ fn invalidates_codegen() {
           invalidates: None,
           context: None,
           transport: None,
+          suppress: None,
         },
       );
       m.insert(
@@ -580,6 +593,7 @@ fn invalidates_codegen() {
           invalidates: None,
           context: None,
           transport: None,
+          suppress: None,
         },
       );
       m.insert(
@@ -596,6 +610,7 @@ fn invalidates_codegen() {
           ]),
           context: None,
           transport: None,
+          suppress: None,
         },
       );
       m
@@ -628,6 +643,7 @@ fn command_without_invalidates_no_field() {
           invalidates: None,
           context: None,
           transport: None,
+          suppress: None,
         },
       );
       m
@@ -663,6 +679,7 @@ fn invalidates_with_error_codegen() {
           invalidates: None,
           context: None,
           transport: None,
+          suppress: None,
         },
       );
       m.insert(
@@ -676,6 +693,7 @@ fn invalidates_with_error_codegen() {
           invalidates: Some(vec![InvalidateTarget { query: "getPost".to_string(), mapping: None }]),
           context: None,
           transport: None,
+          suppress: None,
         },
       );
       m

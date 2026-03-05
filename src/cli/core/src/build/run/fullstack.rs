@@ -10,7 +10,7 @@ use super::super::route::generate_types;
 use super::super::route::{
   BundleContext, RenderContext, build_reference_graph, package_static_assets, print_asset_files,
   print_procedure_breakdown, run_typecheck, validate_handoff_consistency, validate_invalidates,
-  validate_procedure_references,
+  validate_procedure_references, warn_unused_queries,
 };
 use super::super::types::{AssetFiles, read_bundle_manifest_extended};
 use super::helpers;
@@ -156,6 +156,7 @@ pub(super) fn run_fullstack_build(
   validate_procedure_references(&ref_graph)?;
   validate_invalidates(&manifest)?;
   validate_handoff_consistency(&ref_graph);
+  warn_unused_queries(&ref_graph, &manifest);
   tracker.end_with(t, &format!("{} routes", skeleton_output.routes.len()));
 
   // -- Processing routes + Exporting i18n --
@@ -277,6 +278,7 @@ pub fn run_dev_build(
   validate_procedure_references(&ref_graph)?;
   validate_invalidates(&manifest)?;
   validate_handoff_consistency(&ref_graph);
+  warn_unused_queries(&ref_graph, &manifest);
   tracker.end_with(t, &format!("{} routes", skeleton_output.routes.len()));
 
   // -- Processing routes + Exporting i18n --

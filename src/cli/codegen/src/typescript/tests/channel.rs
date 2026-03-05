@@ -27,6 +27,7 @@ fn channel_procedure_meta_uses_channel_types() {
           invalidates: None,
           context: None,
           transport: None,
+          suppress: None,
         },
       );
       m.insert(
@@ -45,6 +46,7 @@ fn channel_procedure_meta_uses_channel_types() {
           invalidates: None,
           context: None,
           transport: None,
+          suppress: None,
         },
       );
       m
@@ -115,6 +117,7 @@ fn transport_hint_codegen() {
           invalidates: None,
           context: None,
           transport: None,
+          suppress: None,
         },
       );
       m.insert(
@@ -133,6 +136,7 @@ fn transport_hint_codegen() {
           invalidates: None,
           context: None,
           transport: None,
+          suppress: None,
         },
       );
       m
@@ -211,6 +215,7 @@ fn dot_namespace_codegen() {
           invalidates: None,
           context: None,
           transport: None,
+          suppress: None,
         },
       );
       m.insert(
@@ -228,6 +233,7 @@ fn dot_namespace_codegen() {
           invalidates: None,
           context: None,
           transport: None,
+          suppress: None,
         },
       );
       m.insert(
@@ -245,6 +251,7 @@ fn dot_namespace_codegen() {
           invalidates: None,
           context: None,
           transport: None,
+          suppress: None,
         },
       );
       m
@@ -355,6 +362,7 @@ fn hint_with_procedure_override() {
             prefer: TransportPreference::Ws,
             fallback: Some(vec![TransportPreference::Sse]),
           }),
+          suppress: None,
         },
       );
       m
@@ -397,6 +405,7 @@ fn hint_channel_resolved_from_defaults() {
           invalidates: None,
           context: None,
           transport: None,
+          suppress: None,
         },
       );
       m.insert(
@@ -410,6 +419,7 @@ fn hint_channel_resolved_from_defaults() {
           invalidates: None,
           context: None,
           transport: None,
+          suppress: None,
         },
       );
       m
@@ -465,6 +475,7 @@ fn factory_backward_compat_no_transport() {
           invalidates: None,
           context: None,
           transport: None,
+          suppress: None,
         },
       );
       m

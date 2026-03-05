@@ -105,6 +105,8 @@ pub struct ProcedureSchema {
   pub context: Option<Vec<String>>,
   #[serde(default, skip_serializing_if = "Option::is_none")]
   pub transport: Option<TransportConfig>,
+  #[serde(default, skip_serializing_if = "Option::is_none")]
+  pub suppress: Option<Vec<String>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -192,6 +194,7 @@ mod tests {
       invalidates: None,
       context: None,
       transport: None,
+      suppress: None,
     };
     assert!(schema.effective_output().is_some());
     assert_eq!(schema.effective_output(), schema.chunk_output.as_ref());
@@ -208,6 +211,7 @@ mod tests {
       invalidates: None,
       context: None,
       transport: None,
+      suppress: None,
     };
     assert!(schema.effective_output().is_some());
     assert_eq!(schema.effective_output(), schema.output.as_ref());
@@ -244,6 +248,7 @@ mod tests {
           invalidates: None,
           context: None,
           transport: None,
+          suppress: None,
         },
       )]),
       channels: BTreeMap::new(),
@@ -343,6 +348,7 @@ mod tests {
           invalidates: None,
           context: Some(vec!["auth".to_string()]),
           transport: None,
+          suppress: None,
         },
       )]),
       channels: BTreeMap::new(),
@@ -367,6 +373,7 @@ mod tests {
           invalidates: None,
           context: Some(vec!["auth".to_string()]),
           transport: None,
+          suppress: None,
         },
       )]),
       channels: BTreeMap::new(),
@@ -389,6 +396,7 @@ mod tests {
       invalidates: None,
       context: Some(vec!["auth".to_string()]),
       transport: None,
+      suppress: None,
     };
     assert_eq!(schema.context.as_ref().unwrap(), &vec!["auth".to_string()]);
   }
@@ -451,6 +459,42 @@ mod tests {
     }"#;
     let m: Manifest = serde_json::from_str(json).unwrap();
     assert!(m.transport_defaults.is_empty());
+  }
+
+  #[test]
+  fn suppress_roundtrip() {
+    let schema = ProcedureSchema {
+      proc_type: ProcedureType::Query,
+      input: Value::Object(Default::default()),
+      output: Some(Value::Object(Default::default())),
+      chunk_output: None,
+      error: None,
+      invalidates: None,
+      context: None,
+      transport: None,
+      suppress: Some(vec!["unused".into()]),
+    };
+    let json = serde_json::to_string(&schema).unwrap();
+    assert!(json.contains(r#""suppress":["unused"]"#));
+    let deserialized: ProcedureSchema = serde_json::from_str(&json).unwrap();
+    assert_eq!(deserialized.suppress, Some(vec!["unused".to_string()]));
+  }
+
+  #[test]
+  fn suppress_omitted_when_none() {
+    let schema = ProcedureSchema {
+      proc_type: ProcedureType::Query,
+      input: Value::Object(Default::default()),
+      output: Some(Value::Object(Default::default())),
+      chunk_output: None,
+      error: None,
+      invalidates: None,
+      context: None,
+      transport: None,
+      suppress: None,
+    };
+    let json = serde_json::to_string(&schema).unwrap();
+    assert!(!json.contains("suppress"));
   }
 }
 

@@ -189,6 +189,28 @@ pub(crate) fn validate_handoff_consistency(graph: &ProcedureRefGraph) {
   }
 }
 
+/// Warn when a query procedure has no loader references and is not suppressed.
+pub(crate) fn warn_unused_queries(graph: &ProcedureRefGraph, manifest: &Manifest) {
+  for name in &graph.all_procedures {
+    if graph.consumers.contains_key(name) {
+      continue;
+    }
+    let Some(schema) = manifest.procedures.get(name) else { continue };
+    if schema.proc_type != seam_codegen::ProcedureType::Query {
+      continue;
+    }
+    if let Some(suppress) = &schema.suppress
+      && suppress.iter().any(|s| s == "unused")
+    {
+      continue;
+    }
+    ui::warn(&format!(
+      "query \"{name}\" is not referenced by any loader. \
+       If this is intentional, add `suppress: [\"unused\"]` to the procedure definition.",
+    ));
+  }
+}
+
 /// Inject sorted unique procedure names from the ref graph into route manifest entries.
 pub(crate) fn inject_route_procedures(
   route_manifest: &mut RouteManifest,

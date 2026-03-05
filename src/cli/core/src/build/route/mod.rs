@@ -25,6 +25,6 @@ pub(crate) use process::{
 };
 pub(crate) use ref_graph::{
   ProcedureRefGraph, build_reference_graph, inject_route_procedures, validate_handoff_consistency,
-  validate_procedure_references,
+  validate_procedure_references, warn_unused_queries,
 };
 pub(crate) use types::{CacheStats, RouteManifest, SkeletonOutput};

@@ -31,6 +31,7 @@ export interface ProcedureEntry {
   invalidates?: NormalizedInvalidateTarget[];
   context?: string[];
   transport?: { prefer: string; fallback?: string[] };
+  suppress?: string[];
 }
 
 export interface ProcedureManifest {
@@ -111,6 +112,9 @@ export function buildManifest(
     const defAny = def as Record<string, unknown>;
     if (defAny.transport) {
       entry.transport = defAny.transport as { prefer: string; fallback?: string[] };
+    }
+    if (defAny.suppress) {
+      entry.suppress = defAny.suppress as string[];
     }
     mapped[name] = entry;
   }

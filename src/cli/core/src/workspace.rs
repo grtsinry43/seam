@@ -13,7 +13,7 @@ use crate::build::route::{
   BundleContext, RenderContext, build_reference_graph, extract_manifest, extract_manifest_command,
   generate_types, inject_route_procedures, package_static_assets, print_asset_files,
   print_procedure_breakdown, process_routes, run_typecheck, validate_handoff_consistency,
-  validate_invalidates, validate_procedure_references,
+  validate_invalidates, validate_procedure_references, warn_unused_queries,
 };
 use crate::build::run::steps;
 use crate::config::{SeamConfig, resolve_member_config, validate_workspace};
@@ -198,6 +198,7 @@ fn build_reference_member(
   validate_procedure_references(&ref_graph)?;
   validate_invalidates(&manifest)?;
   validate_handoff_consistency(&ref_graph);
+  warn_unused_queries(&ref_graph, &manifest);
 
   let templates_dir = shared_out_dir.join("templates");
   std::fs::create_dir_all(&templates_dir)
@@ -342,6 +343,7 @@ mod tests {
           invalidates: None,
           context: None,
           transport: None,
+          suppress: None,
         },
       );
     }

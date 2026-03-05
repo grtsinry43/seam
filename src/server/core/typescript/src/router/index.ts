@@ -54,6 +54,7 @@ export interface ProcedureDef<TIn = unknown, TOut = unknown> {
   error?: SchemaNode;
   context?: string[];
   transport?: TransportConfig;
+  suppress?: string[];
   handler: (params: { input: TIn; ctx: Record<string, unknown> }) => TOut | Promise<TOut>;
 }
 
@@ -67,6 +68,7 @@ export interface CommandDef<TIn = unknown, TOut = unknown> {
   context?: string[];
   invalidates?: InvalidateTarget[];
   transport?: TransportConfig;
+  suppress?: string[];
   handler: (params: { input: TIn; ctx: Record<string, unknown> }) => TOut | Promise<TOut>;
 }
 
@@ -79,6 +81,7 @@ export interface SubscriptionDef<TIn = unknown, TOut = unknown> {
   error?: SchemaNode;
   context?: string[];
   transport?: TransportConfig;
+  suppress?: string[];
   handler: (params: { input: TIn; ctx: Record<string, unknown> }) => AsyncIterable<TOut>;
 }
 
@@ -89,6 +92,7 @@ export interface StreamDef<TIn = unknown, TChunk = unknown> {
   error?: SchemaNode;
   context?: string[];
   transport?: TransportConfig;
+  suppress?: string[];
   handler: (params: { input: TIn; ctx: Record<string, unknown> }) => AsyncGenerator<TChunk>;
 }
 
@@ -99,6 +103,7 @@ export interface UploadDef<TIn = unknown, TOut = unknown> {
   error?: SchemaNode;
   context?: string[];
   transport?: TransportConfig;
+  suppress?: string[];
   handler: (params: {
     input: TIn;
     file: SeamFileHandle;
