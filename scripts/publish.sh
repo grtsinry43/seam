@@ -307,8 +307,8 @@ patch_skipped_npm_deps() {
 
 # --- 2. Verify ---
 if ! $SKIP_VERIFY; then
-  info "Running verification (bun run verify)..."
-  if ! (cd "$ROOT" && bun run verify); then
+  info "Running verification (just verify)..."
+  if ! (cd "$ROOT" && bash scripts/verify-all.sh); then
     fail "Verification failed. Fix issues or use --skip-verify to bypass."
     exit 1
   fi

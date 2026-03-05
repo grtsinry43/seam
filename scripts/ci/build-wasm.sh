@@ -4,4 +4,5 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 
 printf '\n==> Build WASM packages\n'
-(cd "$ROOT" && bun run build:wasm)
+bash "$ROOT/src/server/injector/build-wasm.sh"
+bash "$ROOT/src/server/engine/build-wasm.sh"

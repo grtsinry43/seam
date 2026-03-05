@@ -17,8 +17,8 @@
 
 ## Version Control
 
-- Before every `git commit`, run `bun fmt && bun lint` and fix any errors first; for TS-only changes also run `bun run test:ts`, for Rust changes run `bun run test:rs`
-- For full verification (fmt + lint + build + all tests): `bun run verify`
+- Before every `git commit`, run `just fmt && just lint` and fix any errors first; for TS-only changes also run `just test-ts`, for Rust changes run `just test-rs`
+- For full verification (fmt + lint + build + all tests): `just verify`
 - Run `git commit` after each plan mode phase completes, do not push
 - Commit messages: conventional commit format (`feat:`, `fix:`, `refactor:`, `docs:`, `test:`, `chore:`, `deps:`, `revert:`, `perf:`); scope is optional and should only be added when it genuinely clarifies context — roughly 1 in 3 commits should have a scope (e.g. `feat(cli):` when the change is CLI-specific), the rest use bare prefix (e.g. `refactor: extract shared helpers`)
 - Commit messages must not mention version bumps (e.g. "bump 0.4.9") — version bumps are handled by `bump-version.sh` and staged into the last logical commit silently
@@ -27,7 +27,7 @@
 ## Versioning
 
 - Single source of truth: `Cargo.toml` workspace `version` field; all packages share one version
-- After completing a set of business-logic changes (e.g. a plan mode session), bump patch in the final commit: run `bash scripts/bump-version.sh x.y.(z+1)` then stage the version changes alongside the last logical commit — do not create a separate `chore: bump version` commit
+- After completing a set of business-logic changes (e.g. a plan mode session), bump patch in the final commit: run `just bump x.y.(z+1)` then stage the version changes alongside the last logical commit — do not create a separate `chore: bump version` commit
 - Only bump minor (`x.(y+1).0`, patch resets to 0) for breaking changes: architecture shifts, API incompatibilities, or removed functionality — this **requires explicit user confirmation** before proceeding
 - Chore-only changes (docs, CI, formatting, tooling) and test-only changes do not bump the version
 - Go modules are not yet covered by `bump-version.sh`; version managed separately via git tags when needed
@@ -69,8 +69,8 @@
 
 - Use `Bash` with `run_in_background: true` for long-running tasks (builds, full test suites)
 - Do not block the main terminal; continue other work while waiting
-- Full verification (`bun run verify`) procedure:
-  1. Start in background: `Bash(command: "bun run verify", run_in_background: true)` — note the returned `task_id`
+- Full verification (`just verify`) procedure:
+  1. Start in background: `Bash(command: "just verify", run_in_background: true)` — note the returned `task_id`
   2. Poll every 15s: `TaskOutput(task_id, block: false, timeout: 15000)` — compare output with previous poll to detect stalls (no new output for 30s+ = likely stuck)
   3. On completion the system auto-notifies; read final output and report the last 20 lines to the user
 - For persistent server processes (dev servers), use tmux: `tmux new-session -d -s <name> '<command>'`
@@ -106,22 +106,22 @@
 
 ## Running Tests
 
-| Command                    | Scope                                                            |
-| -------------------------- | ---------------------------------------------------------------- |
-| `bun run test:rs`          | Rust unit tests (`cargo test --workspace`)                       |
-| `bun run test:ts`          | TS unit tests (vitest across 11 packages)                        |
-| `bun run test:unit`        | All unit tests (Rust + TS)                                       |
-| `bun run test:integration` | Go integration tests (standalone + fullstack + i18n + workspace) |
-| `bun run test:e2e`         | Playwright E2E tests                                             |
-| `bun run test`             | All layers (unit + integration + e2e), fail-fast                 |
-| `bun run typecheck`        | TypeScript type checking across all TS packages                  |
-| `bun run verify`           | Full pipeline: fmt + lint + build + all tests                    |
+| Command              | Scope                                                            |
+| -------------------- | ---------------------------------------------------------------- |
+| `just test-rs`       | Rust unit tests (`cargo test --workspace`)                       |
+| `just test-ts`       | TS unit tests (vitest across all packages)                       |
+| `just test-unit`     | All unit tests (Rust + TS)                                       |
+| `just test-integration` | Go integration tests (standalone + fullstack + i18n + workspace) |
+| `just test-e2e`      | Playwright E2E tests                                             |
+| `just test`          | All layers (unit + integration + e2e), fail-fast                 |
+| `just typecheck`     | TypeScript type checking across all TS packages                  |
+| `just verify`        | Full pipeline: fmt + lint + build + all tests                    |
 
 - Integration and E2E tests require fullstack build output: `cd examples/github-dashboard/seam-app && seam build`
-- `scripts/smoke-fullstack.sh` runs the full build-and-test pipeline for integration + E2E
+- `just smoke` runs the full build-and-test pipeline for integration + E2E
 
 ## CLI Binary
 
 - Always use the locally compiled CLI from `target/release/seam`, never the system-installed binary
 - `cargo build -p seam-cli --release` builds it; Rust incremental caching makes no-op rebuilds fast
-- `scripts/verify-all.sh` and `scripts/smoke-fullstack.sh` already handle this automatically
+- `just verify` and `just smoke` already handle this automatically

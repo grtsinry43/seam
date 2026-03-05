@@ -82,7 +82,9 @@ cd "$ROOT" && bun install
 
 # 5. Format and lint
 echo "Running format and lint..."
-cd "$ROOT" && bun fmt && bun lint
+cd "$ROOT"
+chore . && oxfmt --write . && dprint fmt && cargo fmt --all && gofmt -w .
+oxlint && NODE_OPTIONS='--import tsx/esm' eslint . && cargo clippy --workspace --all-features --all-targets -- -D warnings
 
 # 6. Create version tag as baseline for selective publishing
 TAG="v$VERSION"

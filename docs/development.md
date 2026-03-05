@@ -5,6 +5,7 @@
 - [Bun](https://bun.sh/) — TypeScript build and test
 - [Cargo](https://www.rust-lang.org/tools/install) — Rust build and test
 - [Go](https://go.dev/) — integration tests
+- [just](https://github.com/casey/just) — task runner
 
 ## Setup
 
@@ -15,19 +16,20 @@ bun install
 ## Build
 
 ```bash
-bun run build:ts         # All TypeScript packages
-cargo build --workspace  # All Rust crates
+just build-ts   # All TypeScript packages
+just build-rs   # All Rust crates
+just build       # Both
 ```
 
 ## Test
 
-| Command                    | Scope                                                            |
-| -------------------------- | ---------------------------------------------------------------- |
-| `bun run test:rs`          | Rust unit tests (`cargo test --workspace`)                       |
-| `bun run test:ts`          | TS unit tests (vitest across all TS packages)                    |
-| `bun run test:unit`        | All unit tests (Rust + TypeScript)                               |
-| `bun run test:integration` | Go integration tests (standalone + fullstack + i18n + workspace) |
-| `bun run test:e2e`         | Playwright E2E tests                                             |
-| `bun run test`             | All layers (unit + integration + e2e)                            |
-| `bun run typecheck`        | TypeScript type checking across all packages                     |
-| `bun run verify`           | Full pipeline: format + lint + build + all tests                 |
+| Command                 | Scope                                                            |
+| ----------------------- | ---------------------------------------------------------------- |
+| `just test-rs`          | Rust unit tests (`cargo test --workspace`)                       |
+| `just test-ts`          | TS unit tests (vitest across all TS packages)                    |
+| `just test-unit`        | All unit tests (Rust + TypeScript)                               |
+| `just test-integration` | Go integration tests (standalone + fullstack + i18n + workspace) |
+| `just test-e2e`         | Playwright E2E tests                                             |
+| `just test`             | All layers (unit + integration + e2e)                            |
+| `just typecheck`        | TypeScript type checking across all packages                     |
+| `just verify`           | Full pipeline: format + lint + build + all tests                 |

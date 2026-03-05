@@ -4,4 +4,8 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 
 printf '\n==> Format check (oxfmt + dprint + cargo fmt + gofmt)\n'
-(cd "$ROOT" && bun run fmt:check)
+cd "$ROOT"
+oxfmt --check .
+dprint check
+cargo fmt --all -- --check
+test -z "$(gofmt -l .)"
