@@ -25,7 +25,7 @@ export function invalidateFromConfig(
   if (!config?.invalidates) return;
   for (const target of config.invalidates) {
     if (!target.mapping) {
-      queryClient.invalidateQueries({ queryKey: [target.query] });
+      void queryClient.invalidateQueries({ queryKey: [target.query] });
     } else {
       // Check for each mappings - invalidate per item
       const hasEach = Object.values(target.mapping).some((v) => v.each);
@@ -33,7 +33,7 @@ export function invalidateFromConfig(
         invalidateEachMapping(queryClient, target, input);
       } else {
         const targetInput = buildMappedInput(target.mapping, input);
-        queryClient.invalidateQueries({ queryKey: [target.query, targetInput] });
+        void queryClient.invalidateQueries({ queryKey: [target.query, targetInput] });
       }
     }
   }
@@ -46,22 +46,21 @@ function invalidateEachMapping(
   input: unknown,
 ): void {
   const src = (input && typeof input === "object" ? input : {}) as Record<string, unknown>;
-  const mapping = target.mapping!;
+  const mapping = target.mapping;
+  if (!mapping) return;
 
-  // Find the each field and its source array
-  for (const [targetKey, config] of Object.entries(mapping)) {
-    if (!config.each) continue;
-    const arr = src[config.from];
+  for (const [targetKey, cfg] of Object.entries(mapping)) {
+    if (!cfg.each) continue;
+    const arr = src[cfg.from];
     if (!Array.isArray(arr)) continue;
-    for (const item of arr) {
+    for (const item of arr as unknown[]) {
       const targetInput: Record<string, unknown> = { [targetKey]: item };
-      // Fill non-each fields
       for (const [k, v] of Object.entries(mapping)) {
         if (!v.each) {
           targetInput[k] = src[v.from];
         }
       }
-      queryClient.invalidateQueries({ queryKey: [target.query, targetInput] });
+      void queryClient.invalidateQueries({ queryKey: [target.query, targetInput] });
     }
   }
 }

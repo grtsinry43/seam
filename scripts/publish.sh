@@ -445,6 +445,7 @@ if ! $RUST_ONLY && ! $GO_ONLY; then
   NPM_LAYER_2=(
     "src/server/core/typescript:@canmi/seam-server"
     "src/client/react:@canmi/seam-react"
+    "src/query/react:@canmi/seam-query-react"
   )
   NPM_LAYER_3=(
     "src/server/adapter/hono:@canmi/seam-adapter-hono"

@@ -21,6 +21,7 @@ packages=(
   src/eslint
   src/i18n
   src/query/seam
+  src/query/react
 )
 
 failed=()
