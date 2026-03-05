@@ -98,8 +98,6 @@ lint-fix:
     {{pm}} run lint:ox:fix
     {{pm}} run lint:eslint:fix
 
-# === Build ===
-
 # Build TS + Rust
 build: build-ts build-rs
 
@@ -310,6 +308,44 @@ push:
     else
       echo "No new tags to push."
     fi
+
+# Install dependencies + local CLI binary
+inst:
+    {{pm}} install
+    cargo install --path src/cli/core
+
+# Remove all build artifacts, caches, and dependencies
+clean: clean-rust clean-ts clean-wasm clean-seam clean-go clean-test clean-deps
+
+# Remove Rust build artifacts (target/)
+clean-rust:
+    cargo clean
+
+# Remove TS build output (dist/ across all packages)
+clean-ts:
+    find . -type d -name dist -not -path '*/node_modules/*' -not -path '*/target/*' -not -path '*/.seam/*' -not -path '*/.git/*' -exec rm -rf {} +
+
+# Remove WASM build output (pkg/ dirs, not Go committed .wasm files)
+clean-wasm:
+    rm -rf src/server/engine/wasm/pkg src/server/injector/wasm/pkg
+    rm -rf src/server/engine/js/pkg src/server/injector/js/pkg
+
+# Remove seam build output (.seam/ dirs in examples and tests)
+clean-seam:
+    find examples tests -type d -name .seam -exec rm -rf {} +
+
+# Remove Go compiled binaries and test cache
+clean-go:
+    rm -f examples/github-dashboard/backends/go-gin/server
+    go clean -testcache
+
+# Remove test artifacts (Playwright results)
+clean-test:
+    rm -rf tests/e2e/test-results tests/e2e/playwright-report
+
+# Remove all node_modules (requires bun install to restore)
+clean-deps:
+    find . -type d -name node_modules -not -path '*/node_modules/*' -exec rm -rf {} +
 
 # Lines of code statistics
 scol:
