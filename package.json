@@ -39,11 +39,11 @@
   ],
   "type": "module",
   "scripts": {
-    "build:ts:p1": "bun run --filter '@canmi/seam-injector' build && bun run --filter '@canmi/seam-injector-native' build && bun run --filter '@canmi/seam-engine' build && bun run --filter '@canmi/seam-client' build && bun run --filter '@canmi/seam-vite' build && bun run --filter '@canmi/seam-i18n' build && bun run --filter '@canmi/seam-router' build && bun run --filter '@canmi/seam-query' build",
-    "build:ts:p2": "bun run --filter '@canmi/seam-server' build && bun run --filter '@canmi/seam-react' build && bun run --filter '@canmi/seam-query-react' build",
-    "build:ts:p3": "bun run --filter '@canmi/seam-adapter-hono' build && bun run --filter '@canmi/seam-adapter-bun' build && bun run --filter '@canmi/seam-adapter-node' build && bun run --filter '@canmi/seam-tanstack-router' build",
-    "build:ts": "bun run build:ts:p1 && bun run build:ts:p2 && bun run build:ts:p3",
-    "test:ts": "bun run --filter '@canmi/seam-injector' test && bun run --filter '@canmi/seam-server' test && bun run --filter '@canmi/seam-injector-native' test && bun run --filter '@canmi/seam-engine' test && bun run --filter '@canmi/seam-adapter-hono' test && bun run --filter '@canmi/seam-adapter-bun' test && bun run --filter '@canmi/seam-adapter-node' test && bun run --filter '@canmi/seam-client' test && bun run --filter '@canmi/seam-react' test && bun run --filter '@canmi/seam-tanstack-router' test && bun run --filter '@canmi/seam-router' test && bun run --filter '@canmi/eslint-plugin-seam' test && bun run --filter '@canmi/seam-i18n' test && bun run --filter '@canmi/seam-vite' test && bun run --filter '@canmi/seam-query' test && bun run --filter '@canmi/seam-query-react' test"
+    "build:ts:p1": "just build-ts-p1",
+    "build:ts:p2": "just build-ts-p2",
+    "build:ts:p3": "just build-ts-p3",
+    "build:ts": "just build-ts",
+    "test:ts": "just test-ts"
   },
   "devDependencies": {
     "dprint": "^0.52.0",
