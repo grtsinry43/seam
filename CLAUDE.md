@@ -77,6 +77,9 @@
 
 ## Refactoring
 
+- File splitting (triggered by length or lint warnings) must be behavior-preserving — no functional changes allowed in the same commit. Typical techniques:
+  1. Convert the file into a directory and nest sub-modules inside it
+  2. Extract shared logic into a common helper and reuse it across functions
 - Rust file split: convert `foo.rs` to `foo/mod.rs` + sub-modules; inner functions become `pub(super)`, only entry-point stays `pub`
 - Verify `cargo test --workspace && cargo clippy --workspace` after every Rust structural change
 - TS dedup: add shared functions to `@canmi/seam-server`, update adapters to import; node adapter keeps its own `sendResponse` (Node streams differ from Web Response)
