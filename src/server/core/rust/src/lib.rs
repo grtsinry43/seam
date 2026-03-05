@@ -3,6 +3,7 @@
 
 pub mod build_loader;
 pub mod channel;
+pub mod context;
 pub mod errors;
 pub mod escape;
 pub mod manifest;
@@ -14,6 +15,10 @@ pub mod server;
 // Re-exports for ergonomic use
 pub use build_loader::{RpcHashMap, load_build_output, load_i18n_config, load_rpc_hash_map};
 pub use channel::{ChannelDef, ChannelMeta, IncomingDef, IncomingMeta};
+pub use context::{
+  ContextConfig, ContextFieldDef, RawContextMap, context_extract_keys, context_keys_from_schema,
+  resolve_context,
+};
 pub use errors::SeamError;
 pub use escape::ascii_escape_json;
 pub use page::I18nConfig;

@@ -16,6 +16,7 @@ fn default_status(code: &str) -> u16 {
     "FORBIDDEN" => 403,
     "NOT_FOUND" => 404,
     "RATE_LIMITED" => 429,
+    "CONTEXT_ERROR" => 400,
     "INTERNAL_ERROR" => 500,
     _ => 500,
   }
@@ -56,6 +57,10 @@ impl SeamError {
     Self::with_code("RATE_LIMITED", msg)
   }
 
+  pub fn context_error(msg: impl Into<String>) -> Self {
+    Self::with_code("CONTEXT_ERROR", msg)
+  }
+
   pub fn code(&self) -> &str {
     &self.code
   }
@@ -88,6 +93,7 @@ mod tests {
     assert_eq!(default_status("FORBIDDEN"), 403);
     assert_eq!(default_status("NOT_FOUND"), 404);
     assert_eq!(default_status("RATE_LIMITED"), 429);
+    assert_eq!(default_status("CONTEXT_ERROR"), 400);
     assert_eq!(default_status("INTERNAL_ERROR"), 500);
   }
 
@@ -118,6 +124,7 @@ mod tests {
     assert_eq!(SeamError::unauthorized("x").status(), 401);
     assert_eq!(SeamError::forbidden("x").status(), 403);
     assert_eq!(SeamError::rate_limited("x").status(), 429);
+    assert_eq!(SeamError::context_error("x").status(), 400);
   }
 
   #[test]

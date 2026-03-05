@@ -28,6 +28,7 @@ impl IntoAxumRouter for SeamServer {
       &parts.procedures,
       &parts.subscriptions,
       parts.channel_metas,
+      &parts.context_config,
     ))
     .expect("manifest serialization");
     let handlers = parts.procedures.into_iter().map(|p| (p.name.clone(), Arc::new(p))).collect();
@@ -41,6 +42,7 @@ impl IntoAxumRouter for SeamServer {
       parts.rpc_hash_map,
       parts.i18n_config,
       parts.strategies,
+      parts.context_config,
     )
   }
 
@@ -73,7 +75,8 @@ mod tests {
       input_schema: serde_json::json!({"properties": {"name": {"type": "string"}}}),
       output_schema: serde_json::json!({"properties": {"message": {"type": "string"}}}),
       error_schema: None,
-      handler: Arc::new(|input| {
+      context_keys: vec![],
+      handler: Arc::new(|input, _ctx| {
         Box::pin(async move {
           let name = input.get("name").and_then(|v| v.as_str()).unwrap_or("World");
           Ok(serde_json::json!({"message": format!("Hello, {}!", name)}))
@@ -86,7 +89,10 @@ mod tests {
       input_schema: serde_json::json!({"properties": {"name": {"type": "string"}}}),
       output_schema: serde_json::json!({"properties": {"ok": {"type": "boolean"}}}),
       error_schema: None,
-      handler: Arc::new(|_input| Box::pin(async move { Ok(serde_json::json!({"ok": true})) })),
+      context_keys: vec![],
+      handler: Arc::new(|_input, _ctx| {
+        Box::pin(async move { Ok(serde_json::json!({"ok": true})) })
+      }),
     });
     server.into_axum_router()
   }

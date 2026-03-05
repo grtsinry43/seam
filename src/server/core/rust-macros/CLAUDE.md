@@ -6,8 +6,8 @@ Proc-macro crate providing derive and attribute macros for Seam server definitio
 
 - Three macros exposed from `lib.rs`:
   - `#[derive(SeamType)]` -- generates `SeamType` trait impl with JTD schema for structs (named fields) and enums (unit variants only)
-  - `#[seam_procedure]` -- wraps an async function into a `ProcedureDef` factory; optional `name = "..."` attribute overrides the procedure name
-  - `#[seam_subscription]` -- wraps an async function into a `SubscriptionDef` factory; same `name` attribute support
+  - `#[seam_procedure]` -- wraps an async function into a `ProcedureDef` factory; attributes: `name = "..."`, `error = ErrorType`, `context = CtxType`
+  - `#[seam_subscription]` -- wraps an async function into a `SubscriptionDef` factory; attributes: `name = "..."`, `context = CtxType`
 - Each macro delegates to an `expand()` function in its own module
 - Generated code references `seam_server::` types (`ProcedureDef`, `SubscriptionDef`, `SeamType`, `SeamError`)
 
@@ -31,7 +31,8 @@ cargo test --workspace
 
 ## Gotchas
 
-- `seam_procedure` expects exactly one input parameter (the deserialized input value) and a `Result<T, SeamError>` return type; it extracts `T` as the output schema type
+- `seam_procedure` expects one input parameter (or two with `context = CtxType`: input + ctx) and a `Result<T, SeamError>` return type; it extracts `T` as the output schema type
+- `context = CtxType` attribute generates a two-parameter handler; the context type must implement `SeamType` + `Deserialize`; its JTD schema `properties` keys become `context_keys`
 - `seam_subscription` digs three levels deep into generics to extract the output type from `Result<BoxStream<Result<T, SeamError>>, SeamError>`
 - `SeamType` derive only supports structs with named fields and enums with unit variants -- tuple structs and enums with data will fail at compile time
 - `Option<T>` fields are emitted as `properties` with `nullable: true` (required but nullable, per JTD spec)

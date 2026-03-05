@@ -54,6 +54,7 @@ impl ChannelDef {
         input_schema: merged_input,
         output_schema: msg_def.output_schema.clone(),
         error_schema: msg_def.error_schema.clone(),
+        context_keys: vec![],
         handler: msg_def.handler,
       });
 
@@ -88,6 +89,7 @@ impl ChannelDef {
       input_schema: self.input_schema.clone(),
       output_schema: union_schema,
       error_schema: None,
+      context_keys: vec![],
       handler: self.subscribe_handler,
     }];
 
@@ -144,7 +146,7 @@ mod tests {
   use crate::procedure::BoxStream;
 
   fn dummy_handler() -> HandlerFn {
-    Arc::new(|_| Box::pin(async { Ok(serde_json::json!({})) }))
+    Arc::new(|_, _| Box::pin(async { Ok(serde_json::json!({})) }))
   }
 
   struct EmptyStream;
@@ -160,7 +162,7 @@ mod tests {
   }
 
   fn dummy_sub_handler() -> SubscriptionHandlerFn {
-    Arc::new(|_| {
+    Arc::new(|_, _| {
       Box::pin(async {
         let stream: BoxStream<Result<serde_json::Value, crate::errors::SeamError>> =
           Box::pin(EmptyStream);

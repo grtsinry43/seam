@@ -7,7 +7,6 @@ use axum::extract::{MatchedPath, Path, State};
 use axum::response::Html;
 use seam_server::SeamError;
 use seam_server::page::PageDef;
-use seam_server::procedure::ProcedureDef;
 use tokio::task::JoinSet;
 
 use super::{AppState, lookup_i18n_messages};
@@ -47,9 +46,10 @@ fn resolve_locale(
 
 /// Run page loaders concurrently and collect keyed results.
 async fn run_loaders(
-  handlers: &HashMap<String, Arc<ProcedureDef>>,
+  state: &AppState,
   page: &PageDef,
   params: &HashMap<String, String>,
+  headers: &axum::http::HeaderMap,
 ) -> Result<serde_json::Map<String, serde_json::Value>, SeamError> {
   let mut join_set = JoinSet::new();
 
@@ -57,13 +57,15 @@ async fn run_loaders(
     let input = (loader.input_fn)(params);
     let proc_name = loader.procedure.clone();
     let data_key = loader.data_key.clone();
-    let handlers = handlers.clone();
+    let handlers = state.handlers.clone();
+    let proc = handlers
+      .get(&proc_name)
+      .ok_or_else(|| SeamError::internal(format!("Procedure '{proc_name}' not found")))?
+      .clone();
+    let ctx = super::resolve_ctx_for_proc(state, &proc.context_keys, headers)?;
 
     join_set.spawn(async move {
-      let proc = handlers
-        .get(&proc_name)
-        .ok_or_else(|| SeamError::internal(format!("Procedure '{proc_name}' not found")))?;
-      let result = (proc.handler)(input).await?;
+      let result = (proc.handler)(input, ctx).await?;
       Ok::<(String, serde_json::Value), SeamError>((data_key, result))
     });
   }
@@ -173,7 +175,7 @@ pub(super) async fn handle_page(
     &page.template
   };
 
-  let data = run_loaders(&state.handlers, page, &params).await?;
+  let data = run_loaders(&state, page, &params, &headers).await?;
 
   // Flatten keyed loader results for slot resolution: spread nested object
   // values to the top level so slots like <!--seam:tagline--> can resolve from

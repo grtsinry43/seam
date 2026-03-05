@@ -4,6 +4,7 @@ use std::collections::BTreeMap;
 
 use crate::build_loader::RpcHashMap;
 use crate::channel::{ChannelDef, ChannelMeta};
+use crate::context::{ContextConfig, ContextFieldDef};
 use crate::page::{I18nConfig, PageDef};
 use crate::procedure::{ProcedureDef, SubscriptionDef};
 use crate::resolve::ResolveStrategy;
@@ -18,6 +19,7 @@ pub struct SeamParts {
   pub i18n_config: Option<I18nConfig>,
   pub strategies: Vec<Box<dyn ResolveStrategy>>,
   pub channel_metas: BTreeMap<String, ChannelMeta>,
+  pub context_config: ContextConfig,
 }
 
 impl SeamParts {
@@ -34,6 +36,7 @@ pub struct SeamServer {
   rpc_hash_map: Option<RpcHashMap>,
   i18n_config: Option<I18nConfig>,
   strategies: Vec<Box<dyn ResolveStrategy>>,
+  context_config: ContextConfig,
 }
 
 impl SeamServer {
@@ -46,6 +49,7 @@ impl SeamServer {
       rpc_hash_map: None,
       i18n_config: None,
       strategies: Vec::new(),
+      context_config: ContextConfig::new(),
     }
   }
 
@@ -84,6 +88,11 @@ impl SeamServer {
     self
   }
 
+  pub fn context(mut self, key: &str, field: ContextFieldDef) -> Self {
+    self.context_config.insert(key.to_string(), field);
+    self
+  }
+
   /// Consume the builder, returning framework-agnostic parts for an adapter.
   /// Channels are expanded into their Level 0 primitives (commands + subscriptions).
   pub fn into_parts(self) -> SeamParts {
@@ -107,6 +116,7 @@ impl SeamServer {
       i18n_config: self.i18n_config,
       strategies: self.strategies,
       channel_metas,
+      context_config: self.context_config,
     }
   }
 }

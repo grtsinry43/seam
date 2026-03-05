@@ -5,9 +5,10 @@ use std::sync::Arc;
 use axum::extract::{Path, State};
 use axum::response::{IntoResponse, Response};
 use seam_server::SeamError;
+use seam_server::context::resolve_context;
 use tokio::task::JoinSet;
 
-use super::AppState;
+use super::{AppState, extract_raw_context, resolve_ctx_for_proc};
 use crate::error::AxumError;
 
 pub(super) async fn handle_manifest(
@@ -22,11 +23,12 @@ pub(super) async fn handle_manifest(
 pub(super) async fn handle_rpc(
   State(state): State<Arc<AppState>>,
   Path(name): Path<String>,
+  headers: axum::http::HeaderMap,
   body: axum::body::Bytes,
 ) -> Result<Response, AxumError> {
   // Batch: match both original "_batch" and hashed batch endpoint
   if name == "_batch" || state.batch_hash.as_deref() == Some(&name) {
-    return handle_batch(State(state), body).await;
+    return handle_batch(State(state), headers, body).await;
   }
 
   // Resolve hash -> original name when obfuscation is active
@@ -44,7 +46,8 @@ pub(super) async fn handle_rpc(
   let input: serde_json::Value =
     serde_json::from_slice(&body).map_err(|e| SeamError::validation(e.to_string()))?;
 
-  let result = (proc.handler)(input).await?;
+  let ctx = resolve_ctx_for_proc(&state, &proc.context_keys, &headers)?;
+  let result = (proc.handler)(input, ctx).await?;
   Ok(axum::Json(serde_json::json!({"ok": true, "data": result})).into_response())
 }
 
@@ -76,14 +79,19 @@ struct BatchError {
 
 async fn handle_batch(
   State(state): State<Arc<AppState>>,
+  headers: axum::http::HeaderMap,
   body: axum::body::Bytes,
 ) -> Result<Response, AxumError> {
   let batch: BatchRequest = serde_json::from_slice(&body)
     .map_err(|_| SeamError::validation("Batch request must have a 'calls' array"))?;
 
+  // Extract raw context once for all calls
+  let raw_ctx = Arc::new(extract_raw_context(&headers, &state.context_extract_keys));
+
   let mut join_set = JoinSet::new();
   for (idx, call) in batch.calls.into_iter().enumerate() {
     let state = state.clone();
+    let raw_ctx = raw_ctx.clone();
     join_set.spawn(async move {
       // Resolve hash -> original name
       let proc_name = if let Some(ref map) = state.rpc_hash_map {
@@ -93,17 +101,35 @@ async fn handle_batch(
       };
 
       let result = match state.handlers.get(&proc_name) {
-        Some(proc) => match (proc.handler)(call.input).await {
-          Ok(data) => BatchResultItem::Ok { ok: true, data },
-          Err(e) => BatchResultItem::Err {
-            ok: false,
-            error: BatchError {
-              code: e.code().to_string(),
-              message: e.message().to_string(),
-              transient: false,
+        Some(proc) => {
+          let ctx = match resolve_context(&state.context_config, &raw_ctx, &proc.context_keys) {
+            Ok(c) => c,
+            Err(e) => {
+              return (
+                idx,
+                BatchResultItem::Err {
+                  ok: false,
+                  error: BatchError {
+                    code: e.code().to_string(),
+                    message: e.message().to_string(),
+                    transient: false,
+                  },
+                },
+              );
+            }
+          };
+          match (proc.handler)(call.input, ctx).await {
+            Ok(data) => BatchResultItem::Ok { ok: true, data },
+            Err(e) => BatchResultItem::Err {
+              ok: false,
+              error: BatchError {
+                code: e.code().to_string(),
+                message: e.message().to_string(),
+                transient: false,
+              },
             },
-          },
-        },
+          }
+        }
         None => BatchResultItem::Err {
           ok: false,
           error: BatchError {

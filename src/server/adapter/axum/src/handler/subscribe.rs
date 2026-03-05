@@ -12,8 +12,8 @@ use futures_core::Stream;
 use seam_server::SeamError;
 use tokio_stream::StreamExt;
 
-use super::AppState;
 use super::channel::handle_channel_ws;
+use super::{AppState, resolve_ctx_for_proc};
 
 #[derive(serde::Deserialize)]
 pub(super) struct SubscribeQuery {
@@ -26,6 +26,8 @@ pub(super) async fn handle_subscribe(
   Query(query): Query<SubscribeQuery>,
   req: axum::extract::Request,
 ) -> Response {
+  let headers = req.headers().clone();
+
   // WebSocket upgrade: extract from request parts if Upgrade header present
   if req
     .headers()
@@ -57,13 +59,13 @@ pub(super) async fn handle_subscribe(
       };
 
       return ws
-        .on_upgrade(move |socket| handle_channel_ws(state, sub_name, raw_input, socket))
+        .on_upgrade(move |socket| handle_channel_ws(state, sub_name, raw_input, headers, socket))
         .into_response();
     }
   }
 
   // SSE fallback path
-  let sse_response = handle_subscribe_sse(state, name, query).await;
+  let sse_response = handle_subscribe_sse(state, name, query, &headers).await;
   sse_response.into_response()
 }
 
@@ -71,6 +73,7 @@ async fn handle_subscribe_sse(
   state: Arc<AppState>,
   name: String,
   query: SubscribeQuery,
+  headers: &axum::http::HeaderMap,
 ) -> Sse<Pin<Box<dyn Stream<Item = Result<Event, Infallible>> + Send>>> {
   let setup = async {
     // Resolve hash -> original name for subscriptions
@@ -90,7 +93,8 @@ async fn handle_subscribe_sse(
       None => serde_json::Value::Object(serde_json::Map::new()),
     };
 
-    let data_stream = (sub.handler)(raw_input).await?;
+    let ctx = resolve_ctx_for_proc(&state, &sub.context_keys, headers)?;
+    let data_stream = (sub.handler)(raw_input, ctx).await?;
     Ok::<_, SeamError>(data_stream)
   };
 

@@ -11,6 +11,8 @@ use std::sync::Arc;
 use axum::Router;
 use axum::routing::{get, post};
 use seam_server::RpcHashMap;
+use seam_server::SeamError;
+use seam_server::context::{ContextConfig, RawContextMap, context_extract_keys, resolve_context};
 use seam_server::page::PageDef;
 use seam_server::procedure::{ProcedureDef, ProcedureType, SubscriptionDef};
 use seam_server::resolve::ResolveStrategy;
@@ -25,8 +27,37 @@ pub(crate) struct AppState {
   pub i18n_config: Option<seam_server::I18nConfig>,
   pub locale_set: Option<std::collections::HashSet<String>>,
   pub strategies: Vec<Box<dyn ResolveStrategy>>,
+  pub context_config: ContextConfig,
+  pub context_extract_keys: Vec<String>,
 }
 
+/// Extract raw context values from HTTP headers.
+pub(super) fn extract_raw_context(
+  headers: &axum::http::HeaderMap,
+  keys: &[String],
+) -> RawContextMap {
+  let mut raw = RawContextMap::new();
+  for key in keys {
+    let value = headers.get(key.as_str()).and_then(|v| v.to_str().ok()).map(String::from);
+    raw.insert(key.clone(), value);
+  }
+  raw
+}
+
+/// Resolve context for a specific procedure given its context_keys.
+pub(super) fn resolve_ctx_for_proc(
+  state: &AppState,
+  context_keys: &[String],
+  headers: &axum::http::HeaderMap,
+) -> Result<serde_json::Value, SeamError> {
+  if context_keys.is_empty() {
+    return Ok(serde_json::Value::Object(serde_json::Map::new()));
+  }
+  let raw = extract_raw_context(headers, &state.context_extract_keys);
+  resolve_context(&state.context_config, &raw, context_keys)
+}
+
+#[allow(clippy::too_many_arguments)]
 pub(crate) fn build_router(
   manifest_json: serde_json::Value,
   mut handlers: HashMap<String, Arc<ProcedureDef>>,
@@ -35,6 +66,7 @@ pub(crate) fn build_router(
   hash_map: Option<RpcHashMap>,
   i18n_config: Option<seam_server::I18nConfig>,
   strategies: Vec<Box<dyn ResolveStrategy>>,
+  context_config: ContextConfig,
 ) -> Router {
   let (rpc_hash_map, batch_hash) = match hash_map {
     Some(m) => {
@@ -56,6 +88,8 @@ pub(crate) fn build_router(
 
   let has_url_prefix = strategies.iter().any(|s| s.kind() == "url_prefix");
 
+  let ctx_extract_keys = context_extract_keys(&context_config);
+
   // Register built-in __seam_i18n_query procedure (route-hash-based lookup)
   if let Some(ref i18n) = i18n_config {
     let i18n_clone = i18n.clone();
@@ -67,7 +101,8 @@ pub(crate) fn build_router(
         input_schema: serde_json::json!({}),
         output_schema: serde_json::json!({}),
         error_schema: None,
-        handler: Arc::new(move |input: serde_json::Value| {
+        context_keys: vec![],
+        handler: Arc::new(move |input: serde_json::Value, _ctx: serde_json::Value| {
           let i18n = i18n_clone.clone();
           Box::pin(async move {
             let route_hash = input.get("route").and_then(|v| v.as_str()).unwrap_or("").to_string();
@@ -95,10 +130,6 @@ pub(crate) fn build_router(
     .route("/_seam/procedure/{name}", post(rpc::handle_rpc).get(subscribe::handle_subscribe));
 
   // Pages are served under /_seam/page/* prefix only.
-  // Root-path page serving (e.g. "/" or "/dashboard/:id") is the application's
-  // responsibility — use Router::fallback to forward unmatched GET requests
-  // to /_seam/page/* via tower::ServiceExt::oneshot. See the github-dashboard
-  // rust-axum example for the pattern.
   for page in pages {
     let full_route = format!("/_seam/page{}", page.route);
     let page_arc = Arc::new(page);
@@ -123,6 +154,8 @@ pub(crate) fn build_router(
     i18n_config,
     locale_set,
     strategies,
+    context_config,
+    context_extract_keys: ctx_extract_keys,
   });
 
   router.with_state(state)

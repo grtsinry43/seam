@@ -8,12 +8,14 @@ use syn::{FnArg, ItemFn, LitStr, Pat, ReturnType, Token, Type};
 pub(crate) struct ProcedureAttr {
   pub name: Option<String>,
   pub error: Option<syn::Path>,
+  pub context: Option<syn::Path>,
 }
 
 impl Parse for ProcedureAttr {
   fn parse(input: ParseStream) -> syn::Result<Self> {
     let mut name = None;
     let mut error = None;
+    let mut context = None;
 
     while !input.is_empty() {
       let ident: syn::Ident = input.parse()?;
@@ -24,14 +26,17 @@ impl Parse for ProcedureAttr {
       } else if ident == "error" {
         input.parse::<Token![=]>()?;
         error = Some(input.parse::<syn::Path>()?);
+      } else if ident == "context" {
+        input.parse::<Token![=]>()?;
+        context = Some(input.parse::<syn::Path>()?);
       } else {
-        return Err(syn::Error::new_spanned(ident, "expected `name` or `error`"));
+        return Err(syn::Error::new_spanned(ident, "expected `name`, `error`, or `context`"));
       }
       // consume optional trailing comma
       let _ = input.parse::<Token![,]>();
     }
 
-    Ok(ProcedureAttr { name, error })
+    Ok(ProcedureAttr { name, error, context })
   }
 }
 
@@ -59,16 +64,43 @@ pub(crate) fn expand_with_type(
     None => quote! { None },
   };
 
-  let handler_body = quote! {
-    std::sync::Arc::new(|value: serde_json::Value| {
-      Box::pin(async move {
-        let input: #input_type = serde_json::from_value(value)
-          .map_err(|e| seam_server::SeamError::validation(e.to_string()))?;
-        let output = #fn_name(input).await?;
-        serde_json::to_value(output)
-          .map_err(|e| seam_server::SeamError::internal(e.to_string()))
-      })
-    })
+  let (handler_body, context_keys_expr) = match attr.context {
+    Some(ctx_path) => {
+      let handler = quote! {
+        std::sync::Arc::new(|value: serde_json::Value, ctx_value: serde_json::Value| {
+          Box::pin(async move {
+            let input: #input_type = serde_json::from_value(value)
+              .map_err(|e| seam_server::SeamError::validation(e.to_string()))?;
+            let ctx: #ctx_path = serde_json::from_value(ctx_value)
+              .map_err(|e| seam_server::SeamError::context_error(e.to_string()))?;
+            let output = #fn_name(input, ctx).await?;
+            serde_json::to_value(output)
+              .map_err(|e| seam_server::SeamError::internal(e.to_string()))
+          })
+        })
+      };
+      let keys = quote! {
+        seam_server::context_keys_from_schema(
+          &<#ctx_path as seam_server::SeamType>::jtd_schema()
+        )
+      };
+      (handler, keys)
+    }
+    None => {
+      let handler = quote! {
+        std::sync::Arc::new(|value: serde_json::Value, _ctx: serde_json::Value| {
+          Box::pin(async move {
+            let input: #input_type = serde_json::from_value(value)
+              .map_err(|e| seam_server::SeamError::validation(e.to_string()))?;
+            let output = #fn_name(input).await?;
+            serde_json::to_value(output)
+              .map_err(|e| seam_server::SeamError::internal(e.to_string()))
+          })
+        })
+      };
+      let keys = quote! { vec![] };
+      (handler, keys)
+    }
   };
 
   Ok(quote! {
@@ -81,6 +113,7 @@ pub(crate) fn expand_with_type(
         input_schema: <#input_type as seam_server::SeamType>::jtd_schema(),
         output_schema: <#output_type as seam_server::SeamType>::jtd_schema(),
         error_schema: #error_schema_expr,
+        context_keys: #context_keys_expr,
         handler: #handler_body,
       }
     }

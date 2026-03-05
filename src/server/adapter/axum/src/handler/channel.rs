@@ -9,7 +9,7 @@ use seam_server::SeamError;
 use tokio::time::{Duration, interval};
 use tokio_stream::StreamExt;
 
-use super::AppState;
+use super::{AppState, resolve_ctx_for_proc};
 
 // --- WebSocket channel types ---
 
@@ -55,6 +55,7 @@ async fn dispatch_ws_uplink(
   state: &AppState,
   channel_name: &str,
   channel_input: &serde_json::Value,
+  ctx: &serde_json::Value,
   text: &str,
   ws_sender: &mut SplitSink<WebSocket, Message>,
 ) {
@@ -110,7 +111,7 @@ async fn dispatch_ws_uplink(
   };
 
   let resp = match state.handlers.get(&resolved_proc) {
-    Some(proc) => match (proc.handler)(merged_input).await {
+    Some(proc) => match (proc.handler)(merged_input, ctx.clone()).await {
       Ok(data) => WsResponse { id: uplink.id, ok: true, data: Some(data), error: None },
       Err(e) => WsResponse {
         id: uplink.id,
@@ -143,6 +144,7 @@ pub(super) async fn handle_channel_ws(
   state: Arc<AppState>,
   sub_name: String,
   channel_input: serde_json::Value,
+  headers: axum::http::HeaderMap,
   socket: WebSocket,
 ) {
   let channel_name = sub_name.strip_suffix(".events").unwrap_or(&sub_name);
@@ -165,7 +167,20 @@ pub(super) async fn handle_channel_ws(
     }
   };
 
-  let event_stream = match (sub.handler)(channel_input.clone()).await {
+  // Resolve context once at connection time
+  let ctx = match resolve_ctx_for_proc(&state, &sub.context_keys, &headers) {
+    Ok(c) => c,
+    Err(e) => {
+      let err_msg = serde_json::json!({
+        "error": { "code": e.code(), "message": e.message(), "transient": false }
+      });
+      let _ = ws_sender.send(Message::Text(err_msg.to_string().into())).await;
+      let _ = ws_sender.close().await;
+      return;
+    }
+  };
+
+  let event_stream = match (sub.handler)(channel_input.clone(), ctx.clone()).await {
     Ok(stream) => stream,
     Err(e) => {
       let err_msg = serde_json::json!({
@@ -185,7 +200,7 @@ pub(super) async fn handle_channel_ws(
       msg = StreamExt::next(&mut ws_receiver) => {
         match msg {
           Some(Ok(Message::Text(text))) => {
-            dispatch_ws_uplink(&state, channel_name, &channel_input, &text, &mut ws_sender).await;
+            dispatch_ws_uplink(&state, channel_name, &channel_input, &ctx, &text, &mut ws_sender).await;
           }
           Some(Ok(Message::Close(_))) | None => break,
           _ => continue,

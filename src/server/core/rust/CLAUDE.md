@@ -10,6 +10,7 @@ See root CLAUDE.md for general project rules.
 | -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `server.rs`    | `SeamServer` builder + `SeamParts` extraction for adapter crates                                                                                                                |
 | `procedure.rs` | `ProcedureDef` / `SubscriptionDef` type aliases (`HandlerFn`, `BoxFuture`, `BoxStream`)                                                                                         |
+| `context.rs`   | `ContextConfig`, `ContextFieldDef`, `RawContextMap`, context extraction and resolution from HTTP headers                                                                        |
 | `resolve.rs`   | `ResolveStrategy` trait, `ResolveData`, built-in strategies (`from_url_prefix`, `from_cookie`, `from_accept_language`, `from_url_query`), `resolve_chain`, `default_strategies` |
 | `page.rs`      | `PageDef` / `LoaderDef` / `LayoutChainEntry` -- page routes with layout chains                                                                                                  |
 | `manifest.rs`  | Builds JSON manifest from registered procedures and subscriptions                                                                                                               |
@@ -45,9 +46,10 @@ User code -> SeamServer::new().procedure(...).page(...)
 ## Key Types
 
 - `SeamType` trait -- derive with `#[derive(SeamType)]` (from `seam-macros`) for JTD schema generation
-- `HandlerFn` -- `Arc<dyn Fn(Value) -> BoxFuture<Result<Value, SeamError>> + Send + Sync>` (single `Value` param, no context)
+- `HandlerFn` -- `Arc<dyn Fn(Value, Value) -> BoxFuture<Result<Value, SeamError>> + Send + Sync>` (input + context)
+- `SubscriptionHandlerFn` -- `Arc<dyn Fn(Value, Value) -> BoxFuture<Result<BoxStream<...>, SeamError>> + Send + Sync>` (input + context)
+- `ContextConfig` -- `BTreeMap<String, ContextFieldDef>` mapping context keys to extract rules (e.g. `"header:authorization"`)
 - `ResolveStrategy` trait -- `fn resolve(&self, data: &ResolveData) -> Option<String>`; built-in: `from_url_prefix`, `from_cookie`, `from_accept_language`, `from_url_query`
-- `SubscriptionHandlerFn` -- returns `BoxFuture<Result<BoxStream<Result<Value, SeamError>>, SeamError>>`
 
 ## Template Syntax (injector directives)
 
