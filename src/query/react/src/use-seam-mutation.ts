@@ -19,12 +19,13 @@ export function useSeamMutation(
   const coreOptions = createSeamMutationOptions(rpcFn, procedureName, queryClient, procConfig)
 
   const mergedOnSuccess = options?.onSuccess
-    ? (data: unknown, variables: unknown, context: unknown) => {
+    ? (data: unknown, variables: unknown, onMutateResult: unknown, ctx: unknown) => {
         invalidateFromConfig(queryClient, procConfig, variables)
-        ;(options.onSuccess as (d: unknown, v: unknown, c: unknown) => void)(
+        ;(options.onSuccess as (d: unknown, v: unknown, o: unknown, c: unknown) => void)(
           data,
           variables,
-          context,
+          onMutateResult,
+          ctx,
         )
       }
     : coreOptions.onSuccess
@@ -33,5 +34,5 @@ export function useSeamMutation(
     ...coreOptions,
     ...options,
     onSuccess: mergedOnSuccess,
-  } as UseMutationOptions)
+  } as UseMutationOptions) as UseMutationResult
 }

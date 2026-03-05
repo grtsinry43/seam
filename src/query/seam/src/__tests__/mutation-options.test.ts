@@ -75,7 +75,7 @@ describe('createSeamMutationOptions', () => {
     const mockRpc = vi.fn().mockResolvedValue({ ok: true })
     const qc = new QueryClient()
     const opts = createSeamMutationOptions(mockRpc, 'updatePost', qc)
-    const result = await opts.mutationFn?.({ postId: '1' })
+    const result = await opts.mutationFn?.({ postId: '1' }, {} as never)
     expect(mockRpc).toHaveBeenCalledWith('updatePost', { postId: '1' })
     expect(result).toEqual({ ok: true })
   })
@@ -89,7 +89,7 @@ describe('createSeamMutationOptions', () => {
       invalidates: [{ query: 'getPost' }],
     }
     const opts = createSeamMutationOptions(mockRpc, 'updatePost', qc, config)
-    opts.onSuccess?.({}, { postId: '1' }, {})
+    opts.onSuccess?.({}, { postId: '1' }, {}, {} as never)
     expect(spy).toHaveBeenCalledWith({ queryKey: ['getPost'] })
   })
 

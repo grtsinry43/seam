@@ -74,8 +74,8 @@ export function createSeamMutationOptions<TInput = unknown, TOutput = unknown>(
 ): MutationOptions<TOutput, Error, TInput> {
   return {
     mutationKey: [procedureName],
-    mutationFn: (input) => rpcFn(procedureName, input) as Promise<TOutput>,
-    onSuccess: (_data, input) => {
+    mutationFn: (input, _ctx) => rpcFn(procedureName, input) as Promise<TOutput>,
+    onSuccess: (_data, input, _onMutateResult, _ctx) => {
       invalidateFromConfig(queryClient, procedureConfig, input)
     },
   }

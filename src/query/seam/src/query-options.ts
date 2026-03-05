@@ -21,7 +21,7 @@ export function createSeamQueryOptions<TOutput = unknown>(
   input: unknown,
   procedureConfig?: ProcedureConfigEntry,
   overrides?: SeamQueryConfig,
-): QueryOptions<TOutput> {
+): QueryOptions<TOutput> & { staleTime?: number } {
   const staleTime = resolveStaleTime(procedureConfig, overrides)
   return {
     queryKey: [procedureName, input],
