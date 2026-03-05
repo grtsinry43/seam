@@ -21,5 +21,6 @@ pub fn user_page() -> PageDef {
     layout_chain: vec![],
     page_loader_keys: vec!["user".to_string()],
     i18n_keys: Vec::new(),
+    projections: None,
   }
 }

@@ -231,6 +231,7 @@ fn head_meta_serialization_skips_none() {
     i18n_keys: None,
     assets: None,
     procedures: None,
+    projections: None,
   };
   let json = serde_json::to_string(&entry).unwrap();
   assert!(!json.contains("head_meta"), "None head_meta should be skipped in JSON");
@@ -247,6 +248,7 @@ fn head_meta_serialization_includes_some() {
     i18n_keys: None,
     assets: None,
     procedures: None,
+    projections: None,
   };
   let json = serde_json::to_string(&entry).unwrap();
   assert!(json.contains("head_meta"), "Some head_meta should be present in JSON");
@@ -592,6 +594,7 @@ fn ref_graph_route_procedures_dedup() {
         i18n_keys: None,
         assets: None,
         procedures: None,
+        projections: None,
       },
     )]),
     data_id: None,

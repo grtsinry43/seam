@@ -8,6 +8,7 @@ mod helpers;
 mod i18n_resolve;
 mod manifest;
 mod process;
+mod projection;
 mod ref_graph;
 mod types;
 
@@ -23,6 +24,7 @@ pub(crate) use manifest::{
 pub(crate) use process::{
   BundleContext, RenderContext, export_i18n, process_routes, run_skeleton_renderer,
 };
+pub(crate) use projection::{inject_route_projections, report_narrowing_savings};
 pub(crate) use ref_graph::{
   ProcedureRefGraph, build_reference_graph, generate_route_procedures_ts, inject_route_procedures,
   validate_handoff_consistency, validate_procedure_references, warn_unused_queries,

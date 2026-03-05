@@ -120,6 +120,11 @@ func (s *appState) servePage(w http.ResponseWriter, r *http.Request, page *PageD
 		data[res.key] = res.value
 	}
 
+	// Prune to projected fields before template injection
+	if len(page.Projections) > 0 {
+		data = applyProjection(data, page.Projections)
+	}
+
 	// Marshal loader data to JSON (json.Marshal sorts map keys deterministically)
 	loaderDataJSON, err := json.Marshal(data)
 	if err != nil {

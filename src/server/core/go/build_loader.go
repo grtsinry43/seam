@@ -38,13 +38,14 @@ type layoutEntry struct {
 }
 
 type routeEntry struct {
-	Template  string            `json:"template"`
-	Templates map[string]string `json:"templates"`
-	Layout    string            `json:"layout"`
-	Loaders   json.RawMessage   `json:"loaders"`
-	HeadMeta  string            `json:"head_meta"`
-	I18nKeys  []string          `json:"i18n_keys"`
-	Assets    *PageAssets       `json:"assets"`
+	Template    string              `json:"template"`
+	Templates   map[string]string   `json:"templates"`
+	Layout      string              `json:"layout"`
+	Loaders     json.RawMessage     `json:"loaders"`
+	HeadMeta    string              `json:"head_meta"`
+	I18nKeys    []string            `json:"i18n_keys"`
+	Assets      *PageAssets         `json:"assets"`
+	Projections map[string][]string `json:"projections"`
 }
 
 // pickTemplate returns the template path: prefer singular "template",
@@ -320,6 +321,7 @@ func LoadBuildOutput(dir string) ([]PageDef, error) {
 			I18nKeys:        i18nKeys,
 			HeadMeta:        entry.HeadMeta,
 			Assets:          entry.Assets,
+			Projections:     entry.Projections,
 		})
 	}
 

@@ -2,6 +2,7 @@
 
 mod channel;
 mod page;
+mod projection;
 mod rpc;
 mod subscribe;
 

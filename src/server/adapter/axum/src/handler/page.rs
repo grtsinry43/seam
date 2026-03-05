@@ -175,7 +175,10 @@ pub(super) async fn handle_page(
     &page.template
   };
 
-  let data = run_loaders(&state, page, &params, &headers).await?;
+  let mut data = run_loaders(&state, page, &params, &headers).await?;
+
+  // Prune to projected fields before template injection
+  super::projection::apply_projection(&mut data, &page.projections);
 
   // Flatten keyed loader results for slot resolution: spread nested object
   // values to the top level so slots like <!--seam:tagline--> can resolve from

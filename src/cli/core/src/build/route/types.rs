@@ -83,7 +83,7 @@ pub(super) struct RenderedVariant {
 
 // -- Route manifest output --
 
-#[derive(Serialize)]
+#[derive(Serialize, Clone)]
 pub(super) struct LayoutManifestEntry {
   #[serde(skip_serializing_if = "Option::is_none")]
   pub(super) template: Option<String>,
@@ -95,6 +95,8 @@ pub(super) struct LayoutManifestEntry {
   pub(super) parent: Option<String>,
   #[serde(skip_serializing_if = "Option::is_none")]
   pub(super) i18n_keys: Option<Vec<String>>,
+  #[serde(skip_serializing_if = "Option::is_none")]
+  pub(super) projections: Option<BTreeMap<String, Vec<String>>>,
 }
 
 #[derive(Serialize)]
@@ -151,4 +153,6 @@ pub(super) struct RouteManifestEntry {
   pub(super) assets: Option<RouteAssets>,
   #[serde(skip_serializing_if = "Option::is_none")]
   pub(super) procedures: Option<Vec<String>>,
+  #[serde(skip_serializing_if = "Option::is_none")]
+  pub(super) projections: Option<BTreeMap<String, Vec<String>>>,
 }

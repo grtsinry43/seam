@@ -42,6 +42,7 @@ interface RouteManifestEntry {
   head_meta?: string;
   i18n_keys?: string[];
   assets?: PageAssets;
+  projections?: Record<string, string[]>;
 }
 
 interface LoaderConfig {
@@ -272,6 +273,7 @@ export function loadBuildOutput(distDir: string): Record<string, PageDef> {
       dataId: manifest.data_id,
       i18nKeys,
       pageAssets: entry.assets,
+      projections: entry.projections,
     };
   }
   return pages;
@@ -322,6 +324,7 @@ export function loadBuildOutputDev(distDir: string): Record<string, PageDef> {
       dataId: manifest.data_id,
       i18nKeys,
       pageAssets: entry.assets,
+      projections: entry.projections,
     };
     Object.defineProperty(page, "template", {
       get: () => readFileSync(templatePath, "utf-8"),

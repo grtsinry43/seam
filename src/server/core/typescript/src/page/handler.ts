@@ -6,6 +6,7 @@ import { renderPage, escapeHtml } from "@canmi/seam-engine";
 import { SeamError } from "../errors.js";
 import type { InternalProcedure } from "../procedure.js";
 import type { PageDef, LayoutDef, LoaderFn, I18nConfig } from "./index.js";
+import { applyProjection } from "./projection.js";
 
 export interface PageTiming {
   /** Procedure execution time in milliseconds */
@@ -108,6 +109,9 @@ export async function handlePageRequest(
       Object.assign(allData, result);
     }
 
+    // Prune to projected fields before template injection
+    const prunedData = applyProjection(allData, page.projections);
+
     // Compose template: nest page inside layouts via outlet substitution
     const pageTemplate = selectTemplate(page.template, page.localeTemplates, locale);
     let composedTemplate = pageTemplate;
@@ -152,7 +156,7 @@ export async function handlePageRequest(
     // Single WASM call: inject slots, compose data script, apply locale/meta
     const html = renderPage(
       composedTemplate,
-      JSON.stringify(allData),
+      JSON.stringify(prunedData),
       JSON.stringify(config),
       i18nOptsJson,
     );

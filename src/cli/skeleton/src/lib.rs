@@ -10,6 +10,7 @@ pub use extract::extract_template;
 pub use slot::sentinel_to_slots;
 
 pub mod ctr_check;
+pub mod slot_paths;
 pub mod slot_warning;
 
 use serde::Deserialize;

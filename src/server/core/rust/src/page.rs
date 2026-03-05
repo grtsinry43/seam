@@ -33,6 +33,8 @@ pub struct PageDef {
   pub page_loader_keys: Vec<String>,
   /// Merged i18n keys from route + layout chain. Empty means include all keys.
   pub i18n_keys: Vec<String>,
+  /// Per-loader field projections for schema narrowing. None = no narrowing.
+  pub projections: Option<HashMap<String, Vec<String>>>,
 }
 
 /// Runtime i18n configuration loaded from build output.

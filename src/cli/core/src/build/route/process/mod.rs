@@ -138,6 +138,7 @@ fn process_layout_templates(
           loaders: layout.loaders.clone(),
           parent: layout.parent.clone(),
           i18n_keys: layout.i18n_keys.clone(),
+          projections: None,
         },
       );
     } else if let Some(ref html) = layout.html {
@@ -162,6 +163,7 @@ fn process_layout_templates(
           loaders: layout.loaders.clone(),
           parent: layout.parent.clone(),
           i18n_keys: layout.i18n_keys.clone(),
+          projections: None,
         },
       );
     }
@@ -254,6 +256,7 @@ fn process_i18n_route(
         i18n_keys: route.i18n_keys.clone(),
         assets: route_assets,
         procedures: None,
+        projections: None,
       });
     }
   }
@@ -284,6 +287,7 @@ fn process_i18n_route(
         i18n_keys: route.i18n_keys.clone(),
         assets: route_assets,
         procedures: None,
+        projections: None,
       },
     );
   }
@@ -349,6 +353,7 @@ fn process_single_route(
       i18n_keys: route.i18n_keys.clone(),
       assets: route_assets,
       procedures: None,
+      projections: None,
     },
   );
   Ok(())

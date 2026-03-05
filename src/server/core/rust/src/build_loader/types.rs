@@ -58,6 +58,8 @@ pub(super) struct RouteEntry {
   pub(super) head_meta: Option<String>,
   #[serde(default)]
   pub(super) i18n_keys: Vec<String>,
+  #[serde(default)]
+  pub(super) projections: Option<HashMap<String, Vec<String>>>,
 }
 
 /// Pick a template path: prefer singular `template`, fall back to default locale or first value.

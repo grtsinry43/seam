@@ -34,6 +34,7 @@ export interface PageDef {
   dataId?: string;
   i18nKeys?: string[];
   pageAssets?: PageAssets;
+  projections?: Record<string, string[]>;
 }
 
 export interface I18nConfig {

@@ -228,6 +228,7 @@ pub fn load_build_output(dir: &str) -> Result<Vec<PageDef>, Box<dyn std::error::
       layout_chain,
       page_loader_keys,
       i18n_keys,
+      projections: entry.projections.clone(),
     });
   }
 
