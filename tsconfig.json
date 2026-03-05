@@ -13,6 +13,7 @@
     { "path": "src/router/seam" },
     { "path": "src/eslint" },
     { "path": "src/i18n" },
-    { "path": "src/cli/vite" }
+    { "path": "src/cli/vite" },
+    { "path": "src/query/seam" }
   ]
 }

@@ -20,6 +20,7 @@ packages=(
   src/cli/vite
   src/eslint
   src/i18n
+  src/query/seam
 )
 
 failed=()

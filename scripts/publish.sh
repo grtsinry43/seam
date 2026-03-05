@@ -440,6 +440,7 @@ if ! $RUST_ONLY && ! $GO_ONLY; then
     "src/i18n:@canmi/seam-i18n"
     "src/server/engine/js:@canmi/seam-engine"
     "src/router/seam:@canmi/seam-router"
+    "src/query/seam:@canmi/seam-query"
   )
   NPM_LAYER_2=(
     "src/server/core/typescript:@canmi/seam-server"
