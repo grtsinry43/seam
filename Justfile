@@ -76,7 +76,7 @@ lint-go:
 
 # Check unlisted dependencies (knip)
 lint-deps:
-    knip --include dependencies,unlisted,unresolved
+    {{pm}}x knip --include dependencies,unlisted,unresolved
 
 # Check markdown links
 lint-links:
