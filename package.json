@@ -39,11 +39,15 @@
   ],
   "type": "module",
   "scripts": {
-    "build:ts:p1": "just build-ts-p1",
-    "build:ts:p2": "just build-ts-p2",
-    "build:ts:p3": "just build-ts-p3",
-    "build:ts": "just build-ts",
-    "test:ts": "just test-ts"
+    "fmt:ts": "oxfmt --write .",
+    "fmt:ts:check": "oxfmt --check .",
+    "fmt:md": "dprint fmt",
+    "fmt:md:check": "dprint check",
+    "lint:ox": "oxlint",
+    "lint:ox:fix": "oxlint --fix",
+    "lint:eslint": "NODE_OPTIONS='--import tsx/esm' eslint .",
+    "lint:eslint:fix": "NODE_OPTIONS='--import tsx/esm' eslint . --fix",
+    "lint:deps": "knip --include dependencies,unlisted,unresolved"
   },
   "devDependencies": {
     "dprint": "^0.52.0",

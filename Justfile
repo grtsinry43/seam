@@ -17,18 +17,18 @@ pre-commit: fmt lint
 # Run all formatters
 fmt:
     chore .
-    oxfmt --write .
-    dprint fmt
+    {{pm}} run fmt:ts
+    {{pm}} run fmt:md
     cargo fmt --all
     gofmt -w .
 
 # Format TS only (oxfmt)
 fmt-ts:
-    oxfmt --write .
+    {{pm}} run fmt:ts
 
 # Format markdown (dprint)
 fmt-md:
-    dprint fmt
+    {{pm}} run fmt:md
 
 # Format Rust
 fmt-rust:
@@ -44,8 +44,8 @@ fmt-path:
 
 # Check formatting without writing
 fmt-check:
-    oxfmt --check .
-    dprint check
+    {{pm}} run fmt:ts:check
+    {{pm}} run fmt:md:check
     cargo fmt --all -- --check
     test -z "$(gofmt -l .)"
 
@@ -54,8 +54,8 @@ lint: lint-ts lint-clippy lint-go
 
 # Lint TS (oxlint + eslint)
 lint-ts:
-    oxlint
-    NODE_OPTIONS='--import tsx/esm' {{pm}}x eslint .
+    {{pm}} run lint:ox
+    {{pm}} run lint:eslint
 
 # Lint Rust (clippy)
 lint-clippy:
@@ -76,7 +76,7 @@ lint-go:
 
 # Check unlisted dependencies (knip)
 lint-deps:
-    {{pm}}x knip --include dependencies,unlisted,unresolved
+    {{pm}} run lint:deps
 
 # Check markdown links
 lint-links:
@@ -87,8 +87,8 @@ lint-all: lint-ts lint-go lint-deps lint-links
 
 # Auto-fix lint issues
 lint-fix:
-    oxlint --fix
-    NODE_OPTIONS='--import tsx/esm' {{pm}}x eslint . --fix
+    {{pm}} run lint:ox:fix
+    {{pm}} run lint:eslint:fix
 
 # === Build ===
 
