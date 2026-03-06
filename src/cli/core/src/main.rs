@@ -142,13 +142,7 @@ async fn run() -> Result<()> {
 		Command::Generate { manifest, out } => {
 			let cfg = try_load_config();
 			let manifest = manifest.unwrap_or_else(|| PathBuf::from("seam-manifest.json"));
-			let out = out.unwrap_or_else(|| {
-				cfg
-					.as_ref()
-					.and_then(|c| c.generate.out_dir.as_ref())
-					.map(PathBuf::from)
-					.unwrap_or_else(|| PathBuf::from("src/generated"))
-			});
+			let cwd = std::env::current_dir().context("failed to get cwd")?;
 
 			ui::banner("generate", None);
 			ui::arrow(&format!("reading {}", manifest.display()));
@@ -163,19 +157,32 @@ async fn run() -> Result<()> {
 			let code = seam_codegen::generate_typescript(&parsed, None, data_id)?;
 			let line_count = code.lines().count();
 
-			std::fs::create_dir_all(&out)
-				.with_context(|| format!("failed to create {}", out.display()))?;
-			let file = out.join("client.ts");
-			std::fs::write(&file, &code)
-				.with_context(|| format!("failed to write {}", file.display()))?;
+			// Primary: always write to .seam/generated/
+			let seam_dir = cwd.join(".seam/generated");
+			std::fs::create_dir_all(&seam_dir)
+				.with_context(|| format!("failed to create {}", seam_dir.display()))?;
+			std::fs::write(seam_dir.join("client.ts"), &code)
+				.with_context(|| "failed to write .seam/generated/client.ts")?;
+			std::fs::write(
+				seam_dir.join("seam.d.ts"),
+				seam_codegen::generate_type_declarations(),
+			)
+			.with_context(|| "failed to write .seam/generated/seam.d.ts")?;
 
-			let meta_code = seam_codegen::generate_typescript_meta(data_id);
-			let meta_file = out.join("meta.ts");
-			std::fs::write(&meta_file, &meta_code)
-				.with_context(|| format!("failed to write {}", meta_file.display()))?;
+			// Secondary: if --out or config outDir specified, also write there
+			let user_out = out.or_else(|| {
+				cfg.as_ref().and_then(|c| c.generate.out_dir.as_ref()).map(PathBuf::from)
+			});
+			if let Some(ref out_dir) = user_out {
+				std::fs::create_dir_all(out_dir)
+					.with_context(|| format!("failed to create {}", out_dir.display()))?;
+				let file = out_dir.join("client.ts");
+				std::fs::write(&file, &code)
+					.with_context(|| format!("failed to write {}", file.display()))?;
+			}
 
 			ui::ok(&format!("generated {proc_count} procedures"));
-			ui::ok(&format!("{}  {line_count} lines", file.display()));
+			ui::ok(&format!(".seam/generated/client.ts  {line_count} lines"));
 		}
 		Command::Build { config, member } => {
 			let (config_path, seam_config) = resolve_config(config)?;

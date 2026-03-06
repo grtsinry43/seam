@@ -11,4 +11,4 @@ pub use manifest::{
 	MappingValue, ProcedureSchema, ProcedureType, TransportConfig, TransportPreference,
 };
 pub use rpc_hash::{RpcHashMap, generate_random_salt, generate_rpc_hash_map};
-pub use typescript::{generate_typescript, generate_typescript_meta};
+pub use typescript::{generate_type_declarations, generate_typescript};

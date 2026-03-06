@@ -118,31 +118,26 @@ fn subscription_codegen_with_hashes() {
 }
 
 #[test]
-fn data_id_export_default() {
+fn data_id_inline_default() {
 	let manifest = make_manifest_with(BTreeMap::new());
 	let code = generate_typescript(&manifest, None, "__data").unwrap();
-	assert!(code.contains("export { DATA_ID } from \"./meta.js\";"));
+	assert!(code.contains("export const DATA_ID = \"__data\";"));
 }
 
 #[test]
-fn data_id_export_custom() {
+fn data_id_inline_custom() {
 	let manifest = make_manifest_with(BTreeMap::new());
 	let code = generate_typescript(&manifest, None, "__sd").unwrap();
-	assert!(code.contains("export { DATA_ID } from \"./meta.js\";"));
-}
-
-#[test]
-fn meta_ts_default() {
-	let code = generate_typescript_meta("__data");
-	assert!(code.contains("export const DATA_ID = \"__data\";"));
-	assert!(!code.contains("import"));
-}
-
-#[test]
-fn meta_ts_custom() {
-	let code = generate_typescript_meta("__sd");
 	assert!(code.contains("export const DATA_ID = \"__sd\";"));
-	assert!(!code.contains("import"));
+}
+
+#[test]
+fn type_declarations() {
+	let code = generate_type_declarations();
+	assert!(code.contains("declare module 'virtual:seam/client'"));
+	assert!(code.contains("declare module 'virtual:seam/routes'"));
+	assert!(code.contains("export * from './client'"));
+	assert!(code.contains("export { default } from './routes'"));
 }
 
 #[test]

@@ -168,7 +168,7 @@ fn build_reference_member(
 
 	// [1.3] Generate client types (shared)
 	ui::detail(&format!("{}[shared]{} generating client types", col(DIM), col(RESET)));
-	generate_types(&manifest, &first.merged_config, rpc_hashes.as_ref())?;
+	generate_types(&manifest, &first.merged_config, rpc_hashes.as_ref(), base_dir)?;
 
 	// [1.4] Bundle frontend (shared)
 	ui::detail(&format!("{}[shared]{} bundling frontend", col(DIM), col(RESET)));

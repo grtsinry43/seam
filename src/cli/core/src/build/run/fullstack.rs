@@ -125,7 +125,7 @@ pub(super) fn run_fullstack_build(
 
 	// -- Generating client types --
 	let t = tracker.begin();
-	generate_types(&manifest, config, rpc_hashes.as_ref())?;
+	generate_types(&manifest, config, rpc_hashes.as_ref(), base_dir)?;
 	tracker.end(t);
 
 	// -- Rendering skeletons (before bundling — independent of bundled output) --
@@ -259,7 +259,7 @@ pub fn run_dev_build(
 
 	// -- Generating client types --
 	let t = tracker.begin();
-	generate_types(&manifest, config, rpc_hashes.as_ref())?;
+	generate_types(&manifest, config, rpc_hashes.as_ref(), base_dir)?;
 	tracker.end(t);
 
 	// -- Rendering skeletons (before bundling — independent of bundled output) --

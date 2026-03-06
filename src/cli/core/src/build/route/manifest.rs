@@ -298,14 +298,14 @@ fn fill_builtin_transport_defaults(
 	}
 }
 
-/// Generate TypeScript client types from the manifest
+/// Generate TypeScript client types from the manifest.
+/// Always writes to `.seam/generated/`; also writes to `config.generate.out_dir` when set.
 pub(crate) fn generate_types(
 	manifest: &Manifest,
 	config: &SeamConfig,
 	rpc_hashes: Option<&seam_codegen::RpcHashMap>,
+	base_dir: &Path,
 ) -> Result<()> {
-	let out_dir_str = config.generate.out_dir.as_deref().unwrap_or("src/generated");
-
 	// Merge transport: config overrides server defaults, then fill built-in defaults
 	let mut manifest = manifest.clone();
 	if let Some(ref section) = config.transport {
@@ -317,20 +317,35 @@ pub(crate) fn generate_types(
 	let line_count = code.lines().count();
 	let proc_count = manifest.procedures.len();
 
-	let out_path = Path::new(out_dir_str);
-	std::fs::create_dir_all(out_path)
-		.with_context(|| format!("failed to create {}", out_path.display()))?;
-	let file = out_path.join("client.ts");
-	std::fs::write(&file, &code).with_context(|| format!("failed to write {}", file.display()))?;
+	// Primary: always write to .seam/generated/
+	let seam_dir = base_dir.join(".seam/generated");
+	std::fs::create_dir_all(&seam_dir)
+		.with_context(|| format!("failed to create {}", seam_dir.display()))?;
+	let primary_file = seam_dir.join("client.ts");
+	std::fs::write(&primary_file, &code)
+		.with_context(|| format!("failed to write {}", primary_file.display()))?;
+	std::fs::write(
+		seam_dir.join("seam.d.ts"),
+		seam_codegen::generate_type_declarations(),
+	)
+	.with_context(|| "failed to write .seam/generated/seam.d.ts")?;
 
-	let meta_code = seam_codegen::generate_typescript_meta(&config.frontend.data_id);
-	let meta_file = out_path.join("meta.ts");
-	std::fs::write(&meta_file, &meta_code)
-		.with_context(|| format!("failed to write {}", meta_file.display()))?;
+	// Secondary: if user explicitly configured outDir, also write client.ts there
+	if let Some(ref user_dir) = config.generate.out_dir {
+		let out = base_dir.join(user_dir);
+		std::fs::create_dir_all(&out)
+			.with_context(|| format!("failed to create {}", out.display()))?;
+		let file = out.join("client.ts");
+		std::fs::write(&file, &code)
+			.with_context(|| format!("failed to write {}", file.display()))?;
+	}
 
+	let display_path = match config.generate.out_dir.as_deref() {
+		Some(dir) => format!("{dir}/client.ts"),
+		None => ".seam/generated/client.ts".to_string(),
+	};
 	ui::detail_ok(&format!(
-		"{proc_count} procedures \u{2192} {} ({line_count} lines)",
-		file.display()
+		"{proc_count} procedures \u{2192} {display_path} ({line_count} lines)",
 	));
 	Ok(())
 }

@@ -6,4 +6,4 @@ mod render;
 #[cfg(test)]
 mod tests;
 
-pub use generator::{generate_typescript, generate_typescript_meta};
+pub use generator::{generate_type_declarations, generate_typescript};

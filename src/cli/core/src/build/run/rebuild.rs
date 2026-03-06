@@ -44,7 +44,7 @@ pub fn run_incremental_rebuild(
 
 		let rpc_hashes = maybe_generate_rpc_hashes(build_config, &manifest, &out_dir)?;
 
-		generate_types(&manifest, config, rpc_hashes.as_ref())?;
+		generate_types(&manifest, config, rpc_hashes.as_ref(), base_dir)?;
 		copy_wasm_binary(base_dir, &out_dir)?;
 	}
 
