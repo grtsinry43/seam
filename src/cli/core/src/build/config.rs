@@ -33,6 +33,7 @@ pub struct BuildConfig {
 	pub i18n: Option<I18nSection>,
 	#[allow(dead_code)] // used in build-time transport resolution (Step 4)
 	pub transport: Option<TransportSection>,
+	pub vite: Option<serde_json::Value>,
 }
 
 impl BuildConfig {
@@ -91,6 +92,7 @@ impl BuildConfig {
 		let data_id = config.frontend.data_id.clone();
 		let i18n = config.i18n.clone();
 		let transport = config.transport.clone();
+		let vite = config.vite.clone();
 
 		Ok(Self {
 			bundler_mode,
@@ -113,6 +115,7 @@ impl BuildConfig {
 			pages_dir,
 			i18n,
 			transport,
+			vite,
 		})
 	}
 

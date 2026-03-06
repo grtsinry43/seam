@@ -24,14 +24,20 @@ pub(crate) type EnvPairs = Vec<(String, String)>;
 /// Returns owned pairs for lifetime independence. Callers may extend
 /// with extra entries (e.g. SEAM_ROUTES_FILE) before passing to `bundle_frontend`.
 pub(crate) fn build_bundler_env(build_config: &BuildConfig, rpc_map_path: &str) -> EnvPairs {
-	vec![
+	let mut env = vec![
 		("SEAM_OBFUSCATE".into(), if build_config.obfuscate { "1" } else { "0" }.into()),
 		("SEAM_SOURCEMAP".into(), if build_config.sourcemap { "1" } else { "0" }.into()),
 		("SEAM_TYPE_HINT".into(), if build_config.type_hint { "1" } else { "0" }.into()),
 		("SEAM_HASH_LENGTH".into(), build_config.hash_length.to_string()),
 		("SEAM_RPC_MAP_PATH".into(), rpc_map_path.into()),
 		("SEAM_DIST_DIR".into(), build_config.dist_dir().to_string()),
-	]
+	];
+	if let Some(ref vite) = build_config.vite
+		&& let Ok(json) = serde_json::to_string(vite)
+	{
+		env.push(("SEAM_VITE_CONFIG".into(), json));
+	}
+	env
 }
 
 /// Render skeletons via `@canmi/seam-react` build script. Resolves the script

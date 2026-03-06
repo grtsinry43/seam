@@ -293,12 +293,24 @@ if (splitInfo) {
 	plugins.push(pageSplitPlugin(splitInfo))
 }
 
+// User vite config override via SEAM_VITE_CONFIG env var
+const userConfig = process.env.SEAM_VITE_CONFIG ? JSON.parse(process.env.SEAM_VITE_CONFIG) : {}
+
+if (userConfig.plugins) {
+	plugins.push(...userConfig.plugins)
+}
+
+const resolveConfig = {
+	extensions: ['.ts', '.tsx', '.js', '.jsx', '.mjs'],
+	...userConfig.resolve,
+}
+
 const bundle = await rolldown({
 	input,
 	plugins,
-	resolve: {
-		extensions: ['.ts', '.tsx', '.js', '.jsx', '.mjs'],
-	},
+	resolve: resolveConfig,
+	...(userConfig.css ? { css: userConfig.css } : {}),
+	...(userConfig.define ? { define: userConfig.define } : {}),
 })
 
 const { output } = await bundle.write({
