@@ -2,6 +2,7 @@
 import { readFileSync } from 'node:fs'
 import { defineConfig, type Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
+import { seamVirtual } from '@canmi/seam-vite'
 
 function seamRpcPlugin(): Plugin {
 	const mapPath = process.env.SEAM_RPC_MAP_PATH
@@ -30,7 +31,7 @@ function seamRpcPlugin(): Plugin {
 }
 
 export default defineConfig({
-	plugins: [react(), seamRpcPlugin()],
+	plugins: [react(), seamVirtual(), seamRpcPlugin()],
 	appType: 'custom',
 	build: {
 		outDir: process.env.SEAM_DIST_DIR ?? '.seam/dist',
