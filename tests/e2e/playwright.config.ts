@@ -18,6 +18,11 @@ const featureHandoffDir = path.resolve(
 	workspaceRoot,
 	'examples/features/handoff-narrowing/.seam/output',
 )
+const featureChannelDir = path.resolve(
+	workspaceRoot,
+	'examples/features/channel-subscription/.seam/output',
+)
+const fsRouterDir = path.resolve(workspaceRoot, 'examples/fs-router-demo/.seam/output')
 
 // Load .env from workspace root (GITHUB_TOKEN raises API rate limit from 60 to 5000/hour)
 try {
@@ -46,7 +51,7 @@ export default defineConfig({
 		{
 			name: 'chromium',
 			use: { browserName: 'chromium', baseURL: 'http://localhost:3456' },
-			testIgnore: /fullstack|vite-dev|workspace|nextjs|i18n|feature/,
+			testIgnore: /fullstack|vite-dev|workspace|nextjs|i18n|feature|fs-router/,
 		},
 		{
 			name: 'fullstack',
@@ -110,6 +115,16 @@ export default defineConfig({
 			name: 'feature-handoff-narrowing',
 			use: { browserName: 'chromium', baseURL: 'http://localhost:3483' },
 			testMatch: /feature-handoff-narrowing/,
+		},
+		{
+			name: 'feature-channel-subscription',
+			use: { browserName: 'chromium', baseURL: 'http://localhost:3484' },
+			testMatch: /feature-channel-subscription/,
+		},
+		{
+			name: 'fs-router',
+			use: { browserName: 'chromium', baseURL: 'http://localhost:3485' },
+			testMatch: /fs-router/,
 		},
 	],
 
@@ -208,6 +223,20 @@ export default defineConfig({
 			cwd: featureHandoffDir,
 			port: 3483,
 			env: { PORT: '3483' },
+			reuseExistingServer: !process.env.CI,
+		},
+		{
+			command: 'bun run server/index.js',
+			cwd: featureChannelDir,
+			port: 3484,
+			env: { PORT: '3484' },
+			reuseExistingServer: !process.env.CI,
+		},
+		{
+			command: 'bun run server/index.js',
+			cwd: fsRouterDir,
+			port: 3485,
+			env: { PORT: '3485' },
 			reuseExistingServer: !process.env.CI,
 		},
 	],

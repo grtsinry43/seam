@@ -34,6 +34,7 @@
     "examples/features/context-auth",
     "examples/features/query-mutation",
     "examples/features/handoff-narrowing",
+    "examples/features/channel-subscription",
     "tests/e2e/fixture",
     "tests/e2e"
   ],

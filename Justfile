@@ -168,7 +168,7 @@ build-fixtures:
     printf '\n==> Build fs-router demo\n'
     (cd examples/fs-router-demo && "$SEAM" build)
     printf '\n==> Build feature demos\n'
-    for demo in stream-upload context-auth query-mutation handoff-narrowing; do
+    for demo in stream-upload context-auth query-mutation handoff-narrowing channel-subscription; do
       (cd "examples/features/$demo" && "$SEAM" build)
     done
     printf '\n==> Build workspace backends\n'
