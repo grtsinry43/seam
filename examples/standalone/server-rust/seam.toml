@@ -1,7 +1,0 @@
-[project]
-name = "server-rust-example"
-
-[backend]
-lang = "rust"
-dev_command = "cargo watch -x run"
-port = 3000

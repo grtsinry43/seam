@@ -10,7 +10,7 @@ async function* countStream(max: number): AsyncGenerator<{ n: number }> {
 }
 
 export const onCount: SubscriptionDef<{ max: number }, { n: number }> = {
-	type: 'subscription',
+	kind: 'subscription',
 	input: t.object({ max: t.int32() }),
 	output: t.object({ n: t.int32() }),
 	handler: ({ input }) => countStream(input.max),

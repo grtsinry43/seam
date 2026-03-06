@@ -13,7 +13,7 @@ interface UpdateEmailOutput {
 }
 
 export const updateEmail: CommandDef<UpdateEmailInput, UpdateEmailOutput> = {
-	type: 'command',
+	kind: 'command',
 	input: t.object({ userId: t.uint32(), newEmail: t.string() }),
 	output: t.object({ success: t.boolean() }),
 	handler: ({ input }) => {
