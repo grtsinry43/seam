@@ -94,8 +94,8 @@ members = ["nonexistent"]
 }
 
 #[test]
-fn workspace_validation_missing_toml() {
-	let tmp = std::env::temp_dir().join("seam-test-ws-missing-toml");
+fn workspace_validation_missing_config() {
+	let tmp = std::env::temp_dir().join("seam-test-ws-missing-config");
 	let _ = std::fs::remove_dir_all(&tmp);
 	std::fs::create_dir_all(tmp.join("member-a")).unwrap();
 
@@ -111,7 +111,7 @@ members = ["member-a"]
 	.unwrap();
 
 	let err = validate_workspace(&config, &tmp).unwrap_err();
-	assert!(err.to_string().contains("missing seam.toml"));
+	assert!(err.to_string().contains("missing config file"));
 
 	let _ = std::fs::remove_dir_all(&tmp);
 }
