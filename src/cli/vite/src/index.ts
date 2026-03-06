@@ -4,6 +4,43 @@ import { existsSync, readFileSync } from 'node:fs'
 import { basename, dirname, extname, resolve } from 'node:path'
 import type { Plugin } from 'vite'
 
+// -- Virtual module resolution --
+
+const VIRTUAL_MODULES: Record<string, string> = {
+	'virtual:seam/client': '.seam/generated/client.ts',
+	'virtual:seam/routes': '.seam/generated/routes.ts',
+}
+
+const SEAM_PACKAGES = [
+	'@canmi/seam-react',
+	'@canmi/seam-tanstack-router',
+	'@canmi/seam-client',
+]
+
+/**
+ * Vite plugin that resolves `virtual:seam/*` imports to generated files
+ * and excludes seam packages from esbuild pre-bundling.
+ */
+export function seamVirtual(): Plugin {
+	let projectRoot: string
+	return {
+		name: 'seam-virtual',
+		config() {
+			return { optimizeDeps: { exclude: SEAM_PACKAGES } }
+		},
+		configResolved(config) {
+			projectRoot = config.root
+		},
+		resolveId(id) {
+			if (id in VIRTUAL_MODULES) {
+				return resolve(projectRoot, VIRTUAL_MODULES[id]!)
+			}
+		},
+	}
+}
+
+// -- Per-page code splitting --
+
 /** Parse import statements from source, returning Map<localName, specifier> */
 export function parseComponentImports(source: string): Map<string, string> {
 	const map = new Map<string, string>()
