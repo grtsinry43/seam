@@ -14,12 +14,9 @@ use crate::ui;
 use seam_codegen::{CacheHint, Manifest, ProcedureType};
 
 /// A direct reference from a loader to a procedure.
-#[allow(dead_code)]
 pub(crate) struct ProcedureConsumer {
 	pub source: String,
 	pub loader_key: String,
-	pub is_layout: bool,
-	pub handoff: bool,
 }
 
 /// A loader reference expanded through the layout chain for a specific route.
@@ -81,12 +78,10 @@ pub(crate) fn build_reference_graph(
 		let refs = collect_loader_refs(&layout.loaders);
 		let source = format!("Layout \"{}\"", layout.id);
 		for r in &refs {
-			consumers.entry(r.procedure.clone()).or_default().push(ProcedureConsumer {
-				source: source.clone(),
-				loader_key: r.loader_key.clone(),
-				is_layout: true,
-				handoff: r.handoff,
-			});
+			consumers
+				.entry(r.procedure.clone())
+				.or_default()
+				.push(ProcedureConsumer { source: source.clone(), loader_key: r.loader_key.clone() });
 		}
 		layout_refs.insert(&layout.id, refs);
 	}
@@ -97,12 +92,10 @@ pub(crate) fn build_reference_graph(
 		let refs = collect_loader_refs(&route.loaders);
 		let source = format!("Route \"{}\"", route.path);
 		for r in &refs {
-			consumers.entry(r.procedure.clone()).or_default().push(ProcedureConsumer {
-				source: source.clone(),
-				loader_key: r.loader_key.clone(),
-				is_layout: false,
-				handoff: r.handoff,
-			});
+			consumers
+				.entry(r.procedure.clone())
+				.or_default()
+				.push(ProcedureConsumer { source: source.clone(), loader_key: r.loader_key.clone() });
 		}
 
 		// Expand layout chain

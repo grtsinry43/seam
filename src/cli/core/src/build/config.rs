@@ -2,7 +2,7 @@
 
 use anyhow::{Result, bail};
 
-use crate::config::{I18nSection, SeamConfig, TransportSection};
+use crate::config::{I18nSection, SeamConfig};
 
 #[derive(Debug, Clone)]
 pub enum BundlerMode {
@@ -31,8 +31,6 @@ pub struct BuildConfig {
 	pub data_id: String,
 	pub pages_dir: Option<String>,
 	pub i18n: Option<I18nSection>,
-	#[allow(dead_code)] // used in build-time transport resolution (Step 4)
-	pub transport: Option<TransportSection>,
 	pub vite: Option<serde_json::Value>,
 }
 
@@ -91,7 +89,6 @@ impl BuildConfig {
 		let root_id = config.frontend.root_id.clone();
 		let data_id = config.frontend.data_id.clone();
 		let i18n = config.i18n.clone();
-		let transport = config.transport.clone();
 		let vite = config.vite.clone();
 
 		Ok(Self {
@@ -114,7 +111,6 @@ impl BuildConfig {
 			data_id,
 			pages_dir,
 			i18n,
-			transport,
 			vite,
 		})
 	}

@@ -5,7 +5,6 @@ use std::collections::HashMap;
 use serde::Deserialize;
 
 #[derive(Deserialize)]
-#[allow(dead_code)]
 pub(super) struct RouteManifest {
 	#[serde(default)]
 	pub(super) layouts: HashMap<String, LayoutEntry>,

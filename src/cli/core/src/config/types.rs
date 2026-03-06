@@ -57,7 +57,6 @@ pub struct SeamConfig {
 	#[serde(default)]
 	pub transport: Option<TransportSection>,
 	#[serde(default)]
-	#[allow(dead_code)] // used by built-in bundler config merge (Step 4)
 	pub vite: Option<serde_json::Value>,
 	#[serde(default)]
 	#[allow(dead_code)] // reserved for future router config

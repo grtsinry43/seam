@@ -78,9 +78,9 @@ fn ref_graph_basic() {
 	assert!(graph.all_procedures.contains("getSession"));
 
 	assert_eq!(graph.consumers["getHomeData"].len(), 1);
-	assert!(!graph.consumers["getHomeData"][0].is_layout);
+	assert!(graph.consumers["getHomeData"][0].source.starts_with("Route"));
 	assert_eq!(graph.consumers["getSession"].len(), 1);
-	assert!(graph.consumers["getSession"][0].is_layout);
+	assert!(graph.consumers["getSession"][0].source.starts_with("Layout"));
 
 	let deps = &graph.route_deps["/"];
 	let procs: Vec<&str> = deps.iter().map(|r| r.procedure.as_str()).collect();
