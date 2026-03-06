@@ -13,7 +13,6 @@ export default defineConfig({
 		hashLength: 16,
 		typeHint: false,
 	},
-	generate: { outDir: 'frontend/src/generated' },
 	i18n: { locales: ['en', 'zh'], default: 'en', messagesDir: 'frontend/locales' },
 	dev: { port: 3000, vitePort: 5173 },
 	workspace: { members: ['backends/ts-hono', 'backends/rust-axum', 'backends/go-gin'] },
