@@ -20,5 +20,8 @@ export interface SeamQueryConfig {
 	gcTime?: number
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export type ProcedureMetaBase = Record<string, { kind: string; input: any; output: any }>
+
 /** RPC function signature compatible with seamRpc. */
 export type RpcFn = (procedure: string, input?: unknown) => Promise<unknown>

@@ -1,7 +1,7 @@
 /* src/query/react/src/use-seam-fetch.ts */
 
 import { useSeamQuery } from './use-seam-query.js'
-import type { SeamQueryConfig } from '@canmi/seam-query'
+import type { ProcedureMetaBase, SeamQueryConfig } from '@canmi/seam-query'
 
 export interface UseSeamFetchResult<T = unknown> {
 	data: T | undefined
@@ -9,14 +9,17 @@ export interface UseSeamFetchResult<T = unknown> {
 	error: Error | null
 }
 
-export function useSeamFetch<T = unknown>(
-	procedure: string,
-	input?: unknown,
+export function useSeamFetch<
+	Meta extends ProcedureMetaBase = ProcedureMetaBase,
+	K extends keyof Meta & string = keyof Meta & string,
+>(
+	procedure: K,
+	input?: Meta[K]['input'],
 	options?: SeamQueryConfig,
-): UseSeamFetchResult<T> {
+): UseSeamFetchResult<Meta[K]['output']> {
 	const result = useSeamQuery(procedure, input ?? {}, options)
 	return {
-		data: result.data as T | undefined,
+		data: result.data as Meta[K]['output'] | undefined,
 		pending: result.isLoading,
 		error: result.error,
 	}

@@ -11,6 +11,7 @@ export type { UseSeamFetchResult } from './use-seam-fetch.js'
 export type {
 	ProcedureConfigEntry,
 	ProcedureConfigMap,
+	ProcedureMetaBase,
 	SeamQueryConfig,
 	RpcFn,
 } from '@canmi/seam-query'
