@@ -162,6 +162,23 @@ func LoadRpcHashMap(dir string) *RpcHashMap {
 	return &m
 }
 
+// BuildOutput holds all artifacts from a seam build directory.
+type BuildOutput struct {
+	Pages      []PageDef
+	RpcHashMap *RpcHashMap
+	I18nConfig *I18nConfig
+}
+
+// LoadBuild loads all build artifacts (pages, rpcHashMap, i18n) in one call.
+func LoadBuild(dir string) BuildOutput {
+	pages, _ := LoadBuildOutput(dir)
+	return BuildOutput{
+		Pages:      pages,
+		RpcHashMap: LoadRpcHashMap(dir),
+		I18nConfig: LoadI18nConfig(dir),
+	}
+}
+
 // LoadBuildOutput loads page definitions from seam build output on disk.
 func LoadBuildOutput(dir string) ([]PageDef, error) {
 	manifestPath := filepath.Join(dir, "route-manifest.json")

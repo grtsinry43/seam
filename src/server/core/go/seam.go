@@ -227,6 +227,18 @@ func (r *Router) Page(def *PageDef) *Router {
 	return r
 }
 
+// Build applies all artifacts from a BuildOutput to the router.
+func (r *Router) Build(b BuildOutput) *Router {
+	r.pages = append(r.pages, b.Pages...)
+	if b.RpcHashMap != nil {
+		r.rpcHashMap = b.RpcHashMap
+	}
+	if b.I18nConfig != nil {
+		r.i18nConfig = b.I18nConfig
+	}
+	return r
+}
+
 func (r *Router) RpcHashMap(m *RpcHashMap) *Router {
 	r.rpcHashMap = m
 	return r
