@@ -4,7 +4,8 @@ import { useState, useEffect } from 'react'
 import { useSeamData } from '@canmi/seam-react'
 import { seamRpc } from '@canmi/seam-client'
 import { SeamQueryProvider } from '@canmi/seam-query-react'
-import { seamProcedureConfig, useSeamFetch, useSeamMutation } from 'virtual:seam/client'
+import { seamProcedureConfig } from 'virtual:seam/client'
+import { useSeamFetch, useSeamMutation } from 'virtual:seam/hooks'
 
 interface Todo {
 	id: string

@@ -125,6 +125,20 @@ async fn main() {
 	}
 }
 
+fn write_hooks_and_declarations(
+	seam_dir: &std::path::Path,
+	base_dir: &std::path::Path,
+) -> Result<()> {
+	let emit_hooks = build::route::has_query_react_dep(base_dir);
+	std::fs::write(seam_dir.join("seam.d.ts"), seam_codegen::generate_type_declarations(emit_hooks))
+		.context("failed to write .seam/generated/seam.d.ts")?;
+	if emit_hooks {
+		std::fs::write(seam_dir.join("hooks.ts"), seam_codegen::generate_hooks_module())
+			.context("failed to write .seam/generated/hooks.ts")?;
+	}
+	Ok(())
+}
+
 async fn run() -> Result<()> {
 	let cli = Cli::parse();
 	ui::init_output_mode(cli.plain);
@@ -154,8 +168,7 @@ async fn run() -> Result<()> {
 
 			let proc_count = parsed.procedures.len();
 			let data_id = cfg.as_ref().map_or("__data", |c| &c.frontend.data_id);
-			let emit_query_hooks = build::route::has_query_react_dep(&cwd);
-			let code = seam_codegen::generate_typescript(&parsed, None, data_id, emit_query_hooks)?;
+			let code = seam_codegen::generate_typescript(&parsed, None, data_id)?;
 			let line_count = code.lines().count();
 
 			// Primary: always write to .seam/generated/
@@ -164,8 +177,7 @@ async fn run() -> Result<()> {
 				.with_context(|| format!("failed to create {}", seam_dir.display()))?;
 			std::fs::write(seam_dir.join("client.ts"), &code)
 				.with_context(|| "failed to write .seam/generated/client.ts")?;
-			std::fs::write(seam_dir.join("seam.d.ts"), seam_codegen::generate_type_declarations())
-				.with_context(|| "failed to write .seam/generated/seam.d.ts")?;
+			write_hooks_and_declarations(&seam_dir, &cwd)?;
 
 			// Secondary: if --out or config outDir specified, also write there
 			let user_out =

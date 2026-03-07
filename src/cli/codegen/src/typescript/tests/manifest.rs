@@ -19,7 +19,7 @@ fn full_manifest_render() {
 		},
 	)]));
 
-	let code = generate_typescript(&manifest, None, "__data", false).unwrap();
+	let code = generate_typescript(&manifest, None, "__data").unwrap();
 	assert!(code.contains("export interface GreetInput {"));
 	assert!(code.contains("  name: string;"));
 	assert!(code.contains("export interface GreetOutput {"));
@@ -43,7 +43,7 @@ fn subscription_codegen() {
 		},
 	)]));
 
-	let code = generate_typescript(&manifest, None, "__data", false).unwrap();
+	let code = generate_typescript(&manifest, None, "__data").unwrap();
 	assert!(code.contains("export interface OnCountInput {"));
 	assert!(code.contains("export interface OnCountOutput {"));
 	assert!(code.contains(
@@ -69,7 +69,7 @@ fn full_manifest_render_with_hashes() {
 		batch: "b1c2d3e4".into(),
 		procedures: BTreeMap::from([("greet".into(), "a1b2c3d4".into())]),
 	};
-	let code = generate_typescript(&manifest, Some(&hash_map), "__data", false).unwrap();
+	let code = generate_typescript(&manifest, Some(&hash_map), "__data").unwrap();
 	assert!(!code.contains("configureRpcMap"));
 	assert!(!code.contains("RPC_HASH_MAP"));
 	assert!(code.contains("\"a1b2c3d4\""));
@@ -89,7 +89,7 @@ fn codegen_without_hashes_unchanged() {
 			..make_procedure(ProcedureType::Query)
 		},
 	)]));
-	let code = generate_typescript(&manifest, None, "__data", false).unwrap();
+	let code = generate_typescript(&manifest, None, "__data").unwrap();
 	assert!(code.contains("client.query(\"greet\""));
 	assert!(!code.contains("configureRpcMap"));
 	assert!(!code.contains("batchEndpoint"));
@@ -112,7 +112,7 @@ fn subscription_codegen_with_hashes() {
 		batch: "deadbeef".into(),
 		procedures: BTreeMap::from([("onCount".into(), "cafe1234".into())]),
 	};
-	let code = generate_typescript(&manifest, Some(&hash_map), "__data", false).unwrap();
+	let code = generate_typescript(&manifest, Some(&hash_map), "__data").unwrap();
 	assert!(code.contains("client.subscribe(\"cafe1234\""));
 	assert!(code.contains("onCount(input: OnCountInput"));
 }
@@ -120,20 +120,20 @@ fn subscription_codegen_with_hashes() {
 #[test]
 fn data_id_inline_default() {
 	let manifest = make_manifest_with(BTreeMap::new());
-	let code = generate_typescript(&manifest, None, "__data", false).unwrap();
+	let code = generate_typescript(&manifest, None, "__data").unwrap();
 	assert!(code.contains("export const DATA_ID = \"__data\";"));
 }
 
 #[test]
 fn data_id_inline_custom() {
 	let manifest = make_manifest_with(BTreeMap::new());
-	let code = generate_typescript(&manifest, None, "__sd", false).unwrap();
+	let code = generate_typescript(&manifest, None, "__sd").unwrap();
 	assert!(code.contains("export const DATA_ID = \"__sd\";"));
 }
 
 #[test]
 fn type_declarations() {
-	let code = generate_type_declarations();
+	let code = generate_type_declarations(false);
 	assert!(code.contains("declare module 'virtual:seam/client'"));
 	assert!(code.contains("declare module 'virtual:seam/routes'"));
 	assert!(code.contains("export * from './client'"));
@@ -151,7 +151,7 @@ fn command_codegen() {
 		},
 	)]));
 
-	let code = generate_typescript(&manifest, None, "__data", false).unwrap();
+	let code = generate_typescript(&manifest, None, "__data").unwrap();
 	assert!(code.contains("client.command(\"deleteUser\""));
 	assert!(code.contains(
 		"deleteUser: { kind: \"command\"; input: DeleteUserInput; output: DeleteUserOutput };"
@@ -170,7 +170,7 @@ fn error_schema_codegen() {
 		},
 	)]));
 
-	let code = generate_typescript(&manifest, None, "__data", false).unwrap();
+	let code = generate_typescript(&manifest, None, "__data").unwrap();
 	assert!(code.contains("export interface DeleteUserError {"));
 	assert!(code.contains("  reason: string;"));
 	assert!(code.contains(
@@ -189,7 +189,7 @@ fn error_schema_absent_no_error_type() {
 		},
 	)]));
 
-	let code = generate_typescript(&manifest, None, "__data", false).unwrap();
+	let code = generate_typescript(&manifest, None, "__data").unwrap();
 	assert!(!code.contains("GreetError"));
 	assert!(!code.contains("error:"));
 }
@@ -211,7 +211,7 @@ fn command_with_hashes() {
 		batch: "b1c2d3e4".into(),
 		procedures: BTreeMap::from([("deleteUser".into(), "dead1234".into())]),
 	};
-	let code = generate_typescript(&manifest, Some(&hash_map), "__data", false).unwrap();
+	let code = generate_typescript(&manifest, Some(&hash_map), "__data").unwrap();
 	assert!(code.contains("client.command(\"dead1234\""));
 	assert!(code.contains("deleteUser(input: DeleteUserInput): Promise<DeleteUserOutput>;"));
 }
@@ -228,7 +228,7 @@ fn stream_codegen() {
 		},
 	)]));
 
-	let code = generate_typescript(&manifest, None, "__data", false).unwrap();
+	let code = generate_typescript(&manifest, None, "__data").unwrap();
 	assert!(code.contains("export interface CountStreamInput {"));
 	assert!(code.contains("export interface CountStreamChunk {"));
 	assert!(code.contains("countStream(input: CountStreamInput): StreamHandle<CountStreamChunk>;"));
@@ -257,7 +257,7 @@ fn stream_codegen_with_hashes() {
 		batch: "deadbeef".into(),
 		procedures: BTreeMap::from([("countStream".into(), "stream1234".into())]),
 	};
-	let code = generate_typescript(&manifest, Some(&hash_map), "__data", false).unwrap();
+	let code = generate_typescript(&manifest, Some(&hash_map), "__data").unwrap();
 	assert!(code.contains("client.stream(\"stream1234\""));
 	assert!(code.contains("countStream(input: CountStreamInput"));
 }
@@ -273,7 +273,7 @@ fn upload_codegen() {
 		},
 	)]));
 
-	let code = generate_typescript(&manifest, None, "__data", false).unwrap();
+	let code = generate_typescript(&manifest, None, "__data").unwrap();
 	assert!(code.contains("export interface UploadVideoInput {"));
 	assert!(code.contains("export interface UploadVideoOutput {"));
 	assert!(code.contains(
@@ -313,7 +313,7 @@ fn invalidates_codegen() {
 		),
 	]));
 
-	let code = generate_typescript(&manifest, None, "__data", false).unwrap();
+	let code = generate_typescript(&manifest, None, "__data").unwrap();
 	assert!(code.contains(
     "updatePost: { kind: \"command\"; input: UpdatePostInput; output: UpdatePostOutput; invalidates: readonly [\"getPost\", \"listPosts\"] };"
   ));
@@ -330,7 +330,7 @@ fn command_without_invalidates_no_field() {
 		},
 	)]));
 
-	let code = generate_typescript(&manifest, None, "__data", false).unwrap();
+	let code = generate_typescript(&manifest, None, "__data").unwrap();
 	assert!(code.contains(
 		"deleteUser: { kind: \"command\"; input: DeleteUserInput; output: DeleteUserOutput };"
 	));
@@ -355,7 +355,7 @@ fn invalidates_with_error_codegen() {
 		),
 	]));
 
-	let code = generate_typescript(&manifest, None, "__data", false).unwrap();
+	let code = generate_typescript(&manifest, None, "__data").unwrap();
 	assert!(code.contains(
     "updatePost: { kind: \"command\"; input: UpdatePostInput; output: UpdatePostOutput; error: UpdatePostError; invalidates: readonly [\"getPost\"] };"
   ));
@@ -368,7 +368,7 @@ fn procedure_config_basic() {
 		("deleteUser".into(), make_procedure(ProcedureType::Command)),
 	]));
 
-	let code = generate_typescript(&manifest, None, "__data", false).unwrap();
+	let code = generate_typescript(&manifest, None, "__data").unwrap();
 	assert!(code.contains("export const seamProcedureConfig = {"));
 	assert!(code.contains("getUser: { kind: \"query\" },"));
 	assert!(code.contains("deleteUser: { kind: \"command\" },"));
@@ -397,7 +397,7 @@ fn procedure_config_cache_hint() {
 		),
 	]));
 
-	let code = generate_typescript(&manifest, None, "__data", false).unwrap();
+	let code = generate_typescript(&manifest, None, "__data").unwrap();
 	assert!(code.contains("getUser: { kind: \"query\", cache: { ttl: 30 } },"));
 	assert!(code.contains("listPosts: { kind: \"query\", cache: false },"));
 }
@@ -423,25 +423,17 @@ fn procedure_config_invalidates_with_mapping() {
 		},
 	)]));
 
-	let code = generate_typescript(&manifest, None, "__data", false).unwrap();
+	let code = generate_typescript(&manifest, None, "__data").unwrap();
 	assert!(code.contains("invalidates: [{ query: \"getPost\" }, { query: \"listPosts\", mapping: { authorId: { from: \"userId\" } } }]"));
 }
 
 #[test]
-fn query_hooks_codegen() {
-	let manifest = make_manifest_with(BTreeMap::from([(
-		"greet".into(),
-		ProcedureSchema {
-			input: json!({ "properties": { "name": { "type": "string" } } }),
-			output: Some(json!({ "properties": { "message": { "type": "string" } } })),
-			..make_procedure(ProcedureType::Query)
-		},
-	)]));
-
-	let code = generate_typescript(&manifest, None, "__data", true).unwrap();
+fn hooks_module_codegen() {
+	let code = generate_hooks_module();
 	assert!(code.contains(
 		"import { useSeamFetch as _useSeamFetch, useSeamQuery as _useSeamQuery, useSeamMutation as _useSeamMutation } from \"@canmi/seam-query-react\";"
 	));
+	assert!(code.contains("import type { SeamProcedureMeta } from \"./client\";"));
 	assert!(code.contains("export const useSeamFetch = _useSeamFetch<SeamProcedureMeta>;"));
 	assert!(code.contains("export const useFetch = useSeamFetch;"));
 	assert!(code.contains("export const useSeamQuery = _useSeamQuery<SeamProcedureMeta>;"));
@@ -449,7 +441,7 @@ fn query_hooks_codegen() {
 }
 
 #[test]
-fn query_hooks_omitted_by_default() {
+fn client_ts_has_no_query_react_import() {
 	let manifest = make_manifest_with(BTreeMap::from([(
 		"greet".into(),
 		ProcedureSchema {
@@ -459,10 +451,22 @@ fn query_hooks_omitted_by_default() {
 		},
 	)]));
 
-	let code = generate_typescript(&manifest, None, "__data", false).unwrap();
+	let code = generate_typescript(&manifest, None, "__data").unwrap();
 	assert!(!code.contains("seam-query-react"));
 	assert!(!code.contains("_useSeamFetch"));
-	assert!(!code.contains("export const useSeamFetch"));
+}
+
+#[test]
+fn type_declarations_with_hooks() {
+	let code = generate_type_declarations(true);
+	assert!(code.contains("declare module 'virtual:seam/hooks'"));
+	assert!(code.contains("export * from './hooks'"));
+}
+
+#[test]
+fn type_declarations_without_hooks() {
+	let code = generate_type_declarations(false);
+	assert!(!code.contains("virtual:seam/hooks"));
 }
 
 #[test]
@@ -480,7 +484,7 @@ fn procedure_config_no_extra_fields() {
 		("uploadVideo".into(), make_procedure(ProcedureType::Upload)),
 	]));
 
-	let code = generate_typescript(&manifest, None, "__data", false).unwrap();
+	let code = generate_typescript(&manifest, None, "__data").unwrap();
 	assert!(code.contains("countStream: { kind: \"stream\" },"));
 	assert!(code.contains("onUpdates: { kind: \"subscription\" },"));
 	assert!(code.contains("uploadVideo: { kind: \"upload\" },"));

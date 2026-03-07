@@ -323,15 +323,10 @@ pub(crate) fn generate_types(
 	}
 	fill_builtin_transport_defaults(&mut manifest.transport_defaults);
 
-	let emit_query_hooks = has_query_react_dep(base_dir);
-	let code = seam_codegen::generate_typescript(
-		&manifest,
-		rpc_hashes,
-		&config.frontend.data_id,
-		emit_query_hooks,
-	)?;
+	let code = seam_codegen::generate_typescript(&manifest, rpc_hashes, &config.frontend.data_id)?;
 	let line_count = code.lines().count();
 	let proc_count = manifest.procedures.len();
+	let emit_hooks = has_query_react_dep(base_dir);
 
 	// Primary: always write to .seam/generated/
 	let seam_dir = base_dir.join(".seam/generated");
@@ -340,8 +335,12 @@ pub(crate) fn generate_types(
 	let primary_file = seam_dir.join("client.ts");
 	std::fs::write(&primary_file, &code)
 		.with_context(|| format!("failed to write {}", primary_file.display()))?;
-	std::fs::write(seam_dir.join("seam.d.ts"), seam_codegen::generate_type_declarations())
+	std::fs::write(seam_dir.join("seam.d.ts"), seam_codegen::generate_type_declarations(emit_hooks))
 		.with_context(|| "failed to write .seam/generated/seam.d.ts")?;
+	if emit_hooks {
+		std::fs::write(seam_dir.join("hooks.ts"), seam_codegen::generate_hooks_module())
+			.with_context(|| "failed to write .seam/generated/hooks.ts")?;
+	}
 
 	// Write meta.ts (minimal DATA_ID for seamHydrate auto-import)
 	let meta_code = format!(

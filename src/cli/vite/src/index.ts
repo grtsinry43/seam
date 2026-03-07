@@ -10,6 +10,7 @@ const VIRTUAL_MODULES: Record<string, string> = {
 	'virtual:seam/client': '.seam/generated/client.ts',
 	'virtual:seam/routes': '.seam/generated/routes.ts',
 	'virtual:seam/meta': '.seam/generated/meta.ts',
+	'virtual:seam/hooks': '.seam/generated/hooks.ts',
 }
 
 const SEAM_PACKAGES = ['@canmi/seam-react', '@canmi/seam-tanstack-router', '@canmi/seam-client']
