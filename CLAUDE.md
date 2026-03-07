@@ -18,6 +18,7 @@
 ## Version Control
 
 - Before every `git commit`, run `just fmt && just lint` and fix any errors first; for TS-only changes also run `just test-ts`, for Rust changes run `just test-rs`
+- Docs-only changes (Markdown files): `just fmt` before commit, lint is not required
 - For full verification (fmt + lint + build + all tests): `just verify`
 - Run `git commit` after each plan mode phase completes, do not push
 - Commit messages: conventional commit format (`feat:`, `fix:`, `refactor:`, `docs:`, `test:`, `chore:`, `deps:`, `revert:`, `perf:`); scope is optional and should only be added when it genuinely clarifies context — roughly 1 in 3 commits should have a scope (e.g. `feat(cli):` when the change is CLI-specific), the rest use bare prefix (e.g. `refactor: extract shared helpers`)

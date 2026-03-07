@@ -36,8 +36,8 @@ Custom transport channels beyond HTTP — IPC, WebSocket, message queues, or any
 
 Query and data-fetching integrations for SeamJS procedures.
 
-| Project | Integration | Description |
-| ------- | ----------- | ----------- |
-| [@canmi/seam-query](src/query/seam/) | TanStack Query | Official query integration core (built-in) |
-| [@canmi/seam-query-react](src/query/react/) | React + TanStack Query | Official React hooks (built-in) |
-| _Your project here_ | SWR / Apollo / ... | Submit a PR |
+| Project                                     | Integration            | Description                                |
+| ------------------------------------------- | ---------------------- | ------------------------------------------ |
+| [@canmi/seam-query](src/query/seam/)        | TanStack Query         | Official query integration core (built-in) |
+| [@canmi/seam-query-react](src/query/react/) | React + TanStack Query | Official React hooks (built-in)            |
+| _Your project here_                         | SWR / Apollo / ...     | Submit a PR                                |

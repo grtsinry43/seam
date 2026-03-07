@@ -12,21 +12,21 @@ React hooks wrapping `@canmi/seam-query` core. Provides `SeamQueryProvider` for 
 
 ## Key Exports
 
-| Export                   | Purpose                                                        |
-| ------------------------ | -------------------------------------------------------------- |
-| `SeamQueryProvider`      | Context provider: wraps QueryClient, hydrates from `__loaders` |
-| `useSeamQueryContext`    | Access `{ rpcFn, config }` from provider context               |
-| `useSeamQuery`           | Query hook bound to a Seam procedure                           |
-| `useSeamMutation`        | Mutation hook with automatic query invalidation                |
-| `useSeamFetch` / `useFetch` | Data fetching hooks                                        |
+| Export                      | Purpose                                                        |
+| --------------------------- | -------------------------------------------------------------- |
+| `SeamQueryProvider`         | Context provider: wraps QueryClient, hydrates from `__loaders` |
+| `useSeamQueryContext`       | Access `{ rpcFn, config }` from provider context               |
+| `useSeamQuery`              | Query hook bound to a Seam procedure                           |
+| `useSeamMutation`           | Mutation hook with automatic query invalidation                |
+| `useSeamFetch` / `useFetch` | Data fetching hooks                                            |
 
 ### Types
 
-| Type                     | Purpose                                          |
-| ------------------------ | ------------------------------------------------ |
-| `SeamQueryProviderProps`  | Provider props: `rpcFn`, `config?`, `queryClient?`, `dataId?`, `children` |
-| `SeamQueryContextValue`  | Context value: `{ rpcFn, config }`               |
-| `UseSeamFetchResult`     | Return type of `useSeamFetch`                    |
+| Type                     | Purpose                                                                   |
+| ------------------------ | ------------------------------------------------------------------------- |
+| `SeamQueryProviderProps` | Provider props: `rpcFn`, `config?`, `queryClient?`, `dataId?`, `children` |
+| `SeamQueryContextValue`  | Context value: `{ rpcFn, config }`                                        |
+| `UseSeamFetchResult`     | Return type of `useSeamFetch`                                             |
 
 ## Typed Hooks via Codegen
 

@@ -12,23 +12,23 @@ UI-agnostic TanStack Query integration core for SeamJS. Provides query/mutation 
 
 ## Key Exports
 
-| Export                      | Purpose                                                      |
-| --------------------------- | ------------------------------------------------------------ |
-| `createSeamQueryOptions`    | Build TanStack Query options from a Seam procedure           |
-| `resolveStaleTime`          | Resolve stale time from procedure cache config               |
-| `createSeamMutationOptions` | Build TanStack Mutation options with automatic invalidation  |
-| `invalidateFromConfig`      | Invalidate related queries after a mutation based on config  |
-| `hydrateFromSeamData`       | Populate QueryClient from server-injected `__loaders` data   |
+| Export                      | Purpose                                                     |
+| --------------------------- | ----------------------------------------------------------- |
+| `createSeamQueryOptions`    | Build TanStack Query options from a Seam procedure          |
+| `resolveStaleTime`          | Resolve stale time from procedure cache config              |
+| `createSeamMutationOptions` | Build TanStack Mutation options with automatic invalidation |
+| `invalidateFromConfig`      | Invalidate related queries after a mutation based on config |
+| `hydrateFromSeamData`       | Populate QueryClient from server-injected `__loaders` data  |
 
 ### Types
 
-| Type                 | Purpose                                                                  |
-| -------------------- | ------------------------------------------------------------------------ |
+| Type                   | Purpose                                                                    |
+| ---------------------- | -------------------------------------------------------------------------- |
 | `ProcedureConfigEntry` | Procedure metadata: `kind`, optional `cache` (ttl), optional `invalidates` |
-| `ProcedureConfigMap` | `Record<string, ProcedureConfigEntry>` — full procedure registry         |
-| `SeamQueryConfig`    | Global config: `staleTime`, `gcTime`                                     |
-| `ProcedureMetaBase`  | Generic procedure type map: `Record<string, { kind, input, output }>`    |
-| `RpcFn`              | RPC call signature: `(procedure: string, input?) => Promise<unknown>`    |
+| `ProcedureConfigMap`   | `Record<string, ProcedureConfigEntry>` — full procedure registry           |
+| `SeamQueryConfig`      | Global config: `staleTime`, `gcTime`                                       |
+| `ProcedureMetaBase`    | Generic procedure type map: `Record<string, { kind, input, output }>`      |
+| `RpcFn`                | RPC call signature: `(procedure: string, input?) => Promise<unknown>`      |
 
 ## How Hydration Works
 
@@ -36,10 +36,10 @@ During SSR, the server injects a `__loaders` object into the Seam data script ta
 
 ```json
 {
-  "__loaders": {
-    "repos": { "procedure": "listRepos", "input": { "org": "acme" } }
-  },
-  "repos": [{ "name": "app" }, { "name": "lib" }]
+	"__loaders": {
+		"repos": { "procedure": "listRepos", "input": { "org": "acme" } }
+	},
+	"repos": [{ "name": "app" }, { "name": "lib" }]
 }
 ```
 

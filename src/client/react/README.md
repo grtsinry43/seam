@@ -4,15 +4,15 @@ React bindings for SeamJS, providing hooks and components to consume server-inje
 
 ## Key Exports
 
-| Export                | Purpose                                                                |
-| --------------------- | ---------------------------------------------------------------------- |
-| `defineRoutes`        | Define client-side route configuration                                 |
+| Export                | Purpose                                                                                                    |
+| --------------------- | ---------------------------------------------------------------------------------------------------------- |
+| `defineRoutes`        | Define client-side route configuration                                                                     |
 | `useSeamData`         | Access server-injected data: `useSeamData<T>()` (full data) or `useSeamData<T>(key)` (nested field by key) |
-| `SeamDataProvider`    | Context provider for server data                                       |
-| `parseSeamData`       | Parse JSON from `<script id="__data">`                                 |
-| `buildSentinelData`   | Build sentinel data for skeleton rendering                             |
-| `useSeamSubscription` | Hook for SSE subscriptions, returns `{ data, error, status }`          |
-| `LazyComponentLoader` | Type for dynamic `() => import(...)` page loaders (per-page splitting) |
+| `SeamDataProvider`    | Context provider for server data                                                                           |
+| `parseSeamData`       | Parse JSON from `<script id="__data">`                                                                     |
+| `buildSentinelData`   | Build sentinel data for skeleton rendering                                                                 |
+| `useSeamSubscription` | Hook for SSE subscriptions, returns `{ data, error, status }`                                              |
+| `LazyComponentLoader` | Type for dynamic `() => import(...)` page loaders (per-page splitting)                                     |
 
 ## Types
 

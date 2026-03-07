@@ -15,12 +15,12 @@ export default defineConfig({
 
 ## Exports
 
-| Export                 | Signature                                              | Purpose                                             |
-| ---------------------- | ------------------------------------------------------ | --------------------------------------------------- |
-| `seam`                 | `(options?: SeamOptions) => Plugin[]`                  | Composite plugin (recommended). Options: `{ devOutDir?: string }` |
-| `seamVirtual`          | `() => Plugin`                                         | Resolves `virtual:seam/*` imports to `.seam/generated/` files |
-| `seamPageSplit`        | `() => Plugin`                                         | Per-page code splitting (static to dynamic imports) |
-| `parseComponentImports`| `(source: string) => Map<string, string>`              | Parse import statements (internal utility)          |
+| Export                  | Signature                                 | Purpose                                                           |
+| ----------------------- | ----------------------------------------- | ----------------------------------------------------------------- |
+| `seam`                  | `(options?: SeamOptions) => Plugin[]`     | Composite plugin (recommended). Options: `{ devOutDir?: string }` |
+| `seamVirtual`           | `() => Plugin`                            | Resolves `virtual:seam/*` imports to `.seam/generated/` files     |
+| `seamPageSplit`         | `() => Plugin`                            | Per-page code splitting (static to dynamic imports)               |
+| `parseComponentImports` | `(source: string) => Map<string, string>` | Parse import statements (internal utility)                        |
 
 ## Composed Sub-Plugins
 
@@ -34,12 +34,12 @@ export default defineConfig({
 
 Resolved by `seamVirtual()` (also included in `seam()`):
 
-| Module               | Resolves to                    | Fallback                            |
-| -------------------- | ------------------------------ | ----------------------------------- |
-| `virtual:seam/client`| `.seam/generated/client.ts`    | `export const DATA_ID = "__data"`   |
-| `virtual:seam/routes`| `.seam/generated/routes.ts`    | `export default []`                 |
-| `virtual:seam/meta`  | `.seam/generated/meta.ts`      | `export const DATA_ID = "__data"`   |
-| `virtual:seam/hooks` | `.seam/generated/hooks.ts`     | (empty)                             |
+| Module                | Resolves to                 | Fallback                          |
+| --------------------- | --------------------------- | --------------------------------- |
+| `virtual:seam/client` | `.seam/generated/client.ts` | `export const DATA_ID = "__data"` |
+| `virtual:seam/routes` | `.seam/generated/routes.ts` | `export default []`               |
+| `virtual:seam/meta`   | `.seam/generated/meta.ts`   | `export const DATA_ID = "__data"` |
+| `virtual:seam/hooks`  | `.seam/generated/hooks.ts`  | (empty)                           |
 
 Seam packages (`@canmi/seam-react`, `@canmi/seam-tanstack-router`, `@canmi/seam-client`) are automatically excluded from Vite's esbuild pre-bundling.
 
