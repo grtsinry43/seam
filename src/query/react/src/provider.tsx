@@ -5,6 +5,9 @@ import { hydrateFromSeamData } from '@canmi/seam-query'
 import type { ProcedureConfigMap, RpcFn } from '@canmi/seam-query'
 import { createContext, useContext, useRef, useState, type ReactNode } from 'react'
 
+// Safe at module level — evaluated before skeleton renderer installs traps
+const IS_SERVER = typeof window === 'undefined'
+
 export interface SeamQueryContextValue {
 	rpcFn: RpcFn
 	config?: ProcedureConfigMap
@@ -33,22 +36,26 @@ export function SeamQueryProvider({
 	dataId,
 	children,
 }: SeamQueryProviderProps) {
-	const [defaultClient] = useState(() => new QueryClient())
-	const client = externalClient ?? defaultClient
+	// On server, skip QueryClient creation to avoid Date.now() trap in skeleton rendering
+	const [defaultClient] = useState(() => (IS_SERVER ? null : new QueryClient()))
+	const client = IS_SERVER ? null : (externalClient ?? defaultClient)
 	const hydrated = useRef(false)
 
-	if (!hydrated.current) {
-		if (typeof document !== 'undefined') {
-			try {
-				const el = document.getElementById(dataId ?? '__data')
-				if (el?.textContent) {
-					hydrateFromSeamData(client, JSON.parse(el.textContent) as Record<string, unknown>)
-				}
-			} catch {
-				/* no __data — skip */
+	if (!IS_SERVER && client && !hydrated.current) {
+		try {
+			const el = document.getElementById(dataId ?? '__data')
+			if (el?.textContent) {
+				hydrateFromSeamData(client, JSON.parse(el.textContent) as Record<string, unknown>)
 			}
+		} catch {
+			/* no __data — skip */
 		}
 		hydrated.current = true
+	}
+
+	// Server: passthrough with context only, no QueryClientProvider
+	if (IS_SERVER || !client) {
+		return <SeamQueryContext value={{ rpcFn, config }}>{children}</SeamQueryContext>
 	}
 
 	return (

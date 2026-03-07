@@ -2,9 +2,6 @@
 
 import { useState, useEffect } from 'react'
 import { useSeamData } from '@canmi/seam-react'
-import { seamRpc } from '@canmi/seam-client'
-import { SeamQueryProvider } from '@canmi/seam-query-react'
-import { seamProcedureConfig } from 'virtual:seam/client'
 import { useSeamFetch, useSeamMutation } from 'virtual:seam/hooks'
 
 interface Todo {
@@ -91,8 +88,8 @@ export default function TodoPage() {
 	const [mounted, setMounted] = useState(false)
 	useEffect(() => setMounted(true), [])
 
-	/* SeamQueryProvider uses @tanstack/react-query which calls Date.now() on init.
-     Skeleton rendering forbids browser APIs, so we defer to client only. */
+	/* virtual:seam/hooks is stubbed to empty module during skeleton rendering,
+	   so useSeamFetch/useSeamMutation would be undefined — defer to client only. */
 	if (!mounted) {
 		return (
 			<div>
@@ -109,10 +106,8 @@ export default function TodoPage() {
 			<h1>Query & Mutation Demo</h1>
 			<p data-testid="stats">Total: {data.stats.totalCount}</p>
 			<a href="/about">About</a>
-			<SeamQueryProvider rpcFn={seamRpc} config={seamProcedureConfig}>
-				<AddTodoForm />
-				<TodoList />
-			</SeamQueryProvider>
+			<AddTodoForm />
+			<TodoList />
 		</div>
 	)
 }
