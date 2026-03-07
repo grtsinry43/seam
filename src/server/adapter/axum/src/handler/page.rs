@@ -44,13 +44,18 @@ fn resolve_locale(
 	Ok(Some(seam_server::resolve_chain(&state.strategies, &data)))
 }
 
-/// Run page loaders concurrently and collect keyed results.
+struct LoaderOutput {
+	data: serde_json::Map<String, serde_json::Value>,
+	meta: serde_json::Map<String, serde_json::Value>,
+}
+
+/// Run page loaders concurrently and collect keyed results + metadata.
 async fn run_loaders(
 	state: &AppState,
 	page: &PageDef,
 	params: &HashMap<String, String>,
 	headers: &axum::http::HeaderMap,
-) -> Result<serde_json::Map<String, serde_json::Value>, SeamError> {
+) -> Result<LoaderOutput, SeamError> {
 	let mut join_set = JoinSet::new();
 
 	for loader in &page.loaders {
@@ -65,19 +70,23 @@ async fn run_loaders(
 		let ctx = super::resolve_ctx_for_proc(state, &proc.context_keys, headers)?;
 
 		join_set.spawn(async move {
-			let result = (proc.handler)(input, ctx).await?;
-			Ok::<(String, serde_json::Value), SeamError>((data_key, result))
+			let result = (proc.handler)(input.clone(), ctx).await?;
+			Ok::<(String, serde_json::Value, String, serde_json::Value), SeamError>((
+				data_key, result, proc_name, input,
+			))
 		});
 	}
 
 	let mut data = serde_json::Map::new();
+	let mut meta = serde_json::Map::new();
 	while let Some(result) = join_set.join_next().await {
-		let (key, value) = result
-      .map_err(|e| SeamError::internal(e.to_string()))? // JoinError -> Internal (task panic)
-      ?; // SeamError propagates unchanged
-		data.insert(key, value);
+		let (key, value, procedure, input) = result
+			.map_err(|e| SeamError::internal(e.to_string()))? // JoinError -> Internal (task panic)
+			?; // SeamError propagates unchanged
+		data.insert(key.clone(), value);
+		meta.insert(key, serde_json::json!({ "procedure": procedure, "input": input }));
 	}
-	Ok(data)
+	Ok(LoaderOutput { data, meta })
 }
 
 /// Build the client-side script data JSON, grouping layout-claimed keys under `_layouts`.
@@ -175,7 +184,9 @@ pub(super) async fn handle_page(
 		&page.template
 	};
 
-	let mut data = run_loaders(&state, page, &params, &headers).await?;
+	let loader_output = run_loaders(&state, page, &params, &headers).await?;
+	let mut data = loader_output.data;
+	let loader_meta = loader_output.meta;
 
 	// Prune to projected fields before template injection
 	super::projection::apply_projection(&mut data, &page.projections);
@@ -198,6 +209,10 @@ pub(super) async fn handle_page(
 
 	if let (Some(loc), Some(i18n)) = (&locale, &state.i18n_config) {
 		inject_i18n_data(&mut script_data, loc, i18n, &page.route);
+	}
+
+	if !loader_meta.is_empty() {
+		script_data.insert("__loaders".to_string(), serde_json::Value::Object(loader_meta));
 	}
 
 	let json = serde_json::to_string(&serde_json::Value::Object(script_data)).unwrap_or_default();
