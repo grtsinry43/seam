@@ -38,15 +38,14 @@ fn entry_slot_paths(
 	paths
 }
 
-/// Check if a loader config has `narrow: false` or `handoff: "client"`.
+/// Check if a loader should skip projection.
+/// Projection only applies when `narrow: true` is explicitly set.
 fn should_skip_loader(loader_val: &serde_json::Value) -> bool {
-	if loader_val.get("narrow") == Some(&serde_json::Value::Bool(false)) {
-		return true;
-	}
 	if loader_val.get("handoff").and_then(|v| v.as_str()) == Some("client") {
 		return true;
 	}
-	false
+	// Only narrow when explicitly opted in
+	loader_val.get("narrow") != Some(&serde_json::Value::Bool(true))
 }
 
 /// Find a loader config by key from route loaders or layout chain loaders.
@@ -201,7 +200,7 @@ mod tests {
 	#[test]
 	fn basic_projection() {
 		let tmpl = "<h1><!--seam:user.name--></h1><p><!--seam:user.email--></p>";
-		let loaders = json!({ "user": { "procedure": "getUser" } });
+		let loaders = json!({ "user": { "procedure": "getUser", "narrow": true } });
 		let (mut manifest, dir) = make_entry(tmpl, loaders, None);
 
 		inject_route_projections(&mut manifest, dir.path()).unwrap();
@@ -226,9 +225,9 @@ mod tests {
 	}
 
 	#[test]
-	fn narrow_false_skip() {
+	fn no_narrow_skips_by_default() {
 		let tmpl = "<h1><!--seam:user.name--></h1>";
-		let loaders = json!({ "user": { "procedure": "getUser", "narrow": false } });
+		let loaders = json!({ "user": { "procedure": "getUser" } });
 		let (mut manifest, dir) = make_entry(tmpl, loaders, None);
 
 		inject_route_projections(&mut manifest, dir.path()).unwrap();
@@ -282,7 +281,7 @@ mod tests {
 					template: Some("templates/page.html".to_string()),
 					templates: None,
 					layout: Some("root".to_string()),
-					loaders: json!({ "user": { "procedure": "getUser" } }),
+					loaders: json!({ "user": { "procedure": "getUser", "narrow": true } }),
 					head_meta: None,
 					i18n_keys: None,
 					assets: None,
@@ -302,6 +301,31 @@ mod tests {
 		// Union of page (name) + layout (avatar) slots
 		assert!(user_fields.contains(&"name".to_string()));
 		assert!(user_fields.contains(&"avatar".to_string()));
+	}
+
+	#[test]
+	fn narrow_true_enables_projection() {
+		let tmpl = "<span><!--seam:user.name--></span>";
+		let loaders = json!({ "user": { "procedure": "getUser", "narrow": true } });
+		let (mut manifest, dir) = make_entry(tmpl, loaders, None);
+
+		inject_route_projections(&mut manifest, dir.path()).unwrap();
+
+		let entry = &manifest.routes["/test"];
+		let proj = entry.projections.as_ref().expect("narrow: true should enable projection");
+		assert!(proj["user"].contains(&"name".to_string()));
+	}
+
+	#[test]
+	fn narrow_false_skips() {
+		let tmpl = "<span><!--seam:user.name--></span>";
+		let loaders = json!({ "user": { "procedure": "getUser", "narrow": false } });
+		let (mut manifest, dir) = make_entry(tmpl, loaders, None);
+
+		inject_route_projections(&mut manifest, dir.path()).unwrap();
+
+		let entry = &manifest.routes["/test"];
+		assert!(entry.projections.is_none());
 	}
 
 	#[test]

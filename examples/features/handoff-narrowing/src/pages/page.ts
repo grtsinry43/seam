@@ -1,7 +1,7 @@
 /* examples/features/handoff-narrowing/src/pages/page.ts */
 
 export const loaders = {
-	profile: { procedure: 'getUserProfile' },
+	profile: { procedure: 'getUserProfile', narrow: true },
 	theme: { procedure: 'getUserTheme', handoff: 'client' },
 }
 

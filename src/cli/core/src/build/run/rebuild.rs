@@ -8,9 +8,9 @@ use super::super::config::BuildConfig;
 use super::super::route::generate_types;
 use super::super::route::{
 	BundleContext, RenderContext, build_reference_graph, export_i18n, generate_route_procedures_ts,
-	inject_route_procedures, package_static_assets, process_routes, read_i18n_messages,
-	validate_handoff_consistency, validate_invalidates, validate_procedure_references,
-	warn_unused_queries,
+	inject_route_procedures, inject_route_projections, package_static_assets, process_routes,
+	read_i18n_messages, report_narrowing_savings, validate_handoff_consistency, validate_invalidates,
+	validate_procedure_references, warn_unused_queries,
 };
 use super::super::types::AssetFiles;
 use super::helpers;
@@ -101,6 +101,9 @@ pub fn run_incremental_rebuild(
 		&bundle_ctx,
 	)?;
 	inject_route_procedures(&mut route_manifest, &ref_graph);
+
+	inject_route_projections(&mut route_manifest, &out_dir)?;
+	report_narrowing_savings(&route_manifest);
 
 	if let (Some(msgs), Some(cfg)) = (&i18n_messages, &build_config.i18n) {
 		export_i18n(&out_dir, msgs, &mut route_manifest, cfg)?;
