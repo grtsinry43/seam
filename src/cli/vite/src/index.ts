@@ -45,6 +45,126 @@ export function seamVirtual(): Plugin {
 	}
 }
 
+// -- Config plugin (auto-sets Vite build config from SEAM_* env vars) --
+
+function seamConfigPlugin(): Plugin {
+	const obfuscate = process.env.SEAM_OBFUSCATE === '1'
+	const typeHint = process.env.SEAM_TYPE_HINT !== '0'
+	const hashLength = Number(process.env.SEAM_HASH_LENGTH) || 12
+
+	return {
+		name: 'seam-config',
+		config(userConfig) {
+			const distDir = process.env.SEAM_DIST_DIR ?? '.seam/dist'
+			const entry = process.env.SEAM_ENTRY
+
+			return {
+				appType: 'custom',
+				server: { watch: { ignored: ['**/.seam/**'] } },
+				build: {
+					outDir: distDir,
+					manifest: true,
+					sourcemap: process.env.SEAM_SOURCEMAP === '1',
+					rollupOptions: {
+						// Only inject input if user hasn't set it and SEAM_ENTRY exists
+						...(!userConfig.build?.rollupOptions?.input && entry ? { input: entry } : {}),
+						// Obfuscation output naming
+						...(obfuscate
+							? {
+									output: {
+										hashCharacters: 'hex' as const,
+										...(typeHint
+											? {
+													entryFileNames: `script-[hash:${hashLength}].js`,
+													chunkFileNames: `chunk-[hash:${hashLength}].js`,
+													assetFileNames: (info: { names?: string[] }) =>
+														info.names?.[0]?.endsWith('.css')
+															? `style-[hash:${hashLength}].css`
+															: `[hash:${hashLength}].[ext]`,
+												}
+											: {
+													entryFileNames: `[hash:${hashLength}].js`,
+													chunkFileNames: `[hash:${hashLength}].js`,
+													assetFileNames: `[hash:${hashLength}].[ext]`,
+												}),
+									},
+								}
+							: {}),
+					},
+				},
+			}
+		},
+	}
+}
+
+// -- RPC hash transform plugin --
+
+function seamRpcPlugin(): Plugin {
+	const mapPath = process.env.SEAM_RPC_MAP_PATH
+	if (!mapPath) return { name: 'seam-rpc-noop' }
+	let procedures: Record<string, string> = {}
+	return {
+		name: 'seam-rpc-transform',
+		buildStart() {
+			try {
+				const map = JSON.parse(readFileSync(mapPath, 'utf-8'))
+				procedures = { ...map.procedures, _batch: map.batch }
+			} catch {
+				/* obfuscation off or file missing */
+			}
+		},
+		transform(code, id) {
+			if (!Object.keys(procedures).length) return
+			if (id.includes('node_modules') && !id.includes('@canmi/seam-')) return
+			let result = code
+			for (const [name, hash] of Object.entries(procedures)) {
+				result = result.replaceAll(`"${name}"`, `"${hash}"`)
+			}
+			return result !== code ? { code: result } : undefined
+		},
+	}
+}
+
+// -- Dev-only reload trigger plugin --
+
+function seamReloadPlugin(devOutDir = '.seam/dev-output'): Plugin {
+	return {
+		name: 'seam-reload',
+		apply: 'serve',
+		async configureServer(server) {
+			try {
+				const { watchReloadTrigger } = await import('@canmi/seam-server')
+				const watcher = watchReloadTrigger(resolve(devOutDir), () => {
+					server.ws.send({ type: 'full-reload' })
+				})
+				server.httpServer?.on('close', () => watcher.close())
+			} catch {
+				/* @canmi/seam-server not installed */
+			}
+		},
+	}
+}
+
+// -- Composite plugin --
+
+export interface SeamOptions {
+	devOutDir?: string // default: '.seam/dev-output'
+}
+
+/**
+ * Composite Vite plugin for SeamJS.
+ * Returns Plugin[] — usage: `plugins: [react(), seam()]`
+ */
+export function seam(options?: SeamOptions): Plugin[] {
+	return [
+		seamVirtual(),
+		seamPageSplit(),
+		seamRpcPlugin(),
+		seamReloadPlugin(options?.devOutDir),
+		seamConfigPlugin(),
+	]
+}
+
 // -- Per-page code splitting --
 
 /** Parse import statements from source, returning Map<localName, specifier> */

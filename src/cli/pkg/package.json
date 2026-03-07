@@ -1,6 +1,6 @@
 {
   "name": "@canmi/seam-cli",
-  "version": "0.5.19",
+  "version": "0.5.20",
   "license": "MIT",
   "bin": {
     "seam": "bin/seam"
@@ -19,8 +19,9 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "postcss": "^8.5.6",
-    "rolldown": "^1.0.0-rc.6"
+    "@canmi/seam-vite": "0.5.20",
+    "@vitejs/plugin-react": "^5.1.4",
+    "vite": "^7.0.3"
   },
   "devDependencies": {
     "@types/node": "^25.3.3",
@@ -28,9 +29,9 @@
     "vitest": "^4.0.18"
   },
   "optionalDependencies": {
-    "@canmi/seam-cli-darwin-arm64": "0.5.19",
-    "@canmi/seam-cli-darwin-x64": "0.5.19",
-    "@canmi/seam-cli-linux-arm64": "0.5.19",
-    "@canmi/seam-cli-linux-x64": "0.5.19"
+    "@canmi/seam-cli-darwin-arm64": "0.5.20",
+    "@canmi/seam-cli-darwin-x64": "0.5.20",
+    "@canmi/seam-cli-linux-arm64": "0.5.20",
+    "@canmi/seam-cli-linux-x64": "0.5.20"
   }
 }

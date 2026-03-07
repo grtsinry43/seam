@@ -43,7 +43,7 @@ pub(crate) fn run_command(
 	Ok(())
 }
 
-/// Run the built-in Rolldown bundler via the packaged build script.
+/// Run the built-in Vite bundler via the packaged build script.
 pub(crate) fn run_builtin_bundler(
 	base_dir: &Path,
 	entry: &str,

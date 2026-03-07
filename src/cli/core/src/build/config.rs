@@ -29,6 +29,7 @@ pub struct BuildConfig {
 	pub rpc_salt: Option<String>,
 	pub root_id: String,
 	pub data_id: String,
+	pub entry: Option<String>,
 	pub pages_dir: Option<String>,
 	pub i18n: Option<I18nSection>,
 	pub vite: Option<serde_json::Value>,
@@ -53,6 +54,7 @@ impl BuildConfig {
 			.unwrap_or_else(|| ".seam/output".to_string());
 
 		// Bundler mode: explicit command takes priority, then built-in via frontend.entry
+		let entry = config.frontend.entry.clone();
 		let (bundler_mode, bundler_manifest) = if let Some(cmd) =
 			build.bundler_command.clone().or_else(|| config.frontend.build_command.clone())
 		{
@@ -61,8 +63,8 @@ impl BuildConfig {
 				None => bail!("build.bundler_manifest is required when using a custom bundler command"),
 			};
 			(BundlerMode::Custom { command: cmd }, manifest)
-		} else if let Some(entry) = config.frontend.entry.clone() {
-			(BundlerMode::BuiltIn { entry }, ".seam/dist/.seam/manifest.json".to_string())
+		} else if let Some(ref e) = entry {
+			(BundlerMode::BuiltIn { entry: e.clone() }, ".seam/dist/.vite/manifest.json".to_string())
 		} else {
 			bail!(
 				"set frontend.entry for the built-in bundler, or build.bundler_command for a custom bundler"
@@ -109,6 +111,7 @@ impl BuildConfig {
 			rpc_salt: None,
 			root_id,
 			data_id,
+			entry,
 			pages_dir,
 			i18n,
 			vite,
@@ -199,7 +202,7 @@ renderer = "react"
 		assert!(
 			matches!(build.bundler_mode, BundlerMode::BuiltIn { entry } if entry == "src/client/main.tsx")
 		);
-		assert_eq!(build.bundler_manifest, ".seam/dist/.seam/manifest.json");
+		assert_eq!(build.bundler_manifest, ".seam/dist/.vite/manifest.json");
 		assert!(build.is_fullstack);
 	}
 

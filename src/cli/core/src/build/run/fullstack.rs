@@ -350,10 +350,7 @@ fn resolve_bundle_manifest(
 	manifest_path: &Path,
 ) -> Option<super::super::types::BundleManifest> {
 	source_file_map?;
-	let vite_path = manifest_path.with_file_name("vite-manifest.json");
-	read_bundle_manifest_extended(&vite_path)
-		.or_else(|_| read_bundle_manifest_extended(manifest_path))
-		.ok()
+	read_bundle_manifest_extended(manifest_path).ok()
 }
 
 fn print_build_summary(

@@ -65,10 +65,7 @@ pub(super) fn run_frontend_build(build_config: &BuildConfig, base_dir: &Path) ->
 	let out_dir = base_dir.join(&build_config.out_dir);
 	// When sourceFileMap is available, parse extended manifest for per-page splitting.
 	let bundle_manifest = if skeleton_output.source_file_map.is_some() {
-		let vite_path = manifest_path.with_file_name("vite-manifest.json");
-		read_bundle_manifest_extended(&vite_path)
-			.or_else(|_| read_bundle_manifest_extended(&manifest_path))
-			.ok()
+		read_bundle_manifest_extended(&manifest_path).ok()
 	} else {
 		None
 	};
