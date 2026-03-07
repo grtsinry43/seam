@@ -3,7 +3,7 @@
   "compilerOptions": {
     "jsx": "react-jsx",
     "outDir": "dist",
-    "rootDir": "src"
+    "rootDir": "."
   },
-  "include": ["src"]
+  "include": ["src", "seam.config.ts"]
 }

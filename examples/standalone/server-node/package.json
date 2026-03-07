@@ -6,5 +6,8 @@
   "dependencies": {
     "@canmi/seam-adapter-node": "workspace:*",
     "@canmi/seam-server": "workspace:*"
+  },
+  "devDependencies": {
+    "@canmi/seam-cli": "workspace:*"
   }
 }

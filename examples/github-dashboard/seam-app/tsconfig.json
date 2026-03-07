@@ -8,7 +8,7 @@
     "esModuleInterop": true,
     "skipLibCheck": true,
     "outDir": "dist",
-    "rootDir": "src"
+    "rootDir": "."
   },
-  "include": ["src", ".seam/generated"]
+  "include": ["src", ".seam/generated", "seam.config.ts"]
 }

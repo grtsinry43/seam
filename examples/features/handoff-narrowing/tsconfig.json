@@ -13,5 +13,5 @@
     "rootDir": ".",
     "types": ["bun"]
   },
-  "include": ["src", ".seam/generated"]
+  "include": ["src", ".seam/generated", "seam.config.ts"]
 }

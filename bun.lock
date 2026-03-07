@@ -163,6 +163,7 @@
         "hono": "^4.12.3",
       },
       "devDependencies": {
+        "@canmi/seam-cli": "workspace:*",
         "@types/bun": "latest",
         "typescript": "^5.9.3",
       },
@@ -280,6 +281,7 @@
         "react-dom": "^19.2.4",
       },
       "devDependencies": {
+        "@canmi/seam-cli": "workspace:*",
         "@types/react": "^19.2.14",
         "@types/react-dom": "^19.2.3",
         "@vitejs/plugin-react": "^5.1.4",
@@ -304,6 +306,7 @@
         "@canmi/seam-server": "workspace:*",
       },
       "devDependencies": {
+        "@canmi/seam-cli": "workspace:*",
         "@types/node": "^25",
       },
     },
@@ -313,6 +316,9 @@
       "dependencies": {
         "@canmi/seam-adapter-node": "workspace:*",
         "@canmi/seam-server": "workspace:*",
+      },
+      "devDependencies": {
+        "@canmi/seam-cli": "workspace:*",
       },
     },
     "src/cli/pkg": {
