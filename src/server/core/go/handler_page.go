@@ -59,9 +59,11 @@ func (s *appState) servePage(w http.ResponseWriter, r *http.Request, page *PageD
 
 	// Run loaders concurrently
 	type loaderResult struct {
-		key   string
-		value any
-		err   error
+		key       string
+		value     any
+		procedure string
+		input     any
+		err       error
 	}
 
 	var wg sync.WaitGroup
@@ -92,7 +94,7 @@ func (s *appState) servePage(w http.ResponseWriter, r *http.Request, page *PageD
 			}
 
 			result, err := proc.Handler(loaderCtx, inputJSON)
-			results <- loaderResult{key: ld.DataKey, value: result, err: err}
+			results <- loaderResult{key: ld.DataKey, value: result, procedure: ld.Procedure, input: input, err: err}
 		}(loader)
 	}
 
@@ -103,6 +105,7 @@ func (s *appState) servePage(w http.ResponseWriter, r *http.Request, page *PageD
 
 	// Collect loader results, sorted for deterministic output
 	data := make(map[string]any)
+	loaderMeta := make(map[string]any)
 	for res := range results {
 		if res.err != nil {
 			if ctx.Err() == context.DeadlineExceeded {
@@ -118,6 +121,10 @@ func (s *appState) servePage(w http.ResponseWriter, r *http.Request, page *PageD
 			return
 		}
 		data[res.key] = res.value
+		loaderMeta[res.key] = map[string]any{
+			"procedure": res.procedure,
+			"input":     res.input,
+		}
 	}
 
 	// Prune to projected fields before template injection
@@ -145,8 +152,9 @@ func (s *appState) servePage(w http.ResponseWriter, r *http.Request, page *PageD
 		dataID = "__data"
 	}
 	config := map[string]any{
-		"layout_chain": layoutChain,
-		"data_id":      dataID,
+		"layout_chain":    layoutChain,
+		"data_id":         dataID,
+		"loader_metadata": loaderMeta,
 	}
 	if page.HeadMeta != "" {
 		config["head_meta"] = page.HeadMeta

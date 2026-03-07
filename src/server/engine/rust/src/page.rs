@@ -32,6 +32,10 @@ pub struct PageConfig {
 	pub head_meta: Option<String>,
 	#[serde(default)]
 	pub page_assets: Option<PageAssets>,
+	/// Per-loader procedure + input metadata, injected as `__loaders` in `__data`.
+	/// Lives in config (not loader data) to avoid `flatten_for_slots` contamination.
+	#[serde(default)]
+	pub loader_metadata: Option<serde_json::Map<String, serde_json::Value>>,
 }
 
 /// i18n options for page rendering, passed as JSON.
@@ -83,6 +87,7 @@ pub fn build_seam_data(
 		// No layouts: all data at top level
 		let mut result = data_obj.clone();
 		inject_i18n_data(&mut result, i18n_opts);
+		inject_loader_metadata(&mut result, config);
 		return serde_json::Value::Object(result);
 	}
 
@@ -120,6 +125,7 @@ pub fn build_seam_data(
 	}
 
 	inject_i18n_data(&mut script_data, i18n_opts);
+	inject_loader_metadata(&mut script_data, config);
 	serde_json::Value::Object(script_data)
 }
 
@@ -141,6 +147,16 @@ fn inject_i18n_data(
 	}
 
 	script_data.insert("_i18n".into(), serde_json::Value::Object(i18n_data));
+}
+
+/// Inject `__loaders` metadata from config into the script data map.
+fn inject_loader_metadata(
+	script_data: &mut serde_json::Map<String, serde_json::Value>,
+	config: &PageConfig,
+) {
+	if let Some(ref meta) = config.loader_metadata {
+		script_data.insert("__loaders".to_string(), serde_json::Value::Object(meta.clone()));
+	}
 }
 
 /// Filter i18n messages to only include keys in the allow list.
@@ -247,6 +263,7 @@ mod tests {
 			data_id: "__data".into(),
 			head_meta: None,
 			page_assets: None,
+			loader_metadata: None,
 		};
 		let result = build_seam_data(&data, &config, None);
 		assert_eq!(result["title"], "Hello");
@@ -265,6 +282,7 @@ mod tests {
 			data_id: "__data".into(),
 			head_meta: None,
 			page_assets: None,
+			loader_metadata: None,
 		};
 		let result = build_seam_data(&data, &config, None);
 		assert_eq!(result["pageKey"], "page_val");
@@ -284,6 +302,7 @@ mod tests {
 			data_id: "__data".into(),
 			head_meta: None,
 			page_assets: None,
+			loader_metadata: None,
 		};
 		let result = build_seam_data(&data, &config, None);
 		assert_eq!(result["page_data"], "p");
@@ -302,6 +321,7 @@ mod tests {
 			data_id: "__data".into(),
 			head_meta: None,
 			page_assets: None,
+			loader_metadata: None,
 		};
 		let i18n = I18nOpts {
 			locale: "zh".into(),
@@ -382,6 +402,7 @@ mod tests {
 		let json = r#"{"layout_chain": [], "data_id": "__data"}"#;
 		let config: PageConfig = serde_json::from_str(json).unwrap();
 		assert!(config.page_assets.is_none());
+		assert!(config.loader_metadata.is_none());
 	}
 
 	#[test]
@@ -402,5 +423,47 @@ mod tests {
 		assert_eq!(assets.scripts, vec!["page.js"]);
 		assert_eq!(assets.preload, vec!["shared.js"]);
 		assert_eq!(assets.prefetch, vec!["other.js"]);
+	}
+
+	#[test]
+	fn build_seam_data_with_loader_metadata() {
+		let data = json!({"todos": [{"id": 1}], "stats": {"count": 5}});
+		let mut meta = serde_json::Map::new();
+		meta.insert("todos".into(), json!({"procedure": "listTodos", "input": {}}));
+		meta.insert("stats".into(), json!({"procedure": "getStats", "input": {"slug": "home"}}));
+		let config = PageConfig {
+			layout_chain: vec![],
+			data_id: "__data".into(),
+			head_meta: None,
+			page_assets: None,
+			loader_metadata: Some(meta),
+		};
+		let result = build_seam_data(&data, &config, None);
+		assert_eq!(result["__loaders"]["todos"]["procedure"], "listTodos");
+		assert_eq!(result["__loaders"]["stats"]["input"]["slug"], "home");
+		// Data keys are still at top level
+		assert_eq!(result["todos"][0]["id"], 1);
+		assert_eq!(result["stats"]["count"], 5);
+	}
+
+	#[test]
+	fn build_seam_data_loader_metadata_not_in_layout_claim() {
+		// __loaders must appear at top level, not claimed by layouts
+		let data = json!({"page_data": "p", "nav": "n"});
+		let mut meta = serde_json::Map::new();
+		meta.insert("page_data".into(), json!({"procedure": "getPage", "input": {}}));
+		meta.insert("nav".into(), json!({"procedure": "getNav", "input": {}}));
+		let config = PageConfig {
+			layout_chain: vec![LayoutChainEntry { id: "root".into(), loader_keys: vec!["nav".into()] }],
+			data_id: "__data".into(),
+			head_meta: None,
+			page_assets: None,
+			loader_metadata: Some(meta),
+		};
+		let result = build_seam_data(&data, &config, None);
+		// __loaders at top level, not under _layouts
+		assert!(result["__loaders"].is_object());
+		assert_eq!(result["__loaders"]["nav"]["procedure"], "getNav");
+		assert!(result["_layouts"]["root"].get("__loaders").is_none());
 	}
 }

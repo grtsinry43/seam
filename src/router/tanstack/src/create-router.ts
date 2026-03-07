@@ -175,7 +175,7 @@ export function createSeamRouter(opts: SeamRouterOptions) {
 				initialLayouts = raw._layouts as Record<string, Record<string, unknown>>
 			}
 			// Page data is everything except _layouts and _i18n
-			const { _layouts: _, _i18n: rawI18n, ...pageData } = raw
+			const { _layouts: _, _i18n: rawI18n, __loaders: _lm, ...pageData } = raw
 			initialI18n = (rawI18n as SeamI18nMeta) ?? null
 			// Unwrap: single "page" loader gets flattened
 			initialData = (pageData.page ?? pageData) as Record<string, unknown>

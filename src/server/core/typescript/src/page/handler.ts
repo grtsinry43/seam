@@ -28,13 +28,18 @@ export interface I18nOpts {
 	routePattern: string
 }
 
-/** Execute loaders, returning keyed results */
+interface LoaderResults {
+	data: Record<string, unknown>
+	meta: Record<string, { procedure: string; input: unknown }>
+}
+
+/** Execute loaders, returning keyed results and metadata */
 async function executeLoaders(
 	loaders: Record<string, LoaderFn>,
 	params: Record<string, string>,
 	procedures: Map<string, InternalProcedure>,
 	searchParams?: URLSearchParams,
-): Promise<Record<string, unknown>> {
+): Promise<LoaderResults> {
 	const entries = Object.entries(loaders)
 	const results = await Promise.all(
 		entries.map(async ([key, loader]) => {
@@ -43,10 +48,15 @@ async function executeLoaders(
 			if (!proc) throw new SeamError('INTERNAL_ERROR', `Procedure '${procedure}' not found`)
 			// Skip JTD validation -- loader input is trusted server-side code
 			const result = await proc.handler({ input, ctx: {} })
-			return [key, result] as const
+			return { key, result, procedure, input }
 		}),
 	)
-	return Object.fromEntries(results)
+	return {
+		data: Object.fromEntries(results.map((r) => [r.key, r.result])),
+		meta: Object.fromEntries(
+			results.map((r) => [r.key, { procedure: r.procedure, input: r.input }]),
+		),
+	}
 }
 
 /** Select the template for a given locale, falling back to the default template */
@@ -103,10 +113,12 @@ export async function handlePageRequest(
 
 		const t1 = performance.now()
 
-		// Merge all loader data into a single object
+		// Merge all loader data and metadata into single objects
 		const allData: Record<string, unknown> = {}
-		for (const result of loaderResults) {
-			Object.assign(allData, result)
+		const allMeta: Record<string, { procedure: string; input: unknown }> = {}
+		for (const { data, meta } of loaderResults) {
+			Object.assign(allData, data)
+			Object.assign(allMeta, meta)
 		}
 
 		// Prune to projected fields before template injection
@@ -129,6 +141,7 @@ export async function handlePageRequest(
 			})),
 			data_id: page.dataId ?? '__data',
 			head_meta: page.headMeta,
+			loader_metadata: allMeta,
 		}
 		if (page.pageAssets) {
 			config.page_assets = page.pageAssets
