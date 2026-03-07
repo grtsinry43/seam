@@ -281,6 +281,7 @@ function seamVirtualPlugin() {
 				'virtual:seam/client': '.seam/generated/client.ts',
 				'virtual:seam/routes': '.seam/generated/routes.ts',
 				'virtual:seam/meta': '.seam/generated/meta.ts',
+				'virtual:seam/hooks': '.seam/generated/hooks.ts',
 			}
 			const target = mapping[id]
 			if (!target) return null
@@ -292,6 +293,7 @@ function seamVirtualPlugin() {
 			if (id === '\0virtual:seam/routes') return 'export default []'
 			if (id === '\0virtual:seam/client') return 'export const DATA_ID = "__data"'
 			if (id === '\0virtual:seam/meta') return 'export const DATA_ID = "__data"'
+			if (id === '\0virtual:seam/hooks') return ''
 			return null
 		},
 	}
