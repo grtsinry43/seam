@@ -280,6 +280,7 @@ function seamVirtualPlugin() {
 			const mapping = {
 				'virtual:seam/client': '.seam/generated/client.ts',
 				'virtual:seam/routes': '.seam/generated/routes.ts',
+				'virtual:seam/meta': '.seam/generated/meta.ts',
 			}
 			const target = mapping[id]
 			if (!target) return null
@@ -290,6 +291,7 @@ function seamVirtualPlugin() {
 		load(id) {
 			if (id === '\0virtual:seam/routes') return 'export default []'
 			if (id === '\0virtual:seam/client') return 'export const DATA_ID = "__data"'
+			if (id === '\0virtual:seam/meta') return 'export const DATA_ID = "__data"'
 			return null
 		},
 	}
@@ -351,7 +353,7 @@ const js = []
 const css = []
 
 for (const chunk of output) {
-	if (chunk.type === 'chunk' && chunk.isEntry) {
+	if (chunk.type === 'chunk' && (chunk.isEntry || chunk.isDynamicEntry)) {
 		js.push(chunk.fileName)
 	} else if (chunk.type === 'asset' && chunk.fileName.endsWith('.css')) {
 		css.push(chunk.fileName)
