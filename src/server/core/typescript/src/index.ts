@@ -3,6 +3,7 @@
 export { t } from './types/index.js'
 export { createRouter } from './router/index.js'
 export { query, command, subscription, stream, upload } from './factory.js'
+export { createSeamRouter } from './seam-router.js'
 export { createChannel } from './channel.js'
 export { SeamError } from './errors.js'
 export { definePage } from './page/index.js'
@@ -75,6 +76,7 @@ export type {
 	ContextManifestEntry,
 } from './manifest/index.js'
 export type { ContextFieldDef, ContextConfig, RawContextMap } from './context.js'
+export type { TypedContextFieldDef, SeamDefine } from './seam-router.js'
 export type { HandleResult, BatchCall, BatchResultItem } from './router/handler.js'
 export type { HandlePageResult, PageTiming, I18nOpts } from './page/handler.js'
 export type { BuildOutput } from './page/build-loader.js'
