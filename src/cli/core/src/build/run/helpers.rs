@@ -14,7 +14,6 @@ use crate::ui;
 #[derive(Debug, Clone, Copy)]
 pub enum RebuildMode {
 	/// src/server/** changed — full rebuild (manifest + codegen + bundle + skeletons + assets)
-	#[allow(dead_code)] // Part of rebuild API; no caller constructs Full yet
 	Full,
 	/// src/client/** or shared/** changed — frontend only (bundle + skeletons + assets)
 	FrontendOnly,

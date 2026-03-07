@@ -17,12 +17,19 @@ use super::network::wait_for_port;
 use super::process::{ChildProcess, label_color, pipe_output, spawn_binary, spawn_child, wait_any};
 use super::ui::print_fullstack_banner;
 
-fn setup_watcher() -> Result<(RecommendedWatcher, tokio::sync::mpsc::Receiver<()>)> {
+fn setup_watcher(
+	server_dir: std::path::PathBuf,
+) -> Result<(RecommendedWatcher, tokio::sync::mpsc::Receiver<RebuildMode>)> {
 	let (tx, rx) = tokio::sync::mpsc::channel(16);
 	let watcher = RecommendedWatcher::new(
 		move |res: std::result::Result<notify::Event, notify::Error>| {
-			if res.is_ok() {
-				let _ = tx.blocking_send(());
+			if let Ok(event) = res {
+				let mode = if event.paths.iter().any(|p| p.starts_with(&server_dir)) {
+					RebuildMode::Full
+				} else {
+					RebuildMode::FrontendOnly
+				};
+				let _ = tx.blocking_send(mode);
 			}
 		},
 		notify::Config::default(),
@@ -47,17 +54,20 @@ async fn handle_rebuild(
 	base_dir: &Path,
 	out_dir: &Path,
 	is_vite: bool,
+	mode: RebuildMode,
 ) {
 	let started = Instant::now();
-	ui::label(CYAN, "seam", "rebuilding...");
+	let label = match mode {
+		RebuildMode::Full => "rebuilding (full)...",
+		RebuildMode::FrontendOnly => "rebuilding...",
+	};
+	ui::label(CYAN, "seam", label);
 
 	let cfg = config.clone();
 	let bc = build_config.clone();
 	let bd = base_dir.to_path_buf();
-	let result = tokio::task::spawn_blocking(move || {
-		run_incremental_rebuild(&cfg, &bc, &bd, RebuildMode::FrontendOnly)
-	})
-	.await;
+	let result =
+		tokio::task::spawn_blocking(move || run_incremental_rebuild(&cfg, &bc, &bd, mode)).await;
 
 	match result {
 		Ok(Ok(())) => {
@@ -167,7 +177,8 @@ pub(super) async fn run_dev_fullstack(config: &SeamConfig, base_dir: &Path) -> R
 	}
 
 	// Set up file watcher before spawning backend
-	let (mut _watcher, mut watcher_rx) = setup_watcher()?;
+	let server_dir = base_dir.join("src/server");
+	let (mut _watcher, mut watcher_rx) = setup_watcher(server_dir)?;
 	let mut watched_dirs = Vec::new();
 	for dir in ["src/client", "src/server", "shared"] {
 		let path = base_dir.join(dir);
@@ -230,11 +241,16 @@ pub(super) async fn run_dev_fullstack(config: &SeamConfig, base_dir: &Path) -> R
 				ui::process_exited(label, color, status);
 				break;
 			}
-			Some(()) = watcher_rx.recv() => {
-				// Debounce: wait 300ms, drain pending events
+			Some(initial_mode) = watcher_rx.recv() => {
+				// Debounce: wait 300ms, drain pending events, keep highest-priority mode
 				tokio::time::sleep(Duration::from_millis(300)).await;
-				while watcher_rx.try_recv().is_ok() {}
-				handle_rebuild(config, &build_config, base_dir, &out_dir, vite_port.is_some()).await;
+				let mut mode = initial_mode;
+				while let Ok(m) = watcher_rx.try_recv() {
+					if matches!(m, RebuildMode::Full) {
+						mode = RebuildMode::Full;
+					}
+				}
+				handle_rebuild(config, &build_config, base_dir, &out_dir, vite_port.is_some(), mode).await;
 			}
 		}
 	}
