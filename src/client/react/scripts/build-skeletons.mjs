@@ -74,6 +74,43 @@ function resolveSourcePath(p) {
 	return p
 }
 
+const EXTERNAL_PACKAGES = [
+	'react',
+	'react-dom',
+	'@canmi/seam-react',
+	'@canmi/seam-i18n',
+	'@canmi/seam-query-react',
+	'@tanstack/react-query',
+	'@canmi/seam-client',
+]
+
+async function bundleRoutes(entryPoint, outfile) {
+	await build({
+		entryPoints: [entryPoint],
+		bundle: true,
+		format: 'esm',
+		platform: 'node',
+		outfile,
+		external: EXTERNAL_PACKAGES,
+		plugins: [seamVirtualPlugin()],
+	})
+}
+
+function buildSourceFileMap(flat, importMap, routesDir) {
+	const sourceFileMap = {}
+	for (const route of flat) {
+		if (route.component?.name) {
+			const specifier = importMap.get(route.component.name)
+			if (specifier) {
+				const abs = resolve(routesDir, specifier)
+				const resolved = resolveSourcePath(abs)
+				sourceFileMap[route.path] = relative(process.cwd(), resolved)
+			}
+		}
+	}
+	return sourceFileMap
+}
+
 async function main() {
 	const routesFile = process.argv[2]
 	if (!routesFile) {
@@ -98,23 +135,7 @@ async function main() {
 	const routesSource = readFileSync(absRoutes, 'utf-8')
 	const importMap = parseComponentImports(routesSource)
 
-	await build({
-		entryPoints: [absRoutes],
-		bundle: true,
-		format: 'esm',
-		platform: 'node',
-		outfile,
-		external: [
-			'react',
-			'react-dom',
-			'@canmi/seam-react',
-			'@canmi/seam-i18n',
-			'@canmi/seam-query-react',
-			'@tanstack/react-query',
-			'@canmi/seam-client',
-		],
-		plugins: [seamVirtualPlugin()],
-	})
+	await bundleRoutes(absRoutes, outfile)
 
 	try {
 		const mod = await import(outfile)
@@ -172,18 +193,7 @@ async function main() {
 			stats: { hits: 0, misses: 0 },
 		}
 
-		// Build sourceFileMap: route path -> component source file (relative to cwd)
-		const sourceFileMap = {}
-		for (const route of flat) {
-			if (route.component?.name) {
-				const specifier = importMap.get(route.component.name)
-				if (specifier) {
-					const abs = resolve(routesDir, specifier)
-					const resolved = resolveSourcePath(abs)
-					sourceFileMap[route.path] = relative(process.cwd(), resolved)
-				}
-			}
-		}
+		const sourceFileMap = buildSourceFileMap(flat, importMap, routesDir)
 
 		const layouts = await processLayoutsWithCache(layoutMap, ctx)
 		const renderedRoutes = await processRoutesWithCache(flat, ctx)
