@@ -57,6 +57,9 @@ export function createLoaderFromDefs(
 			}),
 		)
 
-		return Object.fromEntries(results)
+		// Unwrap single "page" key to match first-load behavior
+		// (createSeamRouter does `pageData.page ?? pageData` on __data)
+		const data = Object.fromEntries(results) as Record<string, unknown>
+		return data.page ?? data
 	}
 }
