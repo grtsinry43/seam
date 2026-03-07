@@ -1,13 +1,14 @@
 /* tests/e2e/fixture/src/server/index.ts */
 
 import { resolve } from 'node:path'
-import { loadBuildOutput } from '@canmi/seam-server'
+import { loadBuildOutput, loadRpcHashMap } from '@canmi/seam-server'
 import { serveBun } from '@canmi/seam-adapter-bun'
 import { buildRouter } from './router.js'
 
 // When compiled to .seam/output/server/index.js, parent dir is the build root
 const BUILD_DIR = resolve(import.meta.dir, '..')
 const pages = loadBuildOutput(BUILD_DIR)
+const rpcHashMap = loadRpcHashMap(BUILD_DIR)
 const router = buildRouter({ pages })
 
 // Page-serving fallback: handles GET requests to routes with templates
@@ -25,6 +26,7 @@ const server = serveBun(router, {
 	port,
 	staticDir: resolve(BUILD_DIR, 'public'),
 	fallback: pageFallback,
+	rpcHashMap,
 })
 
 console.log(`E2E fixture running on http://localhost:${server.port}`)
