@@ -222,13 +222,34 @@ func buildMultipart(metadata any, fileName string, content []byte) (body *bytes.
 }
 
 // -- Manifest tests --
+// Manifest structure is verified from the build artifact (seam-manifest.json)
+// rather than the HTTP endpoint, which returns 403 when obfuscation is active.
+
+func loadBuildManifest(t *testing.T) map[string]any {
+	t.Helper()
+	root := projectRoot()
+	path := filepath.Join(root, "examples", "features", "stream-upload", ".seam", "output", "seam-manifest.json")
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read seam-manifest.json: %v", err)
+	}
+	var m map[string]any
+	if err := json.Unmarshal(raw, &m); err != nil {
+		t.Fatalf("parse seam-manifest.json: %v", err)
+	}
+	return m
+}
+
+func TestManifestEndpointForbidden(t *testing.T) {
+	status, _ := getJSON(t, baseURL+"/_seam/manifest.json")
+	if status != 403 {
+		t.Fatalf("status = %d, want 403 (obfuscation active)", status)
+	}
+}
 
 func TestManifestStreamKind(t *testing.T) {
-	status, body := getJSON(t, baseURL+"/_seam/manifest.json")
-	if status != 200 {
-		t.Fatalf("status = %d, want 200", status)
-	}
-	procs, ok := body["procedures"].(map[string]any)
+	manifest := loadBuildManifest(t)
+	procs, ok := manifest["procedures"].(map[string]any)
 	if !ok {
 		t.Fatal("procedures not an object")
 	}
@@ -248,11 +269,8 @@ func TestManifestStreamKind(t *testing.T) {
 }
 
 func TestManifestUploadKind(t *testing.T) {
-	status, body := getJSON(t, baseURL+"/_seam/manifest.json")
-	if status != 200 {
-		t.Fatalf("status = %d, want 200", status)
-	}
-	procs := body["procedures"].(map[string]any)
+	manifest := loadBuildManifest(t)
+	procs := manifest["procedures"].(map[string]any)
 	eu, ok := procs["echoUpload"].(map[string]any)
 	if !ok {
 		t.Fatal("echoUpload not found in manifest")
@@ -263,11 +281,8 @@ func TestManifestUploadKind(t *testing.T) {
 }
 
 func TestManifestQueryKind(t *testing.T) {
-	status, body := getJSON(t, baseURL+"/_seam/manifest.json")
-	if status != 200 {
-		t.Fatalf("status = %d, want 200", status)
-	}
-	procs := body["procedures"].(map[string]any)
+	manifest := loadBuildManifest(t)
+	procs := manifest["procedures"].(map[string]any)
 	gi, ok := procs["getInfo"].(map[string]any)
 	if !ok {
 		t.Fatal("getInfo not found in manifest")

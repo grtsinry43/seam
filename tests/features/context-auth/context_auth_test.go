@@ -194,15 +194,36 @@ func assertErrorResponse(t *testing.T, body map[string]any, expectedCode string)
 }
 
 // -- Manifest tests --
+// Manifest structure is verified from the build artifact (seam-manifest.json)
+// rather than the HTTP endpoint, which returns 403 when obfuscation is active.
+
+func loadBuildManifest(t *testing.T) map[string]any {
+	t.Helper()
+	root := projectRoot()
+	path := filepath.Join(root, "examples", "features", "context-auth", ".seam", "output", "seam-manifest.json")
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read seam-manifest.json: %v", err)
+	}
+	var m map[string]any
+	if err := json.Unmarshal(raw, &m); err != nil {
+		t.Fatalf("parse seam-manifest.json: %v", err)
+	}
+	return m
+}
+
+func TestManifestEndpointForbidden(t *testing.T) {
+	status, _ := getJSON(t, baseURL+"/_seam/manifest.json")
+	if status != 403 {
+		t.Fatalf("status = %d, want 403 (obfuscation active)", status)
+	}
+}
 
 func TestManifestVersion(t *testing.T) {
-	status, body := getJSON(t, baseURL+"/_seam/manifest.json")
-	if status != 200 {
-		t.Fatalf("status = %d, want 200", status)
-	}
-	version, ok := body["version"].(float64)
+	manifest := loadBuildManifest(t)
+	version, ok := manifest["version"].(float64)
 	if !ok {
-		t.Fatalf("version not a number: %v", body["version"])
+		t.Fatalf("version not a number: %v", manifest["version"])
 	}
 	if version != 2 {
 		t.Errorf("version = %v, want 2", version)
@@ -210,8 +231,8 @@ func TestManifestVersion(t *testing.T) {
 }
 
 func TestManifestContext(t *testing.T) {
-	_, body := getJSON(t, baseURL+"/_seam/manifest.json")
-	ctx, ok := body["context"].(map[string]any)
+	manifest := loadBuildManifest(t)
+	ctx, ok := manifest["context"].(map[string]any)
 	if !ok {
 		t.Fatal("context not an object")
 	}
@@ -228,8 +249,8 @@ func TestManifestContext(t *testing.T) {
 }
 
 func TestManifestProcedureContextRefs(t *testing.T) {
-	_, body := getJSON(t, baseURL+"/_seam/manifest.json")
-	procs := body["procedures"].(map[string]any)
+	manifest := loadBuildManifest(t)
+	procs := manifest["procedures"].(map[string]any)
 
 	secret := procs["getSecretData"].(map[string]any)
 	ctxRefs, ok := secret["context"].([]any)
