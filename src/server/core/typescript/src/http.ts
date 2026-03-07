@@ -200,15 +200,17 @@ export function createHttpHandler<T extends DefinitionMap>(
 	router: Router<T>,
 	opts?: HttpHandlerOptions,
 ): HttpHandler {
+	// Explicit option overrides; fall back to router's stored value
+	const effectiveHashMap = opts?.rpcHashMap ?? router.rpcHashMap
 	// Build reverse lookup (hash -> original name) when obfuscation is active
-	const hashToName: Map<string, string> | null = opts?.rpcHashMap
-		? new Map(Object.entries(opts.rpcHashMap.procedures).map(([n, h]) => [h, n]))
+	const hashToName: Map<string, string> | null = effectiveHashMap
+		? new Map(Object.entries(effectiveHashMap.procedures).map(([n, h]) => [h, n]))
 		: null
 	// Built-in procedures bypass hash obfuscation (identity mapping)
 	if (hashToName) {
 		hashToName.set('__seam_i18n_query', '__seam_i18n_query')
 	}
-	const batchHash = opts?.rpcHashMap?.batch ?? null
+	const batchHash = effectiveHashMap?.batch ?? null
 	const ctxExtractKeys = router.contextExtractKeys()
 
 	return async (req) => {
@@ -222,7 +224,7 @@ export function createHttpHandler<T extends DefinitionMap>(
 				: undefined
 
 		if (req.method === 'GET' && pathname === MANIFEST_PATH) {
-			if (opts?.rpcHashMap) return errorResponse(403, 'FORBIDDEN', 'Manifest disabled')
+			if (effectiveHashMap) return errorResponse(403, 'FORBIDDEN', 'Manifest disabled')
 			return jsonResponse(200, router.manifest())
 		}
 

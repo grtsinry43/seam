@@ -1,7 +1,7 @@
 /* src/server/core/typescript/__tests__/http-handler.test.ts */
 
 import { describe, expect, it } from 'vitest'
-import { createHttpHandler, drainStream } from '../src/index.js'
+import { createHttpHandler, createRouter, drainStream, t } from '../src/index.js'
 import { greetRouter as router } from './fixtures.js'
 
 const handler = createHttpHandler(router)
@@ -115,6 +115,50 @@ describe('createHttpHandler with rpcHashMap', () => {
 	it('disables manifest endpoint when obfuscated', async () => {
 		const res = await obfReq('GET', '/_seam/manifest.json')
 		expect(res.status).toBe(403)
+	})
+})
+
+describe('router-level rpcHashMap auto-propagation', () => {
+	const hashMap = {
+		procedures: { greet: 'a1b2c3d4' },
+		batch: 'e5f6a7b8',
+	}
+	const routerWithHash = createRouter(
+		{
+			greet: {
+				input: t.object({ name: t.string() }),
+				output: t.object({ message: t.string() }),
+				handler: ({ input }) => ({ message: `Hello, ${input.name}!` }),
+			},
+		},
+		{ rpcHashMap: hashMap },
+	)
+
+	const autoHandler = createHttpHandler(routerWithHash)
+
+	it('auto-resolves hashed names without explicit opts', async () => {
+		const res = await autoHandler({
+			method: 'POST',
+			url: 'http://localhost/_seam/procedure/a1b2c3d4',
+			body: () => Promise.resolve({ name: 'Alice' }),
+		})
+		expect(res.status).toBe(200)
+		expect(res.body).toEqual({ ok: true, data: { message: 'Hello, Alice!' } })
+	})
+
+	it('explicit opts.rpcHashMap overrides router-level value', async () => {
+		const overrideMap = {
+			procedures: { greet: 'override1' },
+			batch: 'override2',
+		}
+		const overrideHandler = createHttpHandler(routerWithHash, { rpcHashMap: overrideMap })
+		const res = await overrideHandler({
+			method: 'POST',
+			url: 'http://localhost/_seam/procedure/override1',
+			body: () => Promise.resolve({ name: 'Bob' }),
+		})
+		expect(res.status).toBe(200)
+		expect(res.body).toEqual({ ok: true, data: { message: 'Hello, Bob!' } })
 	})
 })
 

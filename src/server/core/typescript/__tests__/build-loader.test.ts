@@ -5,7 +5,13 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest'
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
-import { loadBuildOutput, loadBuildOutputDev, loadRpcHashMap } from '../src/page/build-loader.js'
+import {
+	loadBuild,
+	loadBuildDev,
+	loadBuildOutput,
+	loadBuildOutputDev,
+	loadRpcHashMap,
+} from '../src/page/build-loader.js'
 
 let distDir: string
 
@@ -291,5 +297,45 @@ describe('loadBuildOutputDev', () => {
 
 	it('throws when route-manifest.json is missing', () => {
 		expect(() => loadBuildOutputDev('/nonexistent/path')).toThrow()
+	})
+})
+
+describe('loadBuild', () => {
+	it('returns pages, rpcHashMap, and i18n from a single call', () => {
+		const build = loadBuild(distDir)
+		expect(Object.keys(build.pages)).toEqual(['/user/:id', '/about'])
+		expect(build.rpcHashMap).toBeUndefined()
+		expect(build.i18n).toBeNull()
+	})
+
+	it('includes rpcHashMap when rpc-hash-map.json exists', () => {
+		const hashDir = mkdtempSync(join(tmpdir(), 'seam-loadbuild-hash-'))
+		mkdirSync(join(hashDir, 'templates'))
+		writeFileSync(join(hashDir, 'templates/index.html'), '<p>hi</p>')
+		writeFileSync(
+			join(hashDir, 'route-manifest.json'),
+			JSON.stringify({ routes: { '/': { template: 'templates/index.html', loaders: {} } } }),
+		)
+		writeFileSync(
+			join(hashDir, 'rpc-hash-map.json'),
+			JSON.stringify({ salt: 'x', batch: 'b1', procedures: { foo: 'h1' } }),
+		)
+		try {
+			const build = loadBuild(hashDir)
+			expect(build.rpcHashMap).toBeDefined()
+			expect(build.rpcHashMap!.procedures.foo).toBe('h1')
+		} finally {
+			rmSync(hashDir, { recursive: true, force: true })
+		}
+	})
+})
+
+describe('loadBuildDev', () => {
+	it('returns lazy templates with same structure', () => {
+		const build = loadBuildDev(distDir)
+		expect(Object.keys(build.pages)).toEqual(['/user/:id', '/about'])
+		expect(build.pages['/user/:id'].template).toContain('<!--seam:user.name-->')
+		expect(build.rpcHashMap).toBeUndefined()
+		expect(build.i18n).toBeNull()
 	})
 })

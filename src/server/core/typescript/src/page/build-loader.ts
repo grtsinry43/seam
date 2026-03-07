@@ -167,6 +167,30 @@ function mergeI18nKeys(
 	return keys.length > 0 ? keys : undefined
 }
 
+export interface BuildOutput {
+	pages: Record<string, PageDef>
+	rpcHashMap: RpcHashMap | undefined
+	i18n: I18nConfig | null
+}
+
+/** Load all build artifacts (pages, rpcHashMap, i18n) in one call */
+export function loadBuild(distDir: string): BuildOutput {
+	return {
+		pages: loadBuildOutput(distDir),
+		rpcHashMap: loadRpcHashMap(distDir),
+		i18n: loadI18nMessages(distDir),
+	}
+}
+
+/** Load all build artifacts with lazy template getters (for dev mode) */
+export function loadBuildDev(distDir: string): BuildOutput {
+	return {
+		pages: loadBuildOutputDev(distDir),
+		rpcHashMap: loadRpcHashMap(distDir),
+		i18n: loadI18nMessages(distDir),
+	}
+}
+
 /** Load the RPC hash map from build output (returns undefined when obfuscation is off) */
 export function loadRpcHashMap(distDir: string): RpcHashMap | undefined {
 	const hashMapPath = join(distDir, 'rpc-hash-map.json')

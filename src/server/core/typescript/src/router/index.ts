@@ -2,6 +2,7 @@
 
 import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
+import type { RpcHashMap } from '../http.js'
 import type { SchemaNode } from '../types/schema.js'
 import type { ProcedureManifest } from '../manifest/index.js'
 import type { HandleResult, InternalProcedure } from './handler.js'
@@ -127,6 +128,7 @@ export type DefinitionMap = Record<
 
 export interface RouterOptions {
 	pages?: Record<string, PageDef>
+	rpcHashMap?: RpcHashMap
 	i18n?: I18nConfig | null
 	validateOutput?: boolean
 	resolve?: ResolveStrategy[]
@@ -157,6 +159,7 @@ export interface Router<T extends DefinitionMap> {
 	handlePage(path: string, headers?: PageRequestHeaders): Promise<HandlePageResult | null>
 	contextExtractKeys(): string[]
 	readonly hasPages: boolean
+	readonly rpcHashMap: RpcHashMap | undefined
 	/** Exposed for adapter access to the definitions */
 	readonly procedures: T
 }
@@ -334,6 +337,7 @@ export function createRouter<T extends DefinitionMap>(
 
 	return {
 		procedures,
+		rpcHashMap: opts?.rpcHashMap,
 		hasPages: !!pages && Object.keys(pages).length > 0,
 		contextExtractKeys() {
 			return extractKeys

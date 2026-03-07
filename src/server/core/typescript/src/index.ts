@@ -16,6 +16,8 @@ export {
 	toWebResponse,
 } from './http.js'
 export {
+	loadBuild,
+	loadBuildDev,
 	loadBuildOutput,
 	loadBuildOutputDev,
 	loadRpcHashMap,
@@ -73,6 +75,7 @@ export type {
 export type { ContextFieldDef, ContextConfig, RawContextMap } from './context.js'
 export type { HandleResult, BatchCall, BatchResultItem } from './router/handler.js'
 export type { HandlePageResult, PageTiming, I18nOpts } from './page/handler.js'
+export type { BuildOutput } from './page/build-loader.js'
 export type { PageDef, LayoutDef, LoaderFn, I18nConfig } from './page/index.js'
 export type { ErrorCode } from './errors.js'
 export type { CallbackSink } from './subscription.js'
