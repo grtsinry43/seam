@@ -3,8 +3,8 @@
 import { useState, useEffect } from 'react'
 import { useSeamData } from '@canmi/seam-react'
 import { seamRpc } from '@canmi/seam-client'
-import { SeamQueryProvider, useSeamFetch, useSeamMutation } from '@canmi/seam-query-react'
-import { seamProcedureConfig } from 'virtual:seam/client'
+import { SeamQueryProvider } from '@canmi/seam-query-react'
+import { seamProcedureConfig, useSeamFetch, useSeamMutation } from 'virtual:seam/client'
 
 interface Todo {
 	id: string
@@ -18,7 +18,7 @@ interface PageData extends Record<string, unknown> {
 }
 
 function TodoList() {
-	const { data, pending } = useSeamFetch<{ todos: Todo[] }>('listTodos', {})
+	const { data, pending } = useSeamFetch('listTodos', {})
 	const toggleMutation = useSeamMutation('toggleTodo')
 
 	if (pending) return <p>Loading...</p>
