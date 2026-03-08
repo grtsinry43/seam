@@ -2,8 +2,10 @@
 
 use std::sync::Arc;
 
+use axum::body::Bytes;
 use axum::extract::{Path, State};
 use axum::response::{IntoResponse, Response};
+use http_body_util::BodyExt;
 use seam_server::SeamError;
 use seam_server::context::resolve_context;
 use tokio::task::JoinSet;
@@ -20,12 +22,18 @@ pub(super) async fn handle_manifest(
 	Ok(axum::Json(state.manifest_json.clone()))
 }
 
-pub(super) async fn handle_rpc(
+/// Unified POST dispatcher — routes to RPC, stream, or upload based on kind_map.
+pub(super) async fn handle_procedure_post(
 	State(state): State<Arc<AppState>>,
 	Path(name): Path<String>,
-	headers: axum::http::HeaderMap,
-	body: axum::body::Bytes,
+	req: axum::extract::Request,
 ) -> Result<Response, AxumError> {
+	let headers = req.headers().clone();
+
+	// Collect body bytes
+	let body: Bytes =
+		req.into_body().collect().await.map_err(|e| SeamError::validation(e.to_string()))?.to_bytes();
+
 	// Batch: match both original "_batch" and hashed batch endpoint
 	if name == "_batch" || state.batch_hash.as_deref() == Some(&name) {
 		return handle_batch(State(state), headers, body).await;
@@ -38,16 +46,40 @@ pub(super) async fn handle_rpc(
 		name.clone()
 	};
 
+	// Dispatch based on procedure kind
+	match state.kind_map.get(&resolved).copied() {
+		Some("stream") => {
+			return Ok(
+				super::stream::handle_stream_inner(&state, &resolved, &headers, &body)
+					.await
+					.into_response(),
+			);
+		}
+		Some("upload") => {
+			return super::upload::handle_upload_inner(&state, &resolved, &headers, body).await;
+		}
+		_ => {}
+	}
+
+	handle_rpc_inner(&state, &resolved, &headers, &body).await
+}
+
+async fn handle_rpc_inner(
+	state: &AppState,
+	resolved: &str,
+	headers: &axum::http::HeaderMap,
+	body: &[u8],
+) -> Result<Response, AxumError> {
 	let proc = state
 		.handlers
-		.get(&resolved)
+		.get(resolved)
 		.ok_or_else(|| SeamError::not_found(format!("Procedure '{resolved}' not found")))?;
 
 	let input: serde_json::Value =
-		serde_json::from_slice(&body).map_err(|e| SeamError::validation(e.to_string()))?;
+		serde_json::from_slice(body).map_err(|e| SeamError::validation(e.to_string()))?;
 
 	if state.should_validate
-		&& let Some(cs) = state.compiled_input_schemas.get(&resolved)
+		&& let Some(cs) = state.compiled_input_schemas.get(resolved)
 		&& let Err((msg, details)) = seam_server::validate_compiled(cs, &input)
 	{
 		let detail_json = details.iter().map(seam_server::ValidationDetail::to_json).collect();
@@ -60,7 +92,7 @@ pub(super) async fn handle_rpc(
 		);
 	}
 
-	let ctx = resolve_ctx_for_proc(&state, &proc.context_keys, &headers)?;
+	let ctx = resolve_ctx_for_proc(state, &proc.context_keys, headers)?;
 	let result = (proc.handler)(input, ctx).await?;
 	Ok(axum::Json(serde_json::json!({"ok": true, "data": result})).into_response())
 }
@@ -96,7 +128,7 @@ struct BatchError {
 async fn handle_batch(
 	State(state): State<Arc<AppState>>,
 	headers: axum::http::HeaderMap,
-	body: axum::body::Bytes,
+	body: Bytes,
 ) -> Result<Response, AxumError> {
 	let batch: BatchRequest = serde_json::from_slice(&body)
 		.map_err(|_| SeamError::validation("Batch request must have a 'calls' array"))?;

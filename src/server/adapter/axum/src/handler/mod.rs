@@ -4,7 +4,9 @@ mod channel;
 mod page;
 mod projection;
 mod rpc;
+mod stream;
 mod subscribe;
+mod upload;
 
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -15,13 +17,15 @@ use seam_server::RpcHashMap;
 use seam_server::SeamError;
 use seam_server::context::{ContextConfig, RawContextMap, context_extract_keys, resolve_context};
 use seam_server::page::PageDef;
-use seam_server::procedure::{ProcedureDef, ProcedureType, SubscriptionDef};
+use seam_server::procedure::{ProcedureDef, ProcedureType, StreamDef, SubscriptionDef, UploadDef};
 use seam_server::resolve::ResolveStrategy;
 
 pub(crate) struct AppState {
 	pub manifest_json: serde_json::Value,
 	pub handlers: HashMap<String, Arc<ProcedureDef>>,
 	pub subscriptions: HashMap<String, Arc<SubscriptionDef>>,
+	pub streams: HashMap<String, Arc<StreamDef>>,
+	pub uploads: HashMap<String, Arc<UploadDef>>,
 	pub pages: HashMap<String, Arc<PageDef>>,
 	pub rpc_hash_map: Option<HashMap<String, String>>,
 	pub batch_hash: Option<String>,
@@ -33,6 +37,10 @@ pub(crate) struct AppState {
 	pub should_validate: bool,
 	pub compiled_input_schemas: HashMap<String, seam_server::CompiledSchema>,
 	pub compiled_sub_input_schemas: HashMap<String, seam_server::CompiledSchema>,
+	pub compiled_stream_input_schemas: HashMap<String, seam_server::CompiledSchema>,
+	pub compiled_upload_input_schemas: HashMap<String, seam_server::CompiledSchema>,
+	/// Maps procedure name -> kind ("query"|"command"|"stream"|"upload")
+	pub kind_map: HashMap<String, &'static str>,
 }
 
 /// Extract raw context values from HTTP headers.
@@ -61,11 +69,13 @@ pub(super) fn resolve_ctx_for_proc(
 	resolve_context(&state.context_config, &raw, context_keys)
 }
 
-#[allow(clippy::too_many_arguments)]
+#[allow(clippy::too_many_arguments, clippy::too_many_lines)]
 pub(crate) fn build_router(
 	manifest_json: serde_json::Value,
 	mut handlers: HashMap<String, Arc<ProcedureDef>>,
 	subscriptions: HashMap<String, Arc<SubscriptionDef>>,
+	streams: HashMap<String, Arc<StreamDef>>,
+	uploads: HashMap<String, Arc<UploadDef>>,
 	pages: Vec<PageDef>,
 	hash_map: Option<RpcHashMap>,
 	i18n_config: Option<seam_server::I18nConfig>,
@@ -149,10 +159,44 @@ pub(crate) fn build_router(
 		}
 	}
 
+	let mut compiled_stream_input_schemas = HashMap::new();
+	if should_validate {
+		for (name, stream) in &streams {
+			if let Ok(cs) = seam_server::compile_schema(&stream.input_schema) {
+				compiled_stream_input_schemas.insert(name.clone(), cs);
+			}
+		}
+	}
+
+	let mut compiled_upload_input_schemas = HashMap::new();
+	if should_validate {
+		for (name, upload) in &uploads {
+			if let Ok(cs) = seam_server::compile_schema(&upload.input_schema) {
+				compiled_upload_input_schemas.insert(name.clone(), cs);
+			}
+		}
+	}
+
+	// Build kind map for unified POST dispatcher
+	let mut kind_map = HashMap::new();
+	for (name, proc) in &handlers {
+		match proc.proc_type {
+			ProcedureType::Command => kind_map.insert(name.clone(), "command"),
+			ProcedureType::Query => kind_map.insert(name.clone(), "query"),
+		};
+	}
+	for name in streams.keys() {
+		kind_map.insert(name.clone(), "stream");
+	}
+	for name in uploads.keys() {
+		kind_map.insert(name.clone(), "upload");
+	}
+
 	let mut page_map = HashMap::new();
-	let mut router = Router::new()
-		.route("/_seam/manifest.json", get(rpc::handle_manifest))
-		.route("/_seam/procedure/{name}", post(rpc::handle_rpc).get(subscribe::handle_subscribe));
+	let mut router = Router::new().route("/_seam/manifest.json", get(rpc::handle_manifest)).route(
+		"/_seam/procedure/{name}",
+		post(rpc::handle_procedure_post).get(subscribe::handle_subscribe),
+	);
 
 	// Pages are served under /_seam/page/* prefix only.
 	for page in pages {
@@ -173,6 +217,8 @@ pub(crate) fn build_router(
 		manifest_json,
 		handlers,
 		subscriptions,
+		streams,
+		uploads,
 		pages: page_map,
 		rpc_hash_map,
 		batch_hash,
@@ -184,6 +230,9 @@ pub(crate) fn build_router(
 		should_validate,
 		compiled_input_schemas,
 		compiled_sub_input_schemas,
+		compiled_stream_input_schemas,
+		compiled_upload_input_schemas,
+		kind_map,
 	});
 
 	router.with_state(state)

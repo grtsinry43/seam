@@ -27,6 +27,8 @@ impl IntoAxumRouter for SeamServer {
 		let manifest_json = serde_json::to_value(build_manifest(
 			&parts.procedures,
 			&parts.subscriptions,
+			&parts.streams,
+			&parts.uploads,
 			parts.channel_metas,
 			&parts.context_config,
 		))
@@ -34,10 +36,14 @@ impl IntoAxumRouter for SeamServer {
 		let handlers = parts.procedures.into_iter().map(|p| (p.name.clone(), Arc::new(p))).collect();
 		let subscriptions =
 			parts.subscriptions.into_iter().map(|s| (s.name.clone(), Arc::new(s))).collect();
+		let streams = parts.streams.into_iter().map(|s| (s.name.clone(), Arc::new(s))).collect();
+		let uploads = parts.uploads.into_iter().map(|u| (u.name.clone(), Arc::new(u))).collect();
 		handler::build_router(
 			manifest_json,
 			handlers,
 			subscriptions,
+			streams,
+			uploads,
 			parts.pages,
 			parts.rpc_hash_map,
 			parts.i18n_config,
@@ -290,5 +296,222 @@ mod tests {
 		assert!(detail.get("path").is_some());
 		assert!(detail.get("expected").is_some());
 		assert!(detail.get("actual").is_some());
+	}
+
+	// -- Stream tests --
+
+	fn stream_router() -> axum::Router {
+		use seam_server::procedure::{BoxStream, StreamDef};
+
+		let server = SeamServer::new().stream(StreamDef {
+			name: "countStream".into(),
+			input_schema: serde_json::json!({"properties": {"n": {"type": "int32"}}}),
+			chunk_output_schema: serde_json::json!({"properties": {"value": {"type": "int32"}}}),
+			error_schema: None,
+			context_keys: vec![],
+			handler: Arc::new(|input, _ctx| {
+				Box::pin(async move {
+					let n = input.get("n").and_then(serde_json::Value::as_i64).unwrap_or(3) as usize;
+					let stream: BoxStream<Result<serde_json::Value, SeamError>> = Box::pin(
+						futures_util::stream::iter((0..n).map(|i| Ok(serde_json::json!({"value": i})))),
+					);
+					Ok(stream)
+				})
+			}),
+		});
+		server.into_axum_router()
+	}
+
+	async fn send_raw_request(router: axum::Router, req: Request<Body>) -> (StatusCode, String) {
+		let resp = router.oneshot(req).await.unwrap();
+		let status = resp.status();
+		let bytes = resp.into_body().collect().await.unwrap().to_bytes();
+		(status, String::from_utf8_lossy(&bytes).to_string())
+	}
+
+	#[tokio::test]
+	async fn stream_returns_sse_with_ids() {
+		let router = stream_router();
+		let req = Request::builder()
+			.method("POST")
+			.uri("/_seam/procedure/countStream")
+			.header("content-type", "application/json")
+			.body(Body::from(r#"{"n": 3}"#))
+			.unwrap();
+		let (status, body) = send_raw_request(router, req).await;
+		assert_eq!(status, StatusCode::OK);
+		// Verify SSE data events have incrementing ids
+		assert!(body.contains("event: data\nid: 0\n"), "missing id: 0 in:\n{body}");
+		assert!(body.contains("event: data\nid: 1\n"), "missing id: 1 in:\n{body}");
+		assert!(body.contains("event: data\nid: 2\n"), "missing id: 2 in:\n{body}");
+		assert!(body.contains("event: complete\n"), "missing complete event");
+	}
+
+	#[tokio::test]
+	async fn stream_complete_event() {
+		let router = stream_router();
+		let req = Request::builder()
+			.method("POST")
+			.uri("/_seam/procedure/countStream")
+			.header("content-type", "application/json")
+			.body(Body::from(r#"{"n": 0}"#))
+			.unwrap();
+		let (status, body) = send_raw_request(router, req).await;
+		assert_eq!(status, StatusCode::OK);
+		// Empty stream should just have complete event
+		assert!(body.contains("event: complete\n"));
+		assert!(!body.contains("event: data\n"));
+	}
+
+	#[tokio::test]
+	async fn stream_validation_error() {
+		use seam_server::procedure::{BoxStream, StreamDef};
+
+		let server =
+			SeamServer::new().validation_mode(seam_server::ValidationMode::Always).stream(StreamDef {
+				name: "typedStream".into(),
+				input_schema: serde_json::json!({"properties": {"n": {"type": "int32"}}}),
+				chunk_output_schema: serde_json::json!({}),
+				error_schema: None,
+				context_keys: vec![],
+				handler: Arc::new(|_input, _ctx| {
+					Box::pin(async move {
+						let stream: BoxStream<Result<serde_json::Value, SeamError>> =
+							Box::pin(futures_util::stream::empty());
+						Ok(stream)
+					})
+				}),
+			});
+		let router = server.into_axum_router();
+		let req = Request::builder()
+			.method("POST")
+			.uri("/_seam/procedure/typedStream")
+			.header("content-type", "application/json")
+			.body(Body::from(r#"{"n": "not a number"}"#))
+			.unwrap();
+		let (status, body) = send_raw_request(router, req).await;
+		assert_eq!(status, StatusCode::OK); // SSE always returns 200, error is in the stream
+		assert!(body.contains("event: error\n"));
+		assert!(body.contains("VALIDATION_ERROR"));
+	}
+
+	#[tokio::test]
+	async fn manifest_stream_chunk_output() {
+		let router = stream_router();
+		let (status, json) = send_request(router, "GET", "/_seam/manifest.json", None).await;
+		assert_eq!(status, StatusCode::OK);
+		let stream_entry = &json["procedures"]["countStream"];
+		assert_eq!(stream_entry["kind"], "stream");
+		assert!(stream_entry["chunkOutput"].is_object());
+		assert!(stream_entry.get("output").is_none());
+	}
+
+	// -- Upload tests --
+
+	fn upload_router() -> axum::Router {
+		use seam_server::procedure::UploadDef;
+
+		let server = SeamServer::new().upload(UploadDef {
+			name: "echoUpload".into(),
+			input_schema: serde_json::json!({}),
+			output_schema: serde_json::json!({"properties": {"size": {"type": "int32"}, "filename": {"type": "string"}}}),
+			error_schema: None,
+			context_keys: vec![],
+			handler: Arc::new(|_input, file, _ctx| {
+				Box::pin(async move {
+					Ok(serde_json::json!({
+						"size": file.data.len(),
+						"filename": file.name.unwrap_or_default()
+					}))
+				})
+			}),
+		});
+		server.into_axum_router()
+	}
+
+	fn build_multipart_body(
+		metadata: &str,
+		file_content: &[u8],
+		filename: &str,
+	) -> (String, Vec<u8>) {
+		let boundary = "----SeamTestBoundary";
+		let mut body = Vec::new();
+
+		// metadata field
+		body.extend_from_slice(format!("--{boundary}\r\n").as_bytes());
+		body.extend_from_slice(b"Content-Disposition: form-data; name=\"metadata\"\r\n\r\n");
+		body.extend_from_slice(metadata.as_bytes());
+		body.extend_from_slice(b"\r\n");
+
+		// file field
+		body.extend_from_slice(format!("--{boundary}\r\n").as_bytes());
+		body.extend_from_slice(
+			format!("Content-Disposition: form-data; name=\"file\"; filename=\"{filename}\"\r\n")
+				.as_bytes(),
+		);
+		body.extend_from_slice(b"Content-Type: application/octet-stream\r\n\r\n");
+		body.extend_from_slice(file_content);
+		body.extend_from_slice(b"\r\n");
+
+		// final boundary
+		body.extend_from_slice(format!("--{boundary}--\r\n").as_bytes());
+
+		let content_type = format!("multipart/form-data; boundary={boundary}");
+		(content_type, body)
+	}
+
+	#[tokio::test]
+	async fn upload_returns_json() {
+		let router = upload_router();
+		let (content_type, body) = build_multipart_body("{}", b"hello world", "test.txt");
+		let req = Request::builder()
+			.method("POST")
+			.uri("/_seam/procedure/echoUpload")
+			.header("content-type", content_type)
+			.body(Body::from(body))
+			.unwrap();
+		let resp = router.oneshot(req).await.unwrap();
+		let status = resp.status();
+		let bytes = resp.into_body().collect().await.unwrap().to_bytes();
+		let json: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+		assert_eq!(status, StatusCode::OK);
+		assert_eq!(json["ok"], true);
+		assert_eq!(json["data"]["size"], 11);
+		assert_eq!(json["data"]["filename"], "test.txt");
+	}
+
+	#[tokio::test]
+	async fn upload_missing_file_400() {
+		let router = upload_router();
+		// Send multipart with only metadata, no file
+		let boundary = "----SeamTestBoundary";
+		let mut body = Vec::new();
+		body.extend_from_slice(format!("--{boundary}\r\n").as_bytes());
+		body.extend_from_slice(b"Content-Disposition: form-data; name=\"metadata\"\r\n\r\n{}\r\n");
+		body.extend_from_slice(format!("--{boundary}--\r\n").as_bytes());
+
+		let req = Request::builder()
+			.method("POST")
+			.uri("/_seam/procedure/echoUpload")
+			.header("content-type", format!("multipart/form-data; boundary={boundary}"))
+			.body(Body::from(body))
+			.unwrap();
+		let resp = router.oneshot(req).await.unwrap();
+		let status = resp.status();
+		let bytes = resp.into_body().collect().await.unwrap().to_bytes();
+		let json: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+		assert_eq!(status, StatusCode::BAD_REQUEST);
+		assert_eq!(json["error"]["code"], "VALIDATION_ERROR");
+	}
+
+	#[tokio::test]
+	async fn manifest_upload_output() {
+		let router = upload_router();
+		let (status, json) = send_request(router, "GET", "/_seam/manifest.json", None).await;
+		assert_eq!(status, StatusCode::OK);
+		let upload_entry = &json["procedures"]["echoUpload"];
+		assert_eq!(upload_entry["kind"], "upload");
+		assert!(upload_entry["output"].is_object());
+		assert!(upload_entry.get("chunkOutput").is_none());
 	}
 }
