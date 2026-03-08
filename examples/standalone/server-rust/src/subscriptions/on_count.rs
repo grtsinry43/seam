@@ -20,6 +20,7 @@ pub fn on_count_subscription() -> SubscriptionDef {
 		output_schema: CountOutput::jtd_schema(),
 		error_schema: None,
 		context_keys: vec![],
+		suppress: None,
 		handler: std::sync::Arc::new(|value: serde_json::Value, _ctx: serde_json::Value| {
 			Box::pin(async move {
 				let input: CountInput =

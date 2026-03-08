@@ -117,6 +117,8 @@ pub(crate) fn build_router(
 				output_schema: serde_json::json!({}),
 				error_schema: None,
 				context_keys: vec![],
+				suppress: None,
+				cache: None,
 				handler: Arc::new(move |input: serde_json::Value, _ctx: serde_json::Value| {
 					let i18n = i18n_clone.clone();
 					Box::pin(async move {

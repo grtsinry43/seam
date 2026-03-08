@@ -40,6 +40,10 @@ pub struct ProcedureSchema {
 	pub error: Option<serde_json::Value>,
 	#[serde(skip_serializing_if = "Option::is_none")]
 	pub context: Option<Vec<String>>,
+	#[serde(skip_serializing_if = "Option::is_none")]
+	pub suppress: Option<Vec<String>>,
+	#[serde(skip_serializing_if = "Option::is_none")]
+	pub cache: Option<serde_json::Value>,
 }
 
 pub fn build_manifest(
@@ -66,6 +70,8 @@ pub fn build_manifest(
 				chunk_output: None,
 				error: proc.error_schema.clone(),
 				context,
+				suppress: proc.suppress.clone(),
+				cache: proc.cache.clone(),
 			},
 		);
 	}
@@ -80,6 +86,8 @@ pub fn build_manifest(
 				chunk_output: None,
 				error: sub.error_schema.clone(),
 				context,
+				suppress: sub.suppress.clone(),
+				cache: None,
 			},
 		);
 	}
@@ -95,6 +103,8 @@ pub fn build_manifest(
 				chunk_output: Some(stream.chunk_output_schema.clone()),
 				error: stream.error_schema.clone(),
 				context,
+				suppress: stream.suppress.clone(),
+				cache: None,
 			},
 		);
 	}
@@ -110,6 +120,8 @@ pub fn build_manifest(
 				chunk_output: None,
 				error: upload.error_schema.clone(),
 				context,
+				suppress: upload.suppress.clone(),
+				cache: None,
 			},
 		);
 	}
@@ -177,6 +189,8 @@ mod tests {
 			output_schema: serde_json::json!({}),
 			error_schema: None,
 			context_keys: vec![],
+			suppress: None,
+			cache: None,
 			handler: dummy_handler(),
 		}];
 		let manifest = build_manifest(&procs, &[], &[], &[], BTreeMap::new(), &ContextConfig::new());
@@ -194,6 +208,8 @@ mod tests {
 			output_schema: serde_json::json!({}),
 			error_schema: Some(error.clone()),
 			context_keys: vec![],
+			suppress: None,
+			cache: None,
 			handler: dummy_handler(),
 		}];
 		let manifest = build_manifest(&procs, &[], &[], &[], BTreeMap::new(), &ContextConfig::new());
@@ -210,6 +226,8 @@ mod tests {
 			output_schema: serde_json::json!({}),
 			error_schema: None,
 			context_keys: vec![],
+			suppress: None,
+			cache: None,
 			handler: dummy_handler(),
 		}];
 		let manifest = build_manifest(&procs, &[], &[], &[], BTreeMap::new(), &ContextConfig::new());
@@ -226,6 +244,7 @@ mod tests {
 			output_schema: serde_json::json!({}),
 			error_schema: Some(error.clone()),
 			context_keys: vec![],
+			suppress: None,
 			handler: dummy_sub_handler(),
 		}];
 		let manifest = build_manifest(&[], &subs, &[], &[], BTreeMap::new(), &ContextConfig::new());
@@ -259,6 +278,8 @@ mod tests {
 			output_schema: serde_json::json!({}),
 			error_schema: None,
 			context_keys: vec!["token".into(), "userId".into()],
+			suppress: None,
+			cache: None,
 			handler: dummy_handler(),
 		}];
 		let manifest = build_manifest(&procs, &[], &[], &[], BTreeMap::new(), &ContextConfig::new());
@@ -298,6 +319,7 @@ mod tests {
 			chunk_output_schema: serde_json::json!({"properties": {"n": {"type": "int32"}}}),
 			error_schema: None,
 			context_keys: vec![],
+			suppress: None,
 			handler: dummy_stream_handler(),
 		}];
 		let manifest = build_manifest(&[], &[], &streams, &[], BTreeMap::new(), &ContextConfig::new());
@@ -315,6 +337,7 @@ mod tests {
 			output_schema: serde_json::json!({"properties": {"size": {"type": "int32"}}}),
 			error_schema: None,
 			context_keys: vec![],
+			suppress: None,
 			handler: dummy_upload_handler(),
 		}];
 		let manifest = build_manifest(&[], &[], &[], &uploads, BTreeMap::new(), &ContextConfig::new());
@@ -322,5 +345,96 @@ mod tests {
 		assert_eq!(json["procedures"]["echoUpload"]["kind"], "upload");
 		assert!(json["procedures"]["echoUpload"]["output"].is_object());
 		assert!(json["procedures"]["echoUpload"].get("chunkOutput").is_none());
+	}
+
+	#[test]
+	fn suppress_propagated() {
+		let procs = vec![ProcedureDef {
+			name: "warned".to_string(),
+			proc_type: ProcedureType::Query,
+			input_schema: serde_json::json!({}),
+			output_schema: serde_json::json!({}),
+			error_schema: None,
+			context_keys: vec![],
+			suppress: Some(vec!["unused".to_string()]),
+			cache: None,
+			handler: dummy_handler(),
+		}];
+		let manifest = build_manifest(&procs, &[], &[], &[], BTreeMap::new(), &ContextConfig::new());
+		let json = serde_json::to_value(&manifest).unwrap();
+		let suppress = json["procedures"]["warned"]["suppress"].as_array().unwrap();
+		assert_eq!(suppress, &[serde_json::json!("unused")]);
+	}
+
+	#[test]
+	fn suppress_omitted_when_none() {
+		let procs = vec![ProcedureDef {
+			name: "clean".to_string(),
+			proc_type: ProcedureType::Query,
+			input_schema: serde_json::json!({}),
+			output_schema: serde_json::json!({}),
+			error_schema: None,
+			context_keys: vec![],
+			suppress: None,
+			cache: None,
+			handler: dummy_handler(),
+		}];
+		let manifest = build_manifest(&procs, &[], &[], &[], BTreeMap::new(), &ContextConfig::new());
+		let json = serde_json::to_value(&manifest).unwrap();
+		assert!(json["procedures"]["clean"].get("suppress").is_none());
+	}
+
+	#[test]
+	fn cache_ttl_propagated() {
+		let procs = vec![ProcedureDef {
+			name: "cached".to_string(),
+			proc_type: ProcedureType::Query,
+			input_schema: serde_json::json!({}),
+			output_schema: serde_json::json!({}),
+			error_schema: None,
+			context_keys: vec![],
+			suppress: None,
+			cache: Some(serde_json::json!({"ttl": 30})),
+			handler: dummy_handler(),
+		}];
+		let manifest = build_manifest(&procs, &[], &[], &[], BTreeMap::new(), &ContextConfig::new());
+		let json = serde_json::to_value(&manifest).unwrap();
+		assert_eq!(json["procedures"]["cached"]["cache"]["ttl"], 30);
+	}
+
+	#[test]
+	fn cache_false_propagated() {
+		let procs = vec![ProcedureDef {
+			name: "nocache".to_string(),
+			proc_type: ProcedureType::Query,
+			input_schema: serde_json::json!({}),
+			output_schema: serde_json::json!({}),
+			error_schema: None,
+			context_keys: vec![],
+			suppress: None,
+			cache: Some(serde_json::json!(false)),
+			handler: dummy_handler(),
+		}];
+		let manifest = build_manifest(&procs, &[], &[], &[], BTreeMap::new(), &ContextConfig::new());
+		let json = serde_json::to_value(&manifest).unwrap();
+		assert_eq!(json["procedures"]["nocache"]["cache"], false);
+	}
+
+	#[test]
+	fn cache_omitted_when_none() {
+		let procs = vec![ProcedureDef {
+			name: "default".to_string(),
+			proc_type: ProcedureType::Query,
+			input_schema: serde_json::json!({}),
+			output_schema: serde_json::json!({}),
+			error_schema: None,
+			context_keys: vec![],
+			suppress: None,
+			cache: None,
+			handler: dummy_handler(),
+		}];
+		let manifest = build_manifest(&procs, &[], &[], &[], BTreeMap::new(), &ContextConfig::new());
+		let json = serde_json::to_value(&manifest).unwrap();
+		assert!(json["procedures"]["default"].get("cache").is_none());
 	}
 }

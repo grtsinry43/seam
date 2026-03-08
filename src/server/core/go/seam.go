@@ -92,6 +92,8 @@ type ProcedureDef struct {
 	OutputSchema any
 	ErrorSchema  any      // optional: JTD schema for typed errors
 	ContextKeys  []string // context keys this procedure requires
+	Suppress     []string // optional: suppressed warnings for client SDK
+	Cache        any      // optional: false | map[string]any{"ttl": N}
 	Handler      HandlerFunc
 }
 
@@ -102,6 +104,20 @@ type ProcedureOption func(*ProcedureDef)
 func WithProcedureContext(keys ...string) ProcedureOption {
 	return func(p *ProcedureDef) {
 		p.ContextKeys = append(p.ContextKeys, keys...)
+	}
+}
+
+// WithSuppress declares warnings to suppress in client SDK.
+func WithSuppress(warnings ...string) ProcedureOption {
+	return func(p *ProcedureDef) {
+		p.Suppress = append(p.Suppress, warnings...)
+	}
+}
+
+// WithCache sets the cache hint for this procedure.
+func WithCache(cache any) ProcedureOption {
+	return func(p *ProcedureDef) {
+		p.Cache = cache
 	}
 }
 
@@ -121,6 +137,7 @@ type SubscriptionDef struct {
 	OutputSchema any
 	ErrorSchema  any      // optional: JTD schema for typed errors
 	ContextKeys  []string // context keys this subscription requires
+	Suppress     []string // optional: suppressed warnings for client SDK
 	Handler      SubscriptionHandlerFunc
 }
 
@@ -140,6 +157,7 @@ type StreamDef struct {
 	ChunkOutputSchema any
 	ErrorSchema       any      // optional: JTD schema for typed errors
 	ContextKeys       []string // context keys this stream requires
+	Suppress          []string // optional: suppressed warnings for client SDK
 	Handler           StreamHandlerFunc
 }
 
@@ -160,6 +178,7 @@ type UploadDef struct {
 	OutputSchema any
 	ErrorSchema  any      // optional: JTD schema for typed errors
 	ContextKeys  []string // context keys this upload requires
+	Suppress     []string // optional: suppressed warnings for client SDK
 	Handler      UploadHandlerFunc
 }
 

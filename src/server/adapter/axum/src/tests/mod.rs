@@ -20,6 +20,8 @@ fn test_router() -> axum::Router {
 		output_schema: serde_json::json!({"properties": {"message": {"type": "string"}}}),
 		error_schema: None,
 		context_keys: vec![],
+		suppress: None,
+		cache: None,
 		handler: Arc::new(|input, _ctx| {
 			Box::pin(async move {
 				let name = input.get("name").and_then(|v| v.as_str()).unwrap_or("World");
@@ -34,6 +36,8 @@ fn test_router() -> axum::Router {
 		output_schema: serde_json::json!({"properties": {"ok": {"type": "boolean"}}}),
 		error_schema: None,
 		context_keys: vec![],
+		suppress: None,
+		cache: None,
 		handler: Arc::new(|_input, _ctx| Box::pin(async move { Ok(serde_json::json!({"ok": true})) })),
 	});
 	server.into_axum_router()

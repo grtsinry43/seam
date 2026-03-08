@@ -55,6 +55,8 @@ impl ChannelDef {
 				output_schema: msg_def.output_schema.clone(),
 				error_schema: msg_def.error_schema.clone(),
 				context_keys: vec![],
+				suppress: None,
+				cache: None,
 				handler: msg_def.handler,
 			});
 
@@ -90,6 +92,7 @@ impl ChannelDef {
 			output_schema: union_schema,
 			error_schema: None,
 			context_keys: vec![],
+			suppress: None,
 			handler: self.subscribe_handler,
 		}];
 

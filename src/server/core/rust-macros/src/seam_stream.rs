@@ -92,6 +92,7 @@ pub fn expand(attr: TokenStream, item: ItemFn) -> syn::Result<TokenStream> {
 				chunk_output_schema: <#output_type as seam_server::SeamType>::jtd_schema(),
 				error_schema: None,
 				context_keys: #context_keys_expr,
+				suppress: None,
 				handler: #handler_body,
 			}
 		}

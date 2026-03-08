@@ -40,6 +40,8 @@ pub struct ProcedureDef {
 	pub output_schema: serde_json::Value,
 	pub error_schema: Option<serde_json::Value>,
 	pub context_keys: Vec<String>,
+	pub suppress: Option<Vec<String>>,
+	pub cache: Option<serde_json::Value>,
 	pub handler: HandlerFn,
 }
 
@@ -49,6 +51,7 @@ pub struct SubscriptionDef {
 	pub output_schema: serde_json::Value,
 	pub error_schema: Option<serde_json::Value>,
 	pub context_keys: Vec<String>,
+	pub suppress: Option<Vec<String>>,
 	pub handler: SubscriptionHandlerFn,
 }
 
@@ -79,6 +82,7 @@ pub struct StreamDef {
 	pub chunk_output_schema: serde_json::Value,
 	pub error_schema: Option<serde_json::Value>,
 	pub context_keys: Vec<String>,
+	pub suppress: Option<Vec<String>>,
 	pub handler: StreamHandlerFn,
 }
 
@@ -88,5 +92,6 @@ pub struct UploadDef {
 	pub output_schema: serde_json::Value,
 	pub error_schema: Option<serde_json::Value>,
 	pub context_keys: Vec<String>,
+	pub suppress: Option<Vec<String>>,
 	pub handler: UploadHandlerFn,
 }

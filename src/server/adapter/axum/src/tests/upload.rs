@@ -10,6 +10,7 @@ fn upload_router() -> axum::Router {
 		output_schema: serde_json::json!({"properties": {"size": {"type": "int32"}, "filename": {"type": "string"}}}),
 		error_schema: None,
 		context_keys: vec![],
+		suppress: None,
 		handler: Arc::new(|_input, file, _ctx| {
 			Box::pin(async move {
 				Ok(serde_json::json!({

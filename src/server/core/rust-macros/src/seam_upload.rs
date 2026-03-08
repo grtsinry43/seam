@@ -104,6 +104,7 @@ pub fn expand(attr: TokenStream, item: ItemFn) -> syn::Result<TokenStream> {
 				output_schema: <#output_type as seam_server::SeamType>::jtd_schema(),
 				error_schema: #error_schema_expr,
 				context_keys: #context_keys_expr,
+				suppress: None,
 				handler: #handler_body,
 			}
 		}

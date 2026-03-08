@@ -99,6 +99,8 @@ fn validation_router(mode: seam_server::ValidationMode) -> axum::Router {
 		output_schema: serde_json::json!({"properties": {"message": {"type": "string"}}}),
 		error_schema: None,
 		context_keys: vec![],
+		suppress: None,
+		cache: None,
 		handler: Arc::new(|input, _ctx| {
 			Box::pin(async move {
 				let name = input.get("name").and_then(|v| v.as_str()).unwrap_or("World");

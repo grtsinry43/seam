@@ -234,11 +234,14 @@ type procedureEntry struct {
 	ChunkOutput any      `json:"chunkOutput,omitempty"`
 	Error       any      `json:"error,omitempty"`
 	Context     []string `json:"context,omitempty"`
+	Suppress    []string `json:"suppress,omitempty"`
+	Cache       any      `json:"cache,omitempty"`
 }
 
 func buildManifest(procedures []ProcedureDef, subscriptions []SubscriptionDef, streams []StreamDef, uploads []UploadDef, channels map[string]channelMeta, contextConfigs map[string]ContextConfig) manifestSchema {
 	procs := make(map[string]procedureEntry)
-	for _, p := range procedures {
+	for i := range procedures {
+		p := &procedures[i]
 		procType := p.Type
 		if procType == "" {
 			procType = "query"
@@ -252,6 +255,12 @@ func buildManifest(procedures []ProcedureDef, subscriptions []SubscriptionDef, s
 		if len(p.ContextKeys) > 0 {
 			entry.Context = p.ContextKeys
 		}
+		if len(p.Suppress) > 0 {
+			entry.Suppress = p.Suppress
+		}
+		if p.Cache != nil {
+			entry.Cache = p.Cache
+		}
 		procs[p.Name] = entry
 	}
 	for _, s := range subscriptions {
@@ -263,6 +272,9 @@ func buildManifest(procedures []ProcedureDef, subscriptions []SubscriptionDef, s
 		}
 		if len(s.ContextKeys) > 0 {
 			entry.Context = s.ContextKeys
+		}
+		if len(s.Suppress) > 0 {
+			entry.Suppress = s.Suppress
 		}
 		procs[s.Name] = entry
 	}
@@ -276,6 +288,9 @@ func buildManifest(procedures []ProcedureDef, subscriptions []SubscriptionDef, s
 		if len(st.ContextKeys) > 0 {
 			entry.Context = st.ContextKeys
 		}
+		if len(st.Suppress) > 0 {
+			entry.Suppress = st.Suppress
+		}
 		procs[st.Name] = entry
 	}
 	for _, u := range uploads {
@@ -287,6 +302,9 @@ func buildManifest(procedures []ProcedureDef, subscriptions []SubscriptionDef, s
 		}
 		if len(u.ContextKeys) > 0 {
 			entry.Context = u.ContextKeys
+		}
+		if len(u.Suppress) > 0 {
+			entry.Suppress = u.Suppress
 		}
 		procs[u.Name] = entry
 	}

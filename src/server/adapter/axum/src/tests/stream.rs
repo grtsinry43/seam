@@ -11,6 +11,7 @@ fn stream_router() -> axum::Router {
 		chunk_output_schema: serde_json::json!({"properties": {"value": {"type": "int32"}}}),
 		error_schema: None,
 		context_keys: vec![],
+		suppress: None,
 		handler: Arc::new(|input, _ctx| {
 			Box::pin(async move {
 				let n = input.get("n").and_then(serde_json::Value::as_i64).unwrap_or(3) as usize;
@@ -66,6 +67,7 @@ async fn stream_validation_error() {
 			chunk_output_schema: serde_json::json!({}),
 			error_schema: None,
 			context_keys: vec![],
+			suppress: None,
 			handler: Arc::new(|_input, _ctx| {
 				Box::pin(async move {
 					let stream: BoxStream<Result<serde_json::Value, SeamError>> =
