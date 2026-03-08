@@ -11,7 +11,7 @@ See root CLAUDE.md for general conventions.
 | `main.rs`         | CLI entry point (clap); dispatches `pull`, `generate`, `build`, `dev`, `clean` subcommands; `--plain` + `--version` flags                                          |
 | `config/`         | Parses config (`seam.config.ts` > `.mjs` > `.toml`); walks upward to find config (like Cargo.toml discovery)                                                       |
 | `pull.rs`         | Fetches `/_seam/manifest.json` from a running server via reqwest                                                                                                   |
-| `build/config.rs` | `BuildConfig` + `BundlerMode` enum derived from `SeamConfig`; detects fullstack vs frontend-only                                                                   |
+| `build/config.rs` | `BuildConfig` derived from `SeamConfig`; detects fullstack vs frontend-only; always uses built-in bundler                                                          |
 | `build/run/`      | Build orchestrator: dispatches frontend-only (3-4 steps) or fullstack (7-10 steps) builds; dynamic step registry via `StepTracker`                                 |
 | `build/route/`    | Pipeline steps: skeleton rendering, route processing, manifest extraction, codegen, asset packaging                                                                |
 | `build/types.rs`  | Shared build types (`AssetFiles`, `BundleManifest`, `EntryAssets`, `SeamManifest`), manifest reader (`read_bundle_manifest_extended` for per-entry asset tracking) |
