@@ -2,7 +2,9 @@
 
 import { describe, expect, it } from 'vitest'
 import { createRouter } from '../src/router/index.js'
+import type { HandlePageResult } from '../src/page/handler.js'
 import { t } from '../src/types/index.js'
+import { extractSeamData, simplePage } from './page-handler-helpers.js'
 
 describe('router with context', () => {
 	const router = createRouter(
@@ -128,6 +130,68 @@ describe('context config validation at router creation', () => {
 				},
 			),
 		).toThrow('references undefined context field "nonexistent"')
+	})
+})
+
+describe('page loader with context', () => {
+	const router = createRouter(
+		{
+			getProfile: {
+				input: t.object({}),
+				output: t.object({ user: t.nullable(t.string()) }),
+				context: ['auth'],
+				handler: ({ ctx }) => ({ user: ctx.auth ?? null }),
+			},
+			getPublicData: {
+				input: t.object({}),
+				output: t.object({ count: t.int32() }),
+				handler: () => ({ count: 42 }),
+			},
+		},
+		{
+			pages: {
+				'/dashboard': simplePage('<h1>Dashboard</h1>', {
+					profile: () => ({ procedure: 'getProfile', input: {} }),
+				}),
+				'/public': simplePage('<h1>Public</h1>', {
+					stats: () => ({ procedure: 'getPublicData', input: {} }),
+				}),
+			},
+			context: {
+				auth: {
+					extract: 'header:authorization',
+					schema: t.nullable(t.string()),
+				},
+			},
+		},
+	)
+
+	it('resolves context in page loaders', async () => {
+		const result = await router.handlePage('/dashboard', {}, { authorization: 'Bearer secret' })
+		expect(result).not.toBeNull()
+		const { status, html } = result as HandlePageResult
+		expect(status).toBe(200)
+		const data = extractSeamData(html)
+		expect(data).toHaveProperty('profile')
+		expect((data.profile as { user: string }).user).toBe('Bearer secret')
+	})
+
+	it('passes empty ctx for procedures without context keys', async () => {
+		const result = await router.handlePage('/public', {}, {})
+		expect(result).not.toBeNull()
+		const { status, html } = result as HandlePageResult
+		expect(status).toBe(200)
+		const data = extractSeamData(html)
+		expect((data.stats as { count: number }).count).toBe(42)
+	})
+
+	it('passes null for nullable context when header is missing', async () => {
+		const result = await router.handlePage('/dashboard', {}, {})
+		expect(result).not.toBeNull()
+		const { status, html } = result as HandlePageResult
+		expect(status).toBe(200)
+		const data = extractSeamData(html)
+		expect((data.profile as { user: null }).user).toBeNull()
 	})
 })
 

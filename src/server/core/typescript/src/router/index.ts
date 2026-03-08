@@ -159,7 +159,11 @@ export interface Router<T extends DefinitionMap> {
 		rawCtx?: RawContextMap,
 	): Promise<HandleResult>
 	getKind(name: string): ProcedureKind | null
-	handlePage(path: string, headers?: PageRequestHeaders): Promise<HandlePageResult | null>
+	handlePage(
+		path: string,
+		headers?: PageRequestHeaders,
+		rawCtx?: RawContextMap,
+	): Promise<HandlePageResult | null>
 	contextExtractKeys(): string[]
 	readonly hasPages: boolean
 	readonly rpcHashMap: RpcHashMap | undefined
@@ -247,6 +251,9 @@ async function matchAndHandlePage(
 	hasUrlPrefix: boolean,
 	path: string,
 	headers?: PageRequestHeaders,
+	rawCtx?: RawContextMap,
+	ctxConfig?: ContextConfig,
+	extractKeys?: string[],
 ): Promise<HandlePageResult | null> {
 	let pathLocale: string | null = null
 	let routePath = path
@@ -288,7 +295,23 @@ async function matchAndHandlePage(
 
 	const i18nOpts =
 		locale && i18nConfig ? { locale, config: i18nConfig, routePattern: match.pattern } : undefined
-	return handlePageRequest(match.value, match.params, procedureMap, i18nOpts, searchParams)
+
+	const ctxResolver =
+		rawCtx && extractKeys && extractKeys.length > 0
+			? (proc: { contextKeys: string[] }) => {
+					if (proc.contextKeys.length === 0) return {}
+					return resolveContext(ctxConfig ?? {}, rawCtx, proc.contextKeys)
+				}
+			: undefined
+
+	return handlePageRequest(
+		match.value,
+		match.params,
+		procedureMap,
+		i18nOpts,
+		searchParams,
+		ctxResolver,
+	)
 }
 
 /** Catch context resolution errors and return them as HandleResult */
@@ -381,7 +404,7 @@ export function createRouter<T extends DefinitionMap>(
 		getKind(name) {
 			return kindMap.get(name) ?? null
 		},
-		handlePage(path, headers) {
+		handlePage(path, headers, rawCtx) {
 			return matchAndHandlePage(
 				pageMatcher,
 				procedureMap,
@@ -390,6 +413,9 @@ export function createRouter<T extends DefinitionMap>(
 				hasUrlPrefix,
 				path,
 				headers,
+				rawCtx,
+				ctxConfig,
+				extractKeys,
 			)
 		},
 	}

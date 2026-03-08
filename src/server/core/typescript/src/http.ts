@@ -301,7 +301,7 @@ export function createHttpHandler<T extends DefinitionMap>(
 						acceptLanguage: req.header('accept-language') ?? undefined,
 					}
 				: undefined
-			const result = await router.handlePage(pagePath, headers)
+			const result = await router.handlePage(pagePath, headers, rawCtx)
 			if (result) {
 				return { status: result.status, headers: HTML_HEADER, body: result.html }
 			}

@@ -7,8 +7,11 @@ export function makeProcedures(...entries: [string, InternalProcedure][]) {
 	return new Map(entries)
 }
 
-export function mockProcedure(handler: InternalProcedure['handler']): InternalProcedure {
-	return { inputSchema: {}, outputSchema: {}, handler }
+export function mockProcedure(
+	handler: InternalProcedure['handler'],
+	contextKeys: string[] = [],
+): InternalProcedure {
+	return { inputSchema: {}, outputSchema: {}, contextKeys, handler }
 }
 
 export function simplePage(template: string, loaders: PageDef['loaders']): PageDef {
