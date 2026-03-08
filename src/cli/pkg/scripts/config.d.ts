@@ -1,5 +1,7 @@
 /* src/cli/pkg/scripts/config.d.ts */
 
+import type { UserConfig as ViteUserConfig } from 'vite'
+
 export interface ProjectConfig {
 	name: string
 }
@@ -95,7 +97,7 @@ export interface SeamConfig {
 	clean?: CleanSection
 	transport?: TransportSection
 	/** Vite config override for the built-in bundler (supports plugins) */
-	vite?: import('vite').UserConfig
+	vite?: ViteUserConfig
 	/** Reserved for future router config */
 	router?: Record<string, unknown>
 }

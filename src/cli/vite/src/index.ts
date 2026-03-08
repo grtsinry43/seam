@@ -127,7 +127,8 @@ function seamRpcPlugin(): Plugin {
 
 // -- Dev-only reload trigger plugin --
 
-function seamReloadPlugin(devOutDir = '.seam/dev-output'): Plugin {
+function seamReloadPlugin(devOutDir?: string): Plugin {
+	devOutDir ??= process.env.SEAM_DEV_OUT_DIR ?? '.seam/dev-output'
 	return {
 		name: 'seam-reload',
 		apply: 'serve',

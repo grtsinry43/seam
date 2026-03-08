@@ -98,11 +98,27 @@ async fn spawn_fullstack_children(
 ) -> Result<Vec<ChildProcess>> {
 	let mut children: Vec<ChildProcess> = Vec::new();
 
-	// Spawn Vite dev server when configured (direct binary, no sh/npx overhead)
+	// Spawn Vite dev server via dev-frontend.mjs when configured
 	if let Some(vp) = vite_port {
-		let vite_bin = base_dir.join("node_modules/.bin/vite");
+		let script = crate::shell::find_cli_script(base_dir, "dev-frontend.mjs")?;
+		let runtime = if crate::shell::which_exists("bun") { "bun" } else { "node" };
+		let runtime_path = std::path::PathBuf::from(runtime);
 		let vp_str = vp.to_string();
-		let mut proc = spawn_binary("vite", &vite_bin, &["--port", &vp_str], base_dir, &[])?;
+		let script_str = script.to_string_lossy().to_string();
+		let mut env_vars_vite: Vec<(&str, &str)> = Vec::new();
+		if let Some(ref cp) = config.config_file_path {
+			env_vars_vite.push(("SEAM_CONFIG_PATH", cp));
+		}
+		let dev_out_dir = base_dir
+			.join(config.build.out_dir.clone().unwrap_or_else(|| ".seam/output".into()))
+			.parent()
+			.unwrap_or(std::path::Path::new("."))
+			.join("dev-output")
+			.to_string_lossy()
+			.to_string();
+		env_vars_vite.push(("SEAM_DEV_OUT_DIR", &dev_out_dir));
+		let mut proc =
+			spawn_binary("vite", &runtime_path, &[&script_str, &vp_str], base_dir, &env_vars_vite)?;
 		pipe_output(&mut proc).await;
 		children.push(proc);
 
