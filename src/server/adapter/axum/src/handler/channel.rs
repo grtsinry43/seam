@@ -179,6 +179,7 @@ pub(super) async fn handle_channel_ws(
 	sub_name: String,
 	channel_input: serde_json::Value,
 	headers: axum::http::HeaderMap,
+	uri: axum::http::Uri,
 	socket: WebSocket,
 ) {
 	let channel_name = sub_name.strip_suffix(".events").unwrap_or(&sub_name);
@@ -202,7 +203,7 @@ pub(super) async fn handle_channel_ws(
 	};
 
 	// Resolve context once at connection time
-	let ctx = match resolve_ctx_for_proc(&state, &sub.context_keys, &headers) {
+	let ctx = match resolve_ctx_for_proc(&state, &sub.context_keys, &headers, &uri) {
 		Ok(c) => c,
 		Err(e) => {
 			let err_msg = serde_json::json!({

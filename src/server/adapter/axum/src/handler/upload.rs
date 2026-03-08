@@ -12,6 +12,7 @@ pub(super) async fn handle_upload_inner(
 	state: &AppState,
 	name: &str,
 	headers: &axum::http::HeaderMap,
+	uri: &axum::http::Uri,
 	body: Bytes,
 ) -> Result<Response, AxumError> {
 	let upload = state
@@ -81,7 +82,7 @@ pub(super) async fn handle_upload_inner(
 		);
 	}
 
-	let ctx = resolve_ctx_for_proc(state, &upload.context_keys, headers)?;
+	let ctx = resolve_ctx_for_proc(state, &upload.context_keys, headers, uri)?;
 	let result = (upload.handler)(input, file, ctx).await?;
 	Ok(axum::Json(serde_json::json!({"ok": true, "data": result})).into_response())
 }

@@ -28,20 +28,73 @@ pub fn parse_extract_rule(rule: &str) -> Result<(&str, &str), SeamError> {
 		.ok_or_else(|| SeamError::context_error(format!("Invalid extract rule: '{rule}'")))
 }
 
-/// Collect all HTTP header names that need extraction from context config.
-/// Deduplicates and returns lowercase header names.
-pub fn context_extract_keys(config: &ContextConfig) -> Vec<String> {
-	let mut keys = Vec::new();
-	let mut seen = std::collections::HashSet::new();
-	for field in config.values() {
-		if let Ok(("header", header_name)) = parse_extract_rule(&field.extract) {
-			let lower = header_name.to_lowercase();
-			if seen.insert(lower.clone()) {
-				keys.push(lower);
+/// Check whether any context fields are defined.
+pub fn context_has_extracts(config: &ContextConfig) -> bool {
+	!config.is_empty()
+}
+
+/// Parse a Cookie header into key-value pairs.
+pub fn parse_cookie_header(header: &str) -> Vec<(&str, &str)> {
+	header
+		.split(';')
+		.filter_map(|pair| {
+			let pair = pair.trim();
+			let idx = pair.find('=')?;
+			if idx == 0 {
+				return None;
 			}
+			Some((&pair[..idx], &pair[idx + 1..]))
+		})
+		.collect()
+}
+
+/// Build a RawContextMap keyed by config key from request headers, cookies, and query string.
+pub fn extract_raw_context(
+	config: &ContextConfig,
+	headers: &[(String, String)],
+	cookie_header: Option<&str>,
+	query_string: Option<&str>,
+) -> RawContextMap {
+	let mut raw = RawContextMap::new();
+	let mut cookie_cache: Option<Vec<(&str, &str)>> = None;
+
+	for (ctx_key, field) in config {
+		let Ok((source, extract_key)) = parse_extract_rule(&field.extract) else {
+			raw.insert(ctx_key.clone(), None);
+			continue;
+		};
+		let value = match source {
+			"header" => {
+				let lower = extract_key.to_lowercase();
+				headers.iter().find(|(k, _)| k == &lower).map(|(_, v)| v.clone())
+			}
+			"cookie" => {
+				let cookies =
+					cookie_cache.get_or_insert_with(|| parse_cookie_header(cookie_header.unwrap_or("")));
+				cookies.iter().find(|(k, _)| *k == extract_key).map(|(_, v)| (*v).to_string())
+			}
+			"query" => query_string.and_then(|qs| {
+				form_urlencoded_get(qs, extract_key)
+			}),
+			_ => None,
+		};
+		raw.insert(ctx_key.clone(), value);
+	}
+	raw
+}
+
+/// Simple query string parameter lookup without pulling in the `url` crate.
+fn form_urlencoded_get(qs: &str, key: &str) -> Option<String> {
+	for pair in qs.split('&') {
+		if let Some((k, v)) = pair.split_once('=') {
+			if k == key {
+				return Some(v.to_string());
+			}
+		} else if pair == key {
+			return Some(String::new());
 		}
 	}
-	keys
+	None
 }
 
 /// Resolve context values from raw extracted data for the given requested keys.
@@ -54,15 +107,12 @@ pub fn resolve_context(
 	let mut ctx = serde_json::Map::new();
 
 	for key in requested_keys {
-		let Some(field_def) = config.get(key) else {
+		let Some(_field_def) = config.get(key) else {
 			ctx.insert(key.clone(), Value::Null);
 			continue;
 		};
 
-		let (_source, header_name) = parse_extract_rule(&field_def.extract)?;
-		let lower = header_name.to_lowercase();
-
-		match raw.get(&lower) {
+		match raw.get(key) {
 			Some(Some(value)) => {
 				// Try JSON parse for complex types, fallback to string
 				let parsed = serde_json::from_str(value).unwrap_or(Value::String(value.clone()));
@@ -103,7 +153,7 @@ mod tests {
 	}
 
 	#[test]
-	fn context_extract_keys_deduplicates() {
+	fn context_has_extracts_true() {
 		let mut config = ContextConfig::new();
 		config.insert(
 			"token".into(),
@@ -112,16 +162,91 @@ mod tests {
 				schema: serde_json::json!({"type": "string"}),
 			},
 		);
+		assert!(context_has_extracts(&config));
+	}
+
+	#[test]
+	fn context_has_extracts_false() {
+		assert!(!context_has_extracts(&ContextConfig::new()));
+	}
+
+	#[test]
+	fn parse_cookie_header_basic() {
+		let cookies = parse_cookie_header("session=abc; lang=en");
+		assert_eq!(cookies.len(), 2);
+		assert!(cookies.contains(&("session", "abc")));
+		assert!(cookies.contains(&("lang", "en")));
+	}
+
+	#[test]
+	fn parse_cookie_header_empty() {
+		let cookies = parse_cookie_header("");
+		assert!(cookies.is_empty());
+	}
+
+	#[test]
+	fn extract_raw_context_header() {
+		let mut config = ContextConfig::new();
 		config.insert(
-			"auth".into(),
+			"token".into(),
 			ContextFieldDef {
-				extract: "header:Authorization".into(),
+				extract: "header:authorization".into(),
 				schema: serde_json::json!({"type": "string"}),
 			},
 		);
-		let keys = context_extract_keys(&config);
-		assert_eq!(keys.len(), 1);
-		assert_eq!(keys[0], "authorization");
+		let headers = vec![("authorization".into(), "Bearer abc".into())];
+		let raw = extract_raw_context(&config, &headers, None, None);
+		assert_eq!(raw["token"], Some("Bearer abc".into()));
+	}
+
+	#[test]
+	fn extract_raw_context_cookie() {
+		let mut config = ContextConfig::new();
+		config.insert(
+			"session".into(),
+			ContextFieldDef {
+				extract: "cookie:sid".into(),
+				schema: serde_json::json!({"type": "string"}),
+			},
+		);
+		let raw = extract_raw_context(&config, &[], Some("sid=abc123; other=x"), None);
+		assert_eq!(raw["session"], Some("abc123".into()));
+	}
+
+	#[test]
+	fn extract_raw_context_query() {
+		let mut config = ContextConfig::new();
+		config.insert(
+			"lang".into(),
+			ContextFieldDef {
+				extract: "query:lang".into(),
+				schema: serde_json::json!({"type": "string"}),
+			},
+		);
+		let raw = extract_raw_context(&config, &[], None, Some("lang=en&foo=bar"));
+		assert_eq!(raw["lang"], Some("en".into()));
+	}
+
+	#[test]
+	fn extract_raw_context_missing_returns_none() {
+		let mut config = ContextConfig::new();
+		config.insert(
+			"session".into(),
+			ContextFieldDef {
+				extract: "cookie:sid".into(),
+				schema: serde_json::json!({"type": "string"}),
+			},
+		);
+		config.insert(
+			"lang".into(),
+			ContextFieldDef {
+				extract: "query:lang".into(),
+				schema: serde_json::json!({"type": "string"}),
+			},
+		);
+		let raw = extract_raw_context(&config, &[], None, None);
+		assert_eq!(raw["session"], None);
+		assert_eq!(raw["lang"], None);
 	}
 
 	#[test]
@@ -135,7 +260,7 @@ mod tests {
 			},
 		);
 		let mut raw = RawContextMap::new();
-		raw.insert("authorization".into(), Some("Bearer abc".into()));
+		raw.insert("token".into(), Some("Bearer abc".into()));
 
 		let ctx = resolve_context(&config, &raw, &["token".into()]).unwrap();
 		assert_eq!(ctx["token"], "Bearer abc");

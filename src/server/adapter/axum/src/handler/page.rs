@@ -10,7 +10,7 @@ use seam_server::context::resolve_context;
 use seam_server::page::PageDef;
 use tokio::task::JoinSet;
 
-use super::{AppState, extract_raw_context, lookup_i18n_messages};
+use super::{AppState, extract_raw_context_from_req, lookup_i18n_messages};
 use crate::error::AxumError;
 
 /// Resolve locale from request using the configured strategy chain.
@@ -58,11 +58,12 @@ async fn run_loaders(
 	page: &PageDef,
 	params: &HashMap<String, String>,
 	headers: &axum::http::HeaderMap,
+	uri: &axum::http::Uri,
 ) -> Result<LoaderOutput, SeamError> {
 	let mut join_set = JoinSet::new();
 
-	// Extract raw context once (infallible) — shared across all loaders
-	let raw_ctx = Arc::new(extract_raw_context(headers, &state.context_extract_keys));
+	// Extract raw context once — shared across all loaders
+	let raw_ctx = Arc::new(extract_raw_context_from_req(&state.context_config, headers, uri));
 
 	for loader in &page.loaders {
 		let input = (loader.input_fn)(params);
@@ -228,7 +229,7 @@ pub(super) async fn handle_page(
 		&page.template
 	};
 
-	let loader_output = run_loaders(&state, page, &params, &headers).await?;
+	let loader_output = run_loaders(&state, page, &params, &headers, &uri).await?;
 	let mut data = loader_output.data;
 	let loader_meta = loader_output.meta;
 

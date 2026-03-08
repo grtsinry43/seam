@@ -10,7 +10,7 @@ use seam_server::SeamError;
 use seam_server::context::resolve_context;
 use tokio::task::JoinSet;
 
-use super::{AppState, extract_raw_context, resolve_ctx_for_proc};
+use super::{AppState, extract_raw_context_from_req, resolve_ctx_for_proc};
 use crate::error::AxumError;
 
 pub(super) async fn handle_manifest(
@@ -29,6 +29,7 @@ pub(super) async fn handle_procedure_post(
 	req: axum::extract::Request,
 ) -> Result<Response, AxumError> {
 	let headers = req.headers().clone();
+	let uri = req.uri().clone();
 
 	// Collect body bytes
 	let body: Bytes =
@@ -36,7 +37,7 @@ pub(super) async fn handle_procedure_post(
 
 	// Batch: match both original "_batch" and hashed batch endpoint
 	if name == "_batch" || state.batch_hash.as_deref() == Some(&name) {
-		return handle_batch(State(state), headers, body).await;
+		return handle_batch(State(state), headers, &uri, body).await;
 	}
 
 	// Resolve hash -> original name when obfuscation is active
@@ -50,24 +51,25 @@ pub(super) async fn handle_procedure_post(
 	match state.kind_map.get(&resolved).copied() {
 		Some("stream") => {
 			return Ok(
-				super::stream::handle_stream_inner(&state, &resolved, &headers, &body)
+				super::stream::handle_stream_inner(&state, &resolved, &headers, &uri, &body)
 					.await
 					.into_response(),
 			);
 		}
 		Some("upload") => {
-			return super::upload::handle_upload_inner(&state, &resolved, &headers, body).await;
+			return super::upload::handle_upload_inner(&state, &resolved, &headers, &uri, body).await;
 		}
 		_ => {}
 	}
 
-	handle_rpc_inner(&state, &resolved, &headers, &body).await
+	handle_rpc_inner(&state, &resolved, &headers, &uri, &body).await
 }
 
 async fn handle_rpc_inner(
 	state: &AppState,
 	resolved: &str,
 	headers: &axum::http::HeaderMap,
+	uri: &axum::http::Uri,
 	body: &[u8],
 ) -> Result<Response, AxumError> {
 	let proc = state
@@ -92,7 +94,7 @@ async fn handle_rpc_inner(
 		);
 	}
 
-	let ctx = resolve_ctx_for_proc(state, &proc.context_keys, headers)?;
+	let ctx = resolve_ctx_for_proc(state, &proc.context_keys, headers, uri)?;
 	let result = (proc.handler)(input, ctx).await?;
 	Ok(axum::Json(serde_json::json!({"ok": true, "data": result})).into_response())
 }
@@ -128,13 +130,14 @@ struct BatchError {
 async fn handle_batch(
 	State(state): State<Arc<AppState>>,
 	headers: axum::http::HeaderMap,
+	uri: &axum::http::Uri,
 	body: Bytes,
 ) -> Result<Response, AxumError> {
 	let batch: BatchRequest = serde_json::from_slice(&body)
 		.map_err(|_| SeamError::validation("Batch request must have a 'calls' array"))?;
 
 	// Extract raw context once for all calls
-	let raw_ctx = Arc::new(extract_raw_context(&headers, &state.context_extract_keys));
+	let raw_ctx = Arc::new(extract_raw_context_from_req(&state.context_config, &headers, uri));
 
 	let mut join_set = JoinSet::new();
 	for (idx, call) in batch.calls.into_iter().enumerate() {

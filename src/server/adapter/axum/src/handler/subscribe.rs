@@ -27,6 +27,7 @@ pub(super) async fn handle_subscribe(
 	req: axum::extract::Request,
 ) -> Response {
 	let headers = req.headers().clone();
+	let uri = req.uri().clone();
 
 	// WebSocket upgrade: extract from request parts if Upgrade header present
 	if req
@@ -59,13 +60,13 @@ pub(super) async fn handle_subscribe(
 			};
 
 			return ws
-				.on_upgrade(move |socket| handle_channel_ws(state, sub_name, raw_input, headers, socket))
+				.on_upgrade(move |socket| handle_channel_ws(state, sub_name, raw_input, headers, uri, socket))
 				.into_response();
 		}
 	}
 
 	// SSE fallback path
-	let sse_response = handle_subscribe_sse(state, name, query, &headers).await;
+	let sse_response = handle_subscribe_sse(state, name, query, &headers, &uri).await;
 	sse_response.into_response()
 }
 
@@ -74,6 +75,7 @@ async fn handle_subscribe_sse(
 	name: String,
 	query: SubscribeQuery,
 	headers: &axum::http::HeaderMap,
+	uri: &axum::http::Uri,
 ) -> Sse<Pin<Box<dyn Stream<Item = Result<Event, Infallible>> + Send>>> {
 	let setup = async {
 		// Resolve hash -> original name for subscriptions
@@ -104,7 +106,7 @@ async fn handle_subscribe_sse(
 			));
 		}
 
-		let ctx = resolve_ctx_for_proc(&state, &sub.context_keys, headers)?;
+		let ctx = resolve_ctx_for_proc(&state, &sub.context_keys, headers, uri)?;
 		let data_stream = (sub.handler)(raw_input, ctx).await?;
 		Ok::<_, SeamError>(data_stream)
 	};

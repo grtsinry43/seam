@@ -15,7 +15,7 @@ use axum::Router;
 use axum::routing::{get, post};
 use seam_server::RpcHashMap;
 use seam_server::SeamError;
-use seam_server::context::{ContextConfig, RawContextMap, context_extract_keys, resolve_context};
+use seam_server::context::{ContextConfig, RawContextMap, resolve_context};
 use seam_server::page::PageDef;
 use seam_server::procedure::{ProcedureDef, ProcedureType, StreamDef, SubscriptionDef, UploadDef};
 use seam_server::resolve::ResolveStrategy;
@@ -33,7 +33,6 @@ pub(crate) struct AppState {
 	pub locale_set: Option<std::collections::HashSet<String>>,
 	pub strategies: Vec<Box<dyn ResolveStrategy>>,
 	pub context_config: ContextConfig,
-	pub context_extract_keys: Vec<String>,
 	pub should_validate: bool,
 	pub compiled_input_schemas: HashMap<String, seam_server::CompiledSchema>,
 	pub compiled_sub_input_schemas: HashMap<String, seam_server::CompiledSchema>,
@@ -43,17 +42,19 @@ pub(crate) struct AppState {
 	pub kind_map: HashMap<String, &'static str>,
 }
 
-/// Extract raw context values from HTTP headers.
-pub(super) fn extract_raw_context(
+/// Extract raw context values from HTTP request (headers, cookies, query).
+pub(super) fn extract_raw_context_from_req(
+	config: &ContextConfig,
 	headers: &axum::http::HeaderMap,
-	keys: &[String],
+	uri: &axum::http::Uri,
 ) -> RawContextMap {
-	let mut raw = RawContextMap::new();
-	for key in keys {
-		let value = headers.get(key.as_str()).and_then(|v| v.to_str().ok()).map(String::from);
-		raw.insert(key.clone(), value);
-	}
-	raw
+	let header_list: Vec<(String, String)> = headers
+		.iter()
+		.filter_map(|(k, v)| v.to_str().ok().map(|v| (k.as_str().to_string(), v.to_string())))
+		.collect();
+	let cookie_header = headers.get("cookie").and_then(|v| v.to_str().ok());
+	let query_string = uri.query();
+	seam_server::extract_raw_context(config, &header_list, cookie_header, query_string)
 }
 
 /// Resolve context for a specific procedure given its context_keys.
@@ -61,11 +62,12 @@ pub(super) fn resolve_ctx_for_proc(
 	state: &AppState,
 	context_keys: &[String],
 	headers: &axum::http::HeaderMap,
+	uri: &axum::http::Uri,
 ) -> Result<serde_json::Value, SeamError> {
 	if context_keys.is_empty() {
 		return Ok(serde_json::Value::Object(serde_json::Map::new()));
 	}
-	let raw = extract_raw_context(headers, &state.context_extract_keys);
+	let raw = extract_raw_context_from_req(&state.context_config, headers, uri);
 	resolve_context(&state.context_config, &raw, context_keys)
 }
 
@@ -102,8 +104,6 @@ pub(crate) fn build_router(
 		if strategies.is_empty() { seam_server::default_strategies() } else { strategies };
 
 	let has_url_prefix = strategies.iter().any(|s| s.kind() == "url_prefix");
-
-	let ctx_extract_keys = context_extract_keys(&context_config);
 
 	// Register built-in __seam_i18n_query procedure (route-hash-based lookup)
 	if let Some(ref i18n) = i18n_config {
@@ -226,7 +226,6 @@ pub(crate) fn build_router(
 		locale_set,
 		strategies,
 		context_config,
-		context_extract_keys: ctx_extract_keys,
 		should_validate,
 		compiled_input_schemas,
 		compiled_sub_input_schemas,

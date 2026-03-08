@@ -15,6 +15,7 @@ pub(super) async fn handle_stream_inner(
 	state: &AppState,
 	name: &str,
 	headers: &axum::http::HeaderMap,
+	uri: &axum::http::Uri,
 	body: &[u8],
 ) -> Sse<Pin<Box<dyn Stream<Item = Result<Event, Infallible>> + Send>>> {
 	let setup = async {
@@ -37,7 +38,7 @@ pub(super) async fn handle_stream_inner(
 			));
 		}
 
-		let ctx = resolve_ctx_for_proc(state, &stream.context_keys, headers)?;
+		let ctx = resolve_ctx_for_proc(state, &stream.context_keys, headers, uri)?;
 		let data_stream = (stream.handler)(input, ctx).await?;
 		Ok::<_, SeamError>(data_stream)
 	};
