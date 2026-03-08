@@ -35,6 +35,8 @@ struct WsError {
 	code: String,
 	message: String,
 	transient: bool,
+	#[serde(skip_serializing_if = "Option::is_none")]
+	details: Option<Vec<serde_json::Value>>,
 }
 
 fn merge_json_objects(base: &serde_json::Value, overlay: &serde_json::Value) -> serde_json::Value {
@@ -70,6 +72,7 @@ async fn dispatch_ws_uplink(
 					code: "VALIDATION_ERROR".into(),
 					message: format!("Invalid uplink message: {e}"),
 					transient: false,
+					details: None,
 				}),
 			};
 			let _ = ws_sender
@@ -91,7 +94,12 @@ async fn dispatch_ws_uplink(
 			id: uplink.id,
 			ok: false,
 			data: None,
-			error: Some(WsError { code: "FORBIDDEN".into(), message: msg, transient: false }),
+			error: Some(WsError {
+				code: "FORBIDDEN".into(),
+				message: msg,
+				transient: false,
+				details: None,
+			}),
 		};
 		let _ =
 			ws_sender.send(Message::Text(serde_json::to_string(&resp).unwrap_or_default().into())).await;
@@ -121,6 +129,7 @@ async fn dispatch_ws_uplink(
 					code: e.code().to_string(),
 					message: e.message().to_string(),
 					transient: false,
+					details: e.details().map(<[serde_json::Value]>::to_vec),
 				}),
 			},
 		},
@@ -132,6 +141,7 @@ async fn dispatch_ws_uplink(
 				code: "NOT_FOUND".into(),
 				message: format!("Procedure '{resolved_proc}' not found"),
 				transient: false,
+				details: None,
 			}),
 		},
 	};

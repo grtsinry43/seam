@@ -43,6 +43,7 @@ type wsError struct {
 	Code      string `json:"code"`
 	Message   string `json:"message"`
 	Transient bool   `json:"transient"`
+	Details   []any  `json:"details,omitempty"`
 }
 
 type wsPush struct {

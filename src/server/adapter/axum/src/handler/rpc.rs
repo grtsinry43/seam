@@ -78,6 +78,8 @@ struct BatchError {
 	code: String,
 	message: String,
 	transient: bool,
+	#[serde(skip_serializing_if = "Option::is_none")]
+	details: Option<Vec<serde_json::Value>>,
 }
 
 async fn handle_batch(
@@ -116,6 +118,7 @@ async fn handle_batch(
 										code: e.code().to_string(),
 										message: e.message().to_string(),
 										transient: false,
+										details: e.details().map(<[serde_json::Value]>::to_vec),
 									},
 								},
 							);
@@ -129,6 +132,7 @@ async fn handle_batch(
 								code: e.code().to_string(),
 								message: e.message().to_string(),
 								transient: false,
+								details: e.details().map(<[serde_json::Value]>::to_vec),
 							},
 						},
 					}
@@ -139,6 +143,7 @@ async fn handle_batch(
 						code: "NOT_FOUND".to_string(),
 						message: format!("Procedure '{proc_name}' not found"),
 						transient: false,
+						details: None,
 					},
 				},
 			};

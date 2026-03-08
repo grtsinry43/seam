@@ -32,6 +32,7 @@ type batchError struct {
 	Code      string `json:"code"`
 	Message   string `json:"message"`
 	Transient bool   `json:"transient"`
+	Details   []any  `json:"details,omitempty"`
 }
 
 func (s *appState) handleBatch(w http.ResponseWriter, r *http.Request) {
@@ -97,7 +98,7 @@ func (s *appState) handleBatch(w http.ResponseWriter, r *http.Request) {
 				continue
 			}
 			if seamErr, ok := err.(*Error); ok {
-				results[i] = batchResult{Ok: false, Error: &batchError{Code: seamErr.Code, Message: seamErr.Message}}
+				results[i] = batchResult{Ok: false, Error: &batchError{Code: seamErr.Code, Message: seamErr.Message, Details: seamErr.Details}}
 			} else {
 				results[i] = batchResult{Ok: false, Error: &batchError{Code: "INTERNAL_ERROR", Message: err.Error()}}
 			}
@@ -206,9 +207,13 @@ func writeSSEEvent(w http.ResponseWriter, ev SubscriptionEvent) {
 func writeSSEError(w http.ResponseWriter, e *Error) {
 	w.Header().Set("Content-Type", "text/event-stream")
 	w.Header().Set("Cache-Control", "no-cache")
-	_, _ = fmt.Fprintf(w, "event: error\ndata: %s\n\n", mustJSON(map[string]any{
+	errObj := map[string]any{
 		"code": e.Code, "message": e.Message, "transient": false,
-	}))
+	}
+	if e.Details != nil {
+		errObj["details"] = e.Details
+	}
+	_, _ = fmt.Fprintf(w, "event: error\ndata: %s\n\n", mustJSON(errObj))
 	if f, ok := w.(http.Flusher); ok {
 		f.Flush()
 	}

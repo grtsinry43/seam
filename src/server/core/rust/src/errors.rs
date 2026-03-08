@@ -7,6 +7,7 @@ pub struct SeamError {
 	code: String,
 	message: String,
 	status: u16,
+	details: Option<Vec<serde_json::Value>>,
 }
 
 fn default_status(code: &str) -> u16 {
@@ -24,13 +25,22 @@ fn default_status(code: &str) -> u16 {
 
 impl SeamError {
 	pub fn new(code: impl Into<String>, message: impl Into<String>, status: u16) -> Self {
-		Self { code: code.into(), message: message.into(), status }
+		Self { code: code.into(), message: message.into(), status, details: None }
 	}
 
 	pub fn with_code(code: impl Into<String>, message: impl Into<String>) -> Self {
 		let code = code.into();
 		let status = default_status(&code);
-		Self { code, message: message.into(), status }
+		Self { code, message: message.into(), status, details: None }
+	}
+
+	pub fn validation_detailed(msg: impl Into<String>, details: Vec<serde_json::Value>) -> Self {
+		Self {
+			code: "VALIDATION_ERROR".to_string(),
+			message: msg.into(),
+			status: 400,
+			details: Some(details),
+		}
 	}
 
 	pub fn validation(msg: impl Into<String>) -> Self {
@@ -71,6 +81,10 @@ impl SeamError {
 
 	pub fn status(&self) -> u16 {
 		self.status
+	}
+
+	pub fn details(&self) -> Option<&[serde_json::Value]> {
+		self.details.as_deref()
 	}
 }
 

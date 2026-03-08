@@ -307,13 +307,17 @@ func (s *appState) handleRPC(w http.ResponseWriter, r *http.Request) {
 func writeError(w http.ResponseWriter, status int, e *Error) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
+	errObj := map[string]any{
+		"code":      e.Code,
+		"message":   e.Message,
+		"transient": false,
+	}
+	if e.Details != nil {
+		errObj["details"] = e.Details
+	}
 	_ = json.NewEncoder(w).Encode(map[string]any{
-		"ok": false,
-		"error": map[string]any{
-			"code":      e.Code,
-			"message":   e.Message,
-			"transient": false,
-		},
+		"ok":    false,
+		"error": errObj,
 	})
 }
 

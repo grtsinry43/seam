@@ -15,6 +15,7 @@ type Error struct {
 	Code    string `json:"code"`
 	Message string `json:"message"`
 	Status  int    `json:"-"`
+	Details []any  `json:"-"`
 }
 
 func (e *Error) Error() string {
@@ -73,6 +74,10 @@ func RateLimitedError(msg string) *Error {
 
 func ContextError(msg string) *Error {
 	return &Error{Code: "CONTEXT_ERROR", Message: msg, Status: http.StatusBadRequest}
+}
+
+func ValidationErrorDetailed(msg string, details []any) *Error {
+	return &Error{Code: "VALIDATION_ERROR", Message: msg, Status: http.StatusBadRequest, Details: details}
 }
 
 // HandlerFunc processes a raw JSON input and returns a result or error.

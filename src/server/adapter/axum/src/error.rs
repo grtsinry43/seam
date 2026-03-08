@@ -13,14 +13,15 @@ impl IntoResponse for AxumError {
 	fn into_response(self) -> Response {
 		let err = self.0;
 		let status = StatusCode::from_u16(err.status()).unwrap_or(StatusCode::INTERNAL_SERVER_ERROR);
-		let body = serde_json::json!({
-			"ok": false,
-			"error": {
-				"code": err.code(),
-				"message": err.message(),
-				"transient": false,
-			}
+		let mut error_obj = serde_json::json!({
+			"code": err.code(),
+			"message": err.message(),
+			"transient": false,
 		});
+		if let Some(details) = err.details() {
+			error_obj["details"] = serde_json::Value::Array(details.to_vec());
+		}
+		let body = serde_json::json!({ "ok": false, "error": error_obj });
 		(status, axum::Json(body)).into_response()
 	}
 }

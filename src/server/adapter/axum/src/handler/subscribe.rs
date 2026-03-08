@@ -107,8 +107,11 @@ async fn handle_subscribe_sse(
 						Ok(Event::default().event("data").data(data))
 					}
 					Err(e) => {
-						let payload =
+						let mut payload =
 							serde_json::json!({ "code": e.code(), "message": e.message(), "transient": false });
+						if let Some(details) = e.details() {
+							payload["details"] = serde_json::Value::Array(details.to_vec());
+						}
 						Ok(Event::default().event("error").data(payload.to_string()))
 					}
 				})
@@ -116,8 +119,11 @@ async fn handle_subscribe_sse(
 			Sse::new(Box::pin(event_stream))
 		}
 		Err(err) => {
-			let payload =
+			let mut payload =
 				serde_json::json!({ "code": err.code(), "message": err.message(), "transient": false });
+			if let Some(details) = err.details() {
+				payload["details"] = serde_json::Value::Array(details.to_vec());
+			}
 			let error_event = Event::default().event("error").data(payload.to_string());
 			Sse::new(Box::pin(tokio_stream::once(Ok(error_event))))
 		}
