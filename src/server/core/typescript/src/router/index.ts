@@ -349,21 +349,17 @@ function resolveCtxSafe(
 	}
 }
 
-export function createRouter<T extends DefinitionMap>(
-	procedures: T,
-	opts?: RouterOptions,
-): Router<T> {
+/** Build all shared state that createRouter methods close over */
+function initRouterState(procedures: DefinitionMap, opts?: RouterOptions) {
 	const ctxConfig = opts?.context ?? {}
 	const { procedureMap, subscriptionMap, streamMap, uploadMap, kindMap } = categorizeProcedures(
 		procedures,
 		Object.keys(ctxConfig).length > 0 ? ctxConfig : undefined,
 	)
-
 	const shouldValidateInput = resolveValidationMode(opts?.validation?.input)
 	const shouldValidateOutput =
 		opts?.validateOutput ??
 		(typeof process !== 'undefined' && process.env.NODE_ENV !== 'production')
-
 	const pageMatcher = new RouteMatcher<PageDef>()
 	const pages = opts?.pages
 	if (pages) {
@@ -371,13 +367,51 @@ export function createRouter<T extends DefinitionMap>(
 			pageMatcher.add(pattern, page)
 		}
 	}
-
 	const i18nConfig = opts?.i18n ?? null
 	const { strategies, hasUrlPrefix } = buildStrategies(opts)
 	if (i18nConfig) registerI18nQuery(procedureMap, i18nConfig)
-
 	const channelsMeta = collectChannelMeta(opts?.channels)
 	const extractKeys = contextExtractKeys(ctxConfig)
+	return {
+		ctxConfig,
+		procedureMap,
+		subscriptionMap,
+		streamMap,
+		uploadMap,
+		kindMap,
+		shouldValidateInput,
+		shouldValidateOutput,
+		pageMatcher,
+		pages,
+		i18nConfig,
+		strategies,
+		hasUrlPrefix,
+		channelsMeta,
+		extractKeys,
+	}
+}
+
+export function createRouter<T extends DefinitionMap>(
+	procedures: T,
+	opts?: RouterOptions,
+): Router<T> {
+	const {
+		ctxConfig,
+		procedureMap,
+		subscriptionMap,
+		streamMap,
+		uploadMap,
+		kindMap,
+		shouldValidateInput,
+		shouldValidateOutput,
+		pageMatcher,
+		pages,
+		i18nConfig,
+		strategies,
+		hasUrlPrefix,
+		channelsMeta,
+		extractKeys,
+	} = initRouterState(procedures, opts)
 
 	return {
 		procedures,

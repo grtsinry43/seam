@@ -36,9 +36,9 @@ describe('input validation: shouldValidateInput=true', () => {
 		expect(body.error.message).toContain("procedure 'greet'")
 		expect(body.error.details).toBeDefined()
 		expect(Array.isArray(body.error.details)).toBe(true)
-		const detail = (
-			body.error.details as { path: string; expected?: string; actual?: string }[]
-		)[0]!
+		const details = body.error.details as { path: string; expected?: string; actual?: string }[]
+		expect(details[0]).toBeDefined()
+		const detail = details[0]
 		expect(detail.path).toBeDefined()
 		expect(detail.expected).toBe('string')
 		expect(detail.actual).toBe('number')
@@ -179,7 +179,8 @@ describe('error details format', () => {
 			ok: false
 			error: { details: { path: string; expected?: string; actual?: string }[] }
 		}
-		const detail = body.error.details[0]!
+		expect(body.error.details[0]).toBeDefined()
+		const detail = body.error.details[0]
 		expect(typeof detail.path).toBe('string')
 		expect(detail.expected).toBe('string')
 		expect(detail.actual).toBe('number')
