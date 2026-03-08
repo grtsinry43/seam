@@ -7,7 +7,7 @@ use serde_json::Value;
 
 use crate::channel::ChannelMeta;
 use crate::context::ContextConfig;
-use crate::procedure::{ProcedureDef, ProcedureType, SubscriptionDef};
+use crate::procedure::{ProcedureDef, ProcedureType, StreamDef, SubscriptionDef, UploadDef};
 
 #[derive(Serialize)]
 pub struct Manifest {
@@ -32,7 +32,10 @@ pub struct ProcedureSchema {
 	#[serde(rename = "kind")]
 	pub proc_type: String,
 	pub input: serde_json::Value,
-	pub output: serde_json::Value,
+	#[serde(skip_serializing_if = "Option::is_none")]
+	pub output: Option<serde_json::Value>,
+	#[serde(rename = "chunkOutput", skip_serializing_if = "Option::is_none")]
+	pub chunk_output: Option<serde_json::Value>,
 	#[serde(skip_serializing_if = "Option::is_none")]
 	pub error: Option<serde_json::Value>,
 	#[serde(skip_serializing_if = "Option::is_none")]
@@ -42,6 +45,8 @@ pub struct ProcedureSchema {
 pub fn build_manifest(
 	procedures: &[ProcedureDef],
 	subscriptions: &[SubscriptionDef],
+	streams: &[StreamDef],
+	uploads: &[UploadDef],
 	channels: BTreeMap<String, ChannelMeta>,
 	context_config: &ContextConfig,
 ) -> Manifest {
@@ -57,7 +62,8 @@ pub fn build_manifest(
 			ProcedureSchema {
 				proc_type: type_str.to_string(),
 				input: proc.input_schema.clone(),
-				output: proc.output_schema.clone(),
+				output: Some(proc.output_schema.clone()),
+				chunk_output: None,
 				error: proc.error_schema.clone(),
 				context,
 			},
@@ -70,8 +76,39 @@ pub fn build_manifest(
 			ProcedureSchema {
 				proc_type: "subscription".to_string(),
 				input: sub.input_schema.clone(),
-				output: sub.output_schema.clone(),
+				output: Some(sub.output_schema.clone()),
+				chunk_output: None,
 				error: sub.error_schema.clone(),
+				context,
+			},
+		);
+	}
+	for stream in streams {
+		let context =
+			if stream.context_keys.is_empty() { None } else { Some(stream.context_keys.clone()) };
+		map.insert(
+			stream.name.clone(),
+			ProcedureSchema {
+				proc_type: "stream".to_string(),
+				input: stream.input_schema.clone(),
+				output: None,
+				chunk_output: Some(stream.chunk_output_schema.clone()),
+				error: stream.error_schema.clone(),
+				context,
+			},
+		);
+	}
+	for upload in uploads {
+		let context =
+			if upload.context_keys.is_empty() { None } else { Some(upload.context_keys.clone()) };
+		map.insert(
+			upload.name.clone(),
+			ProcedureSchema {
+				proc_type: "upload".to_string(),
+				input: upload.input_schema.clone(),
+				output: Some(upload.output_schema.clone()),
+				chunk_output: None,
+				error: upload.error_schema.clone(),
 				context,
 			},
 		);
@@ -100,7 +137,9 @@ mod tests {
 
 	use super::*;
 	use crate::context::ContextFieldDef;
-	use crate::procedure::{BoxStream, HandlerFn, SubscriptionHandlerFn};
+	use crate::procedure::{
+		BoxStream, HandlerFn, StreamHandlerFn, SubscriptionHandlerFn, UploadHandlerFn,
+	};
 
 	fn dummy_handler() -> HandlerFn {
 		Arc::new(|_, _| Box::pin(async { Ok(serde_json::json!({})) }))
@@ -140,7 +179,7 @@ mod tests {
 			context_keys: vec![],
 			handler: dummy_handler(),
 		}];
-		let manifest = build_manifest(&procs, &[], BTreeMap::new(), &ContextConfig::new());
+		let manifest = build_manifest(&procs, &[], &[], &[], BTreeMap::new(), &ContextConfig::new());
 		let schema = manifest.procedures.get("createUser").unwrap();
 		assert_eq!(schema.proc_type, "command");
 	}
@@ -157,7 +196,7 @@ mod tests {
 			context_keys: vec![],
 			handler: dummy_handler(),
 		}];
-		let manifest = build_manifest(&procs, &[], BTreeMap::new(), &ContextConfig::new());
+		let manifest = build_manifest(&procs, &[], &[], &[], BTreeMap::new(), &ContextConfig::new());
 		let json = serde_json::to_value(&manifest).unwrap();
 		assert_eq!(json["procedures"]["risky"]["error"], error);
 	}
@@ -173,7 +212,7 @@ mod tests {
 			context_keys: vec![],
 			handler: dummy_handler(),
 		}];
-		let manifest = build_manifest(&procs, &[], BTreeMap::new(), &ContextConfig::new());
+		let manifest = build_manifest(&procs, &[], &[], &[], BTreeMap::new(), &ContextConfig::new());
 		let json = serde_json::to_value(&manifest).unwrap();
 		assert!(json["procedures"]["safe"].get("error").is_none());
 	}
@@ -189,7 +228,7 @@ mod tests {
 			context_keys: vec![],
 			handler: dummy_sub_handler(),
 		}];
-		let manifest = build_manifest(&[], &subs, BTreeMap::new(), &ContextConfig::new());
+		let manifest = build_manifest(&[], &subs, &[], &[], BTreeMap::new(), &ContextConfig::new());
 		let json = serde_json::to_value(&manifest).unwrap();
 		assert_eq!(json["procedures"]["onEvent"]["kind"], "subscription");
 		assert_eq!(json["procedures"]["onEvent"]["error"], error);
@@ -205,7 +244,7 @@ mod tests {
 				schema: serde_json::json!({"type": "string"}),
 			},
 		);
-		let manifest = build_manifest(&[], &[], BTreeMap::new(), &config);
+		let manifest = build_manifest(&[], &[], &[], &[], BTreeMap::new(), &config);
 		let json = serde_json::to_value(&manifest).unwrap();
 		assert_eq!(json["context"]["token"]["extract"], "header:authorization");
 		assert_eq!(json["context"]["token"]["schema"]["type"], "string");
@@ -222,7 +261,7 @@ mod tests {
 			context_keys: vec!["token".into(), "userId".into()],
 			handler: dummy_handler(),
 		}];
-		let manifest = build_manifest(&procs, &[], BTreeMap::new(), &ContextConfig::new());
+		let manifest = build_manifest(&procs, &[], &[], &[], BTreeMap::new(), &ContextConfig::new());
 		let json = serde_json::to_value(&manifest).unwrap();
 		let ctx = json["procedures"]["secure"]["context"].as_array().unwrap();
 		assert_eq!(ctx, &[serde_json::json!("token"), serde_json::json!("userId")]);
@@ -230,10 +269,58 @@ mod tests {
 
 	#[test]
 	fn manifest_v2_full_format() {
-		let manifest = build_manifest(&[], &[], BTreeMap::new(), &ContextConfig::new());
+		let manifest = build_manifest(&[], &[], &[], &[], BTreeMap::new(), &ContextConfig::new());
 		let json = serde_json::to_value(&manifest).unwrap();
 		assert_eq!(json["version"], 2);
 		assert!(json["procedures"].is_object());
 		assert!(json["transportDefaults"].is_object());
+	}
+
+	fn dummy_stream_handler() -> StreamHandlerFn {
+		Arc::new(|_, _| {
+			Box::pin(async {
+				let stream: BoxStream<Result<serde_json::Value, crate::errors::SeamError>> =
+					Box::pin(EmptyStream);
+				Ok(stream)
+			})
+		})
+	}
+
+	fn dummy_upload_handler() -> UploadHandlerFn {
+		Arc::new(|_, _, _| Box::pin(async { Ok(serde_json::json!({})) }))
+	}
+
+	#[test]
+	fn stream_emits_chunk_output() {
+		let streams = vec![crate::procedure::StreamDef {
+			name: "countStream".to_string(),
+			input_schema: serde_json::json!({}),
+			chunk_output_schema: serde_json::json!({"properties": {"n": {"type": "int32"}}}),
+			error_schema: None,
+			context_keys: vec![],
+			handler: dummy_stream_handler(),
+		}];
+		let manifest = build_manifest(&[], &[], &streams, &[], BTreeMap::new(), &ContextConfig::new());
+		let json = serde_json::to_value(&manifest).unwrap();
+		assert_eq!(json["procedures"]["countStream"]["kind"], "stream");
+		assert!(json["procedures"]["countStream"]["chunkOutput"].is_object());
+		assert!(json["procedures"]["countStream"].get("output").is_none());
+	}
+
+	#[test]
+	fn upload_emits_output() {
+		let uploads = vec![crate::procedure::UploadDef {
+			name: "echoUpload".to_string(),
+			input_schema: serde_json::json!({}),
+			output_schema: serde_json::json!({"properties": {"size": {"type": "int32"}}}),
+			error_schema: None,
+			context_keys: vec![],
+			handler: dummy_upload_handler(),
+		}];
+		let manifest = build_manifest(&[], &[], &[], &uploads, BTreeMap::new(), &ContextConfig::new());
+		let json = serde_json::to_value(&manifest).unwrap();
+		assert_eq!(json["procedures"]["echoUpload"]["kind"], "upload");
+		assert!(json["procedures"]["echoUpload"]["output"].is_object());
+		assert!(json["procedures"]["echoUpload"].get("chunkOutput").is_none());
 	}
 }

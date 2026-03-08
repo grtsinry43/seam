@@ -32,7 +32,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 			get_user_procedure(),
 			get_user_repos_procedure(),
 		];
-		let manifest = build_manifest(&procs, &[], BTreeMap::new(), &BTreeMap::new());
+		let manifest = build_manifest(&procs, &[], &[], &[], BTreeMap::new(), &BTreeMap::new());
 		println!("{}", serde_json::to_string(&manifest)?);
 		return Ok(());
 	}

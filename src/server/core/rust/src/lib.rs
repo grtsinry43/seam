@@ -23,12 +23,16 @@ pub use context::{
 pub use errors::SeamError;
 pub use escape::ascii_escape_json;
 pub use page::I18nConfig;
-pub use procedure::{BoxFuture, BoxStream, ProcedureDef, ProcedureType, SubscriptionDef};
+pub use procedure::{
+	BoxFuture, BoxStream, ProcedureDef, ProcedureType, SeamFileHandle, StreamDef, StreamHandlerFn,
+	SubscriptionDef, UploadDef, UploadHandlerFn,
+};
 pub use resolve::{
 	ResolveData, ResolveStrategy, default_strategies, from_accept_language, from_cookie,
 	from_url_prefix, from_url_query, resolve_chain,
 };
 pub use seam_macros::{SeamType, seam_command, seam_procedure, seam_subscription};
+pub use seam_macros::{seam_stream, seam_upload};
 pub use server::{SeamParts, SeamServer};
 pub use validation::{
 	CompiledSchema, ValidationDetail, ValidationMode, compile_schema, should_validate,

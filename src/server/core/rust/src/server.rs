@@ -6,7 +6,7 @@ use crate::build_loader::RpcHashMap;
 use crate::channel::{ChannelDef, ChannelMeta};
 use crate::context::{ContextConfig, ContextFieldDef};
 use crate::page::{I18nConfig, PageDef};
-use crate::procedure::{ProcedureDef, SubscriptionDef};
+use crate::procedure::{ProcedureDef, StreamDef, SubscriptionDef, UploadDef};
 use crate::resolve::ResolveStrategy;
 use crate::validation::ValidationMode;
 
@@ -15,6 +15,8 @@ use crate::validation::ValidationMode;
 pub struct SeamParts {
 	pub procedures: Vec<ProcedureDef>,
 	pub subscriptions: Vec<SubscriptionDef>,
+	pub streams: Vec<StreamDef>,
+	pub uploads: Vec<UploadDef>,
 	pub pages: Vec<PageDef>,
 	pub rpc_hash_map: Option<RpcHashMap>,
 	pub i18n_config: Option<I18nConfig>,
@@ -33,6 +35,8 @@ impl SeamParts {
 pub struct SeamServer {
 	procedures: Vec<ProcedureDef>,
 	subscriptions: Vec<SubscriptionDef>,
+	streams: Vec<StreamDef>,
+	uploads: Vec<UploadDef>,
 	channels: Vec<ChannelDef>,
 	pages: Vec<PageDef>,
 	rpc_hash_map: Option<RpcHashMap>,
@@ -47,6 +51,8 @@ impl SeamServer {
 		Self {
 			procedures: Vec::new(),
 			subscriptions: Vec::new(),
+			streams: Vec::new(),
+			uploads: Vec::new(),
 			channels: Vec::new(),
 			pages: Vec::new(),
 			rpc_hash_map: None,
@@ -64,6 +70,16 @@ impl SeamServer {
 
 	pub fn subscription(mut self, sub: SubscriptionDef) -> Self {
 		self.subscriptions.push(sub);
+		self
+	}
+
+	pub fn stream(mut self, stream: StreamDef) -> Self {
+		self.streams.push(stream);
+		self
+	}
+
+	pub fn upload(mut self, upload: UploadDef) -> Self {
+		self.uploads.push(upload);
 		self
 	}
 
@@ -120,6 +136,8 @@ impl SeamServer {
 		SeamParts {
 			procedures,
 			subscriptions,
+			streams: self.streams,
+			uploads: self.uploads,
 			pages: self.pages,
 			rpc_hash_map: self.rpc_hash_map,
 			i18n_config: self.i18n_config,

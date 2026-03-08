@@ -51,3 +51,42 @@ pub struct SubscriptionDef {
 	pub context_keys: Vec<String>,
 	pub handler: SubscriptionHandlerFn,
 }
+
+/// Stream reuses the same handler signature as subscription (returns BoxStream),
+/// but the SSE protocol differs: stream data events carry an incrementing `id`.
+pub type StreamHandlerFn = SubscriptionHandlerFn;
+
+pub type UploadHandlerFn = Arc<
+	dyn Fn(
+			serde_json::Value,
+			SeamFileHandle,
+			serde_json::Value,
+		) -> BoxFuture<Result<serde_json::Value, SeamError>>
+		+ Send
+		+ Sync,
+>;
+
+/// File received from a multipart upload request.
+pub struct SeamFileHandle {
+	pub name: Option<String>,
+	pub content_type: Option<String>,
+	pub data: bytes::Bytes,
+}
+
+pub struct StreamDef {
+	pub name: String,
+	pub input_schema: serde_json::Value,
+	pub chunk_output_schema: serde_json::Value,
+	pub error_schema: Option<serde_json::Value>,
+	pub context_keys: Vec<String>,
+	pub handler: StreamHandlerFn,
+}
+
+pub struct UploadDef {
+	pub name: String,
+	pub input_schema: serde_json::Value,
+	pub output_schema: serde_json::Value,
+	pub error_schema: Option<serde_json::Value>,
+	pub context_keys: Vec<String>,
+	pub handler: UploadHandlerFn,
+}
