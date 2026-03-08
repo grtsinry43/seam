@@ -280,6 +280,9 @@ func (s *appState) handleRPC(w http.ResponseWriter, r *http.Request) {
 		defer cancel()
 	}
 
+	// TODO: JTD runtime input validation — validate request body against
+	// proc.InputSchema before calling Handler. Requires a Go JTD validation library.
+
 	result, err := proc.Handler(ctx, body)
 	if err != nil {
 		if ctx.Err() == context.DeadlineExceeded {

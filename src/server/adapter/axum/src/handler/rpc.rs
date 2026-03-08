@@ -46,6 +46,9 @@ pub(super) async fn handle_rpc(
 	let input: serde_json::Value =
 		serde_json::from_slice(&body).map_err(|e| SeamError::validation(e.to_string()))?;
 
+	// TODO: JTD runtime input validation — validate `input` against `proc.input_schema`
+	// before calling handler. Requires a Rust JTD validation library (e.g. jtd crate).
+
 	let ctx = resolve_ctx_for_proc(&state, &proc.context_keys, &headers)?;
 	let result = (proc.handler)(input, ctx).await?;
 	Ok(axum::Json(serde_json::json!({"ok": true, "data": result})).into_response())

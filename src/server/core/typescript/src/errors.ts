@@ -21,22 +21,23 @@ export const DEFAULT_STATUS: Record<string, number> = {
 export class SeamError extends Error {
 	readonly code: string
 	readonly status: number
+	readonly details?: unknown[]
 
-	constructor(code: string, message: string, status?: number) {
+	constructor(code: string, message: string, status?: number, details?: unknown[]) {
 		super(message)
 		this.code = code
 		this.status = status ?? DEFAULT_STATUS[code] ?? 500
+		this.details = details
 		this.name = 'SeamError'
 	}
 
 	toJSON() {
-		return {
-			ok: false,
-			error: {
-				code: this.code,
-				message: this.message,
-				transient: false,
-			},
+		const error: Record<string, unknown> = {
+			code: this.code,
+			message: this.message,
+			transient: false,
 		}
+		if (this.details) error.details = this.details
+		return { ok: false, error }
 	}
 }

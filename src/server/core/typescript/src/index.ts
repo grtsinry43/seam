@@ -65,7 +65,10 @@ export type {
 	MappingValue,
 	TransportPreference,
 	TransportConfig,
+	ValidationMode,
+	ValidationConfig,
 } from './router/index.js'
+export type { ValidationDetail } from './validation/index.js'
 export type { SeamFileHandle } from './procedure.js'
 export type { ResolveStrategy, ResolveData } from './resolve.js'
 export type {

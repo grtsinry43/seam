@@ -53,10 +53,12 @@ describe('handleRequest: errors', () => {
 		expect(result.status).toBe(400)
 		const { error } = result.body as {
 			ok: false
-			error: { code: string; message: string; transient: boolean }
+			error: { code: string; message: string; transient: boolean; details?: unknown[] }
 		}
 		expect(error.code).toBe('VALIDATION_ERROR')
-		expect(error.message).toContain('Input validation failed:')
+		expect(error.message).toContain('Input validation failed')
+		expect(error.details).toBeDefined()
+		expect(Array.isArray(error.details)).toBe(true)
 	})
 
 	it('returns 500 when handler throws generic error', async () => {
@@ -113,7 +115,7 @@ describe('handleRequest: errors', () => {
 describe('handleRequest: output validation', () => {
 	it('returns 500 when handler output is missing required fields', async () => {
 		const procs = greetProc(() => ({}))
-		const result = await handleRequest(procs, 'greet', { name: 'Alice' }, true)
+		const result = await handleRequest(procs, 'greet', { name: 'Alice' }, true, true)
 		expect(result.status).toBe(500)
 		expect(result.body).toEqual(
 			expect.objectContaining({ error: expect.objectContaining({ code: 'INTERNAL_ERROR' }) }),
@@ -125,14 +127,14 @@ describe('handleRequest: output validation', () => {
 
 	it('passes when output matches schema exactly', async () => {
 		const procs = greetProc(() => ({ message: 'Hi!' }))
-		const result = await handleRequest(procs, 'greet', { name: 'Alice' }, true)
+		const result = await handleRequest(procs, 'greet', { name: 'Alice' }, true, true)
 		expect(result.status).toBe(200)
 		expect(result.body).toEqual({ ok: true, data: { message: 'Hi!' } })
 	})
 
 	it('skips output validation when disabled', async () => {
 		const procs = greetProc(() => ({}))
-		const result = await handleRequest(procs, 'greet', { name: 'Alice' }, false)
+		const result = await handleRequest(procs, 'greet', { name: 'Alice' }, true, false)
 		expect(result.status).toBe(200)
 		expect(result.body).toEqual({ ok: true, data: {} })
 	})

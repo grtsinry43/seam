@@ -8,6 +8,7 @@ import type { InternalProcedure } from '../procedure.js'
 import type { PageDef, LayoutDef, LoaderFn, I18nConfig } from './index.js'
 import type { LoaderError } from './loader-error.js'
 import { applyProjection } from './projection.js'
+import { validateInput, formatValidationErrors } from '../validation/index.js'
 
 export interface PageTiming {
 	/** Procedure execution time in milliseconds */
@@ -43,6 +44,7 @@ async function executeLoaders(
 	procedures: Map<string, InternalProcedure>,
 	searchParams?: URLSearchParams,
 	ctxResolver?: (proc: InternalProcedure) => Record<string, unknown>,
+	shouldValidateInput?: boolean,
 ): Promise<LoaderResults> {
 	const entries = Object.entries(loaders)
 	const results = await Promise.all(
@@ -52,6 +54,13 @@ async function executeLoaders(
 				const proc = procedures.get(procedure)
 				if (!proc) {
 					throw new SeamError('INTERNAL_ERROR', `Procedure '${procedure}' not found`)
+				}
+				if (shouldValidateInput) {
+					const v = validateInput(proc.inputSchema, input)
+					if (!v.valid) {
+						const summary = formatValidationErrors(v.errors)
+						throw new SeamError('VALIDATION_ERROR', `Input validation failed: ${summary}`)
+					}
 				}
 				const ctx = ctxResolver ? ctxResolver(proc) : {}
 				const result = await proc.handler({ input, ctx })
@@ -119,6 +128,7 @@ export async function handlePageRequest(
 	i18nOpts?: I18nOpts,
 	searchParams?: URLSearchParams,
 	ctxResolver?: (proc: InternalProcedure) => Record<string, unknown>,
+	shouldValidateInput?: boolean,
 ): Promise<HandlePageResult> {
 	try {
 		const t0 = performance.now()
@@ -128,9 +138,23 @@ export async function handlePageRequest(
 		// Execute all loaders (layout chain + page) in parallel
 		const loaderResults = await Promise.all([
 			...layoutChain.map((layout) =>
-				executeLoaders(layout.loaders, params, procedures, searchParams, ctxResolver),
+				executeLoaders(
+					layout.loaders,
+					params,
+					procedures,
+					searchParams,
+					ctxResolver,
+					shouldValidateInput,
+				),
 			),
-			executeLoaders(page.loaders, params, procedures, searchParams, ctxResolver),
+			executeLoaders(
+				page.loaders,
+				params,
+				procedures,
+				searchParams,
+				ctxResolver,
+				shouldValidateInput,
+			),
 		])
 
 		const t1 = performance.now()

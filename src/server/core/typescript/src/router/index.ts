@@ -30,6 +30,12 @@ import { categorizeProcedures } from './categorize.js'
 
 export type ProcedureKind = 'query' | 'command' | 'subscription' | 'stream' | 'upload'
 
+export type ValidationMode = 'dev' | 'always' | 'never'
+
+export interface ValidationConfig {
+	input?: ValidationMode
+}
+
 export type MappingValue = string | { from: string; each?: boolean }
 
 export type InvalidateTarget =
@@ -134,6 +140,7 @@ export interface RouterOptions {
 	rpcHashMap?: RpcHashMap
 	i18n?: I18nConfig | null
 	validateOutput?: boolean
+	validation?: ValidationConfig
 	resolve?: ResolveStrategy[]
 	channels?: ChannelResult[]
 	context?: ContextConfig
@@ -169,6 +176,14 @@ export interface Router<T extends DefinitionMap> {
 	readonly rpcHashMap: RpcHashMap | undefined
 	/** Exposed for adapter access to the definitions */
 	readonly procedures: T
+}
+
+/** Resolve a ValidationMode to a boolean flag */
+function resolveValidationMode(mode: ValidationMode | undefined): boolean {
+	const m = mode ?? 'dev'
+	if (m === 'always') return true
+	if (m === 'never') return false
+	return typeof process !== 'undefined' && process.env.NODE_ENV !== 'production'
 }
 
 /** Build the resolve strategy list from options */
@@ -254,6 +269,7 @@ async function matchAndHandlePage(
 	rawCtx?: RawContextMap,
 	ctxConfig?: ContextConfig,
 	extractKeys?: string[],
+	shouldValidateInput?: boolean,
 ): Promise<HandlePageResult | null> {
 	let pathLocale: string | null = null
 	let routePath = path
@@ -311,6 +327,7 @@ async function matchAndHandlePage(
 		i18nOpts,
 		searchParams,
 		ctxResolver,
+		shouldValidateInput,
 	)
 }
 
@@ -342,6 +359,7 @@ export function createRouter<T extends DefinitionMap>(
 		Object.keys(ctxConfig).length > 0 ? ctxConfig : undefined,
 	)
 
+	const shouldValidateInput = resolveValidationMode(opts?.validation?.input)
 	const shouldValidateOutput =
 		opts?.validateOutput ??
 		(typeof process !== 'undefined' && process.env.NODE_ENV !== 'production')
@@ -380,26 +398,54 @@ export function createRouter<T extends DefinitionMap>(
 				ctxConfig,
 			)
 			if (error) return error
-			return handleRequest(procedureMap, procedureName, body, shouldValidateOutput, ctx)
+			return handleRequest(
+				procedureMap,
+				procedureName,
+				body,
+				shouldValidateInput,
+				shouldValidateOutput,
+				ctx,
+			)
 		},
 		handleBatch(calls, rawCtx) {
 			const ctxResolver = rawCtx
 				? (name: string) => resolveCtxFor(procedureMap, name, rawCtx, extractKeys, ctxConfig) ?? {}
 				: undefined
-			return handleBatchRequest(procedureMap, calls, shouldValidateOutput, ctxResolver)
+			return handleBatchRequest(
+				procedureMap,
+				calls,
+				shouldValidateInput,
+				shouldValidateOutput,
+				ctxResolver,
+			)
 		},
 		handleSubscription(name, input, rawCtx) {
 			const ctx = resolveCtxFor(subscriptionMap, name, rawCtx, extractKeys, ctxConfig)
-			return handleSubscription(subscriptionMap, name, input, shouldValidateOutput, ctx)
+			return handleSubscription(
+				subscriptionMap,
+				name,
+				input,
+				shouldValidateInput,
+				shouldValidateOutput,
+				ctx,
+			)
 		},
 		handleStream(name, input, rawCtx) {
 			const ctx = resolveCtxFor(streamMap, name, rawCtx, extractKeys, ctxConfig)
-			return handleStream(streamMap, name, input, shouldValidateOutput, ctx)
+			return handleStream(streamMap, name, input, shouldValidateInput, shouldValidateOutput, ctx)
 		},
 		async handleUpload(name, body, file, rawCtx) {
 			const { ctx, error } = resolveCtxSafe(uploadMap, name, rawCtx, extractKeys, ctxConfig)
 			if (error) return error
-			return handleUploadRequest(uploadMap, name, body, file, shouldValidateOutput, ctx)
+			return handleUploadRequest(
+				uploadMap,
+				name,
+				body,
+				file,
+				shouldValidateInput,
+				shouldValidateOutput,
+				ctx,
+			)
 		},
 		getKind(name) {
 			return kindMap.get(name) ?? null
@@ -416,6 +462,7 @@ export function createRouter<T extends DefinitionMap>(
 				rawCtx,
 				ctxConfig,
 				extractKeys,
+				shouldValidateInput,
 			)
 		},
 	}
