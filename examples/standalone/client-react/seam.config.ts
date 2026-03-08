@@ -4,11 +4,10 @@ import { defineConfig } from '@canmi/seam-cli/config'
 
 export default defineConfig({
 	project: { name: 'client-react-example' },
+	frontend: { entry: 'src/main.tsx' },
 	build: {
 		routes: './src/routes.ts',
 		outDir: '.seam/output',
-		bundlerCommand: 'npx vite build',
-		bundlerManifest: '.seam/dist/.vite/manifest.json',
 		renderer: 'react',
 	},
 })

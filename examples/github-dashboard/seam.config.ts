@@ -6,8 +6,6 @@ export default defineConfig({
 	frontend: { entry: 'frontend/src/client/main.tsx' },
 	build: {
 		routes: 'frontend/src/client/routes.ts',
-		bundlerCommand: 'cd frontend && bunx vite build',
-		bundlerManifest: 'frontend/.seam/dist/.vite/manifest.json',
 		outDir: '.seam/output',
 		obfuscate: true,
 		hashLength: 16,

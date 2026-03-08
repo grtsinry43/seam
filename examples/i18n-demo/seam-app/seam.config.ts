@@ -8,8 +8,6 @@ export default defineConfig({
 	frontend: { entry: 'src/client/main.tsx' },
 	build: {
 		backendBuildCommand: 'true',
-		bundlerCommand: 'bunx vite build',
-		bundlerManifest: '.seam/dist/.vite/manifest.json',
 		routerFile: 'src/server/router.ts',
 		routes: './src/client/routes.ts',
 		outDir: '.seam/output',
