@@ -294,5 +294,5 @@ func (r *Router) Handler(opts ...HandlerOptions) http.Handler {
 	if len(opts) > 0 {
 		o = opts[0]
 	}
-	return buildHandler(r.procedures, r.subscriptions, r.channels, r.pages, r.rpcHashMap, r.i18nConfig, r.strategies, r.contextConfigs, o)
+	return buildHandler(r.procedures, r.subscriptions, r.channels, r.pages, r.rpcHashMap, r.i18nConfig, r.strategies, r.contextConfigs, o, r.validationMode)
 }

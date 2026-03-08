@@ -86,6 +86,18 @@ func (s *appState) servePage(w http.ResponseWriter, r *http.Request, page *PageD
 				return
 			}
 
+			if s.shouldValidate {
+				if cs, ok := s.compiledInputSchemas[ld.Procedure]; ok {
+					var parsed any
+					_ = json.Unmarshal(inputJSON, &parsed)
+					if msg, details := validateCompiled(cs, parsed); msg != "" {
+						results <- loaderResult{key: ld.DataKey, err: ValidationErrorDetailed(
+							fmt.Sprintf("Input validation failed for procedure '%s': %s", ld.Procedure, msg), toAnySlice(details))}
+						return
+					}
+				}
+			}
+
 			loaderCtx := ctx
 			if len(s.contextConfigs) > 0 && len(proc.ContextKeys) > 0 {
 				rawCtx := extractRawContext(r, s.contextConfigs)

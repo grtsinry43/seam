@@ -84,6 +84,21 @@ func (s *appState) handleBatch(w http.ResponseWriter, r *http.Request) {
 			input = json.RawMessage("{}")
 		}
 
+		if s.shouldValidate {
+			if cs, ok := s.compiledInputSchemas[name]; ok {
+				var parsed any
+				_ = json.Unmarshal(input, &parsed)
+				if msg, details := validateCompiled(cs, parsed); msg != "" {
+					results[i] = batchResult{Ok: false, Error: &batchError{
+						Code:    "VALIDATION_ERROR",
+						Message: fmt.Sprintf("Input validation failed for procedure '%s': %s", name, msg),
+						Details: toAnySlice(details),
+					}}
+					continue
+				}
+			}
+		}
+
 		// Inject per-procedure context
 		callCtx := ctx
 		if rawCtx != nil && len(proc.ContextKeys) > 0 {
@@ -133,6 +148,18 @@ func (s *appState) handleSubscribe(w http.ResponseWriter, r *http.Request) {
 		rawInput = json.RawMessage(inputStr)
 	} else {
 		rawInput = json.RawMessage("{}")
+	}
+
+	if s.shouldValidate {
+		if cs, ok := s.compiledSubSchemas[name]; ok {
+			var parsed any
+			_ = json.Unmarshal(rawInput, &parsed)
+			if msg, details := validateCompiled(cs, parsed); msg != "" {
+				writeSSEError(w, ValidationErrorDetailed(
+					fmt.Sprintf("Input validation failed for subscription '%s': %s", name, msg), toAnySlice(details)))
+				return
+			}
+		}
 	}
 
 	subCtx := r.Context()

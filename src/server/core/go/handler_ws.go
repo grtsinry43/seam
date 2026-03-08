@@ -80,6 +80,18 @@ func (s *appState) handleChannelWs(w http.ResponseWriter, r *http.Request) {
 		channelInput = json.RawMessage("{}")
 	}
 
+	if s.shouldValidate {
+		if cs, ok := s.compiledSubSchemas[subName]; ok {
+			var parsed any
+			_ = json.Unmarshal(channelInput, &parsed)
+			if msg, details := validateCompiled(cs, parsed); msg != "" {
+				http.Error(w, ValidationErrorDetailed(
+					fmt.Sprintf("Input validation failed for subscription '%s': %s", subName, msg), toAnySlice(details)).Error(), http.StatusBadRequest)
+				return
+			}
+		}
+	}
+
 	// Start subscription with a cancellable context
 	ctx, cancel := context.WithCancel(r.Context())
 	defer cancel()
@@ -255,6 +267,27 @@ func (s *appState) handleChannelWs(w http.ResponseWriter, r *http.Request) {
 
 			// Merge channel input + uplink input
 			mergedInput := mergeJSONInputs(channelInput, uplink.Input)
+
+			if s.shouldValidate {
+				if cs, ok := s.compiledInputSchemas[procName]; ok {
+					var parsed any
+					_ = json.Unmarshal(mergedInput, &parsed)
+					if msg, details := validateCompiled(cs, parsed); msg != "" {
+						if err := writeJSON(wsResponse{
+							ID: uplink.ID,
+							Ok: false,
+							Error: &wsError{
+								Code:    "VALIDATION_ERROR",
+								Message: fmt.Sprintf("Input validation failed for procedure '%s': %s", procName, msg),
+								Details: toAnySlice(details),
+							},
+						}); err != nil {
+							return
+						}
+						continue
+					}
+				}
+			}
 
 			// Dispatch command (explicit cancel to avoid defer leak in loop)
 			rpcCtx := ctx

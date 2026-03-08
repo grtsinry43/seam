@@ -12,19 +12,22 @@ import (
 )
 
 type appState struct {
-	manifestJSON   []byte
-	handlers       map[string]*ProcedureDef
-	subs           map[string]*SubscriptionDef
-	opts           HandlerOptions
-	hashToName     map[string]string // reverse lookup: hash -> original name (nil if no hash map)
-	batchHash      string            // batch endpoint hash (empty if no hash map)
-	i18nConfig     *I18nConfig
-	localeSet      map[string]bool // O(1) lookup for valid locales
-	strategies     []ResolveStrategy
-	contextConfigs map[string]ContextConfig
+	manifestJSON         []byte
+	handlers             map[string]*ProcedureDef
+	subs                 map[string]*SubscriptionDef
+	opts                 HandlerOptions
+	hashToName           map[string]string // reverse lookup: hash -> original name (nil if no hash map)
+	batchHash            string            // batch endpoint hash (empty if no hash map)
+	i18nConfig           *I18nConfig
+	localeSet            map[string]bool // O(1) lookup for valid locales
+	strategies           []ResolveStrategy
+	contextConfigs       map[string]ContextConfig
+	shouldValidate       bool
+	compiledInputSchemas map[string]*compiledSchema
+	compiledSubSchemas   map[string]*compiledSchema
 }
 
-func buildHandler(procedures []ProcedureDef, subscriptions []SubscriptionDef, channels []ChannelDef, pages []PageDef, rpcHashMap *RpcHashMap, i18nConfig *I18nConfig, strategies []ResolveStrategy, contextConfigs map[string]ContextConfig, opts HandlerOptions) http.Handler {
+func buildHandler(procedures []ProcedureDef, subscriptions []SubscriptionDef, channels []ChannelDef, pages []PageDef, rpcHashMap *RpcHashMap, i18nConfig *I18nConfig, strategies []ResolveStrategy, contextConfigs map[string]ContextConfig, opts HandlerOptions, validationMode ValidationMode) http.Handler {
 	state := &appState{
 		handlers:       make(map[string]*ProcedureDef),
 		subs:           make(map[string]*SubscriptionDef),
@@ -106,6 +109,22 @@ func buildHandler(procedures []ProcedureDef, subscriptions []SubscriptionDef, ch
 			},
 		}
 		state.handlers["__seam_i18n_query"] = &i18nQueryProc
+	}
+
+	state.shouldValidate = shouldValidateMode(validationMode)
+	if state.shouldValidate {
+		state.compiledInputSchemas = make(map[string]*compiledSchema)
+		for name, proc := range state.handlers {
+			if cs, err := compileSchema(proc.InputSchema); err == nil {
+				state.compiledInputSchemas[name] = cs
+			}
+		}
+		state.compiledSubSchemas = make(map[string]*compiledSchema)
+		for name, sub := range state.subs {
+			if cs, err := compileSchema(sub.InputSchema); err == nil {
+				state.compiledSubSchemas[name] = cs
+			}
+		}
 	}
 
 	mux := http.NewServeMux()
@@ -280,8 +299,17 @@ func (s *appState) handleRPC(w http.ResponseWriter, r *http.Request) {
 		defer cancel()
 	}
 
-	// TODO: JTD runtime input validation — validate request body against
-	// proc.InputSchema before calling Handler. Requires a Go JTD validation library.
+	if s.shouldValidate {
+		if cs, ok := s.compiledInputSchemas[name]; ok {
+			var parsed any
+			_ = json.Unmarshal(body, &parsed)
+			if msg, details := validateCompiled(cs, parsed); msg != "" {
+				writeError(w, 400, ValidationErrorDetailed(
+					fmt.Sprintf("Input validation failed for procedure '%s': %s", name, msg), toAnySlice(details)))
+				return
+			}
+		}
+	}
 
 	result, err := proc.Handler(ctx, body)
 	if err != nil {
@@ -326,6 +354,14 @@ func errorHTTPStatus(e *Error) int {
 		return e.Status
 	}
 	return defaultStatus(e.Code)
+}
+
+func toAnySlice(details []ValidationDetail) []any {
+	result := make([]any, len(details))
+	for i, d := range details {
+		result[i] = d
+	}
+	return result
 }
 
 func mustJSON(v any) string {
