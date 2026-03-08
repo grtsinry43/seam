@@ -156,7 +156,8 @@ export interface Router<T extends DefinitionMap> {
 		headers?: PageRequestHeaders,
 		rawCtx?: RawContextMap,
 	): Promise<HandlePageResult | null>
-	contextExtractKeys(): string[]
+	hasContext(): boolean
+	readonly ctxConfig: ContextConfig
 	readonly hasPages: boolean
 	readonly rpcHashMap: RpcHashMap | undefined
 	/** Exposed for adapter access to the definitions */

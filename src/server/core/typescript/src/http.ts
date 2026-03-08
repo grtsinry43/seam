@@ -4,6 +4,7 @@ import { readFile } from 'node:fs/promises'
 import { join, extname } from 'node:path'
 import type { Router, DefinitionMap } from './router/index.js'
 import type { RawContextMap } from './context.js'
+import { buildRawContext } from './context.js'
 import type { SeamFileHandle } from './procedure.js'
 import { SeamError } from './errors.js'
 import { MIME_TYPES } from './mime.js'
@@ -211,17 +212,16 @@ export function createHttpHandler<T extends DefinitionMap>(
 		hashToName.set('__seam_i18n_query', '__seam_i18n_query')
 	}
 	const batchHash = effectiveHashMap?.batch ?? null
-	const ctxExtractKeys = router.contextExtractKeys()
+	const hasCtx = router.hasContext()
 
 	return async (req) => {
 		const url = new URL(req.url, 'http://localhost')
 		const { pathname } = url
 
-		// Build raw context map from request headers when context fields are defined
-		const rawCtx: RawContextMap | undefined =
-			ctxExtractKeys.length > 0 && req.header
-				? Object.fromEntries(ctxExtractKeys.map((k) => [k, req.header?.(k) ?? null]))
-				: undefined
+		// Build raw context map from request headers/cookies/query when context fields are defined
+		const rawCtx: RawContextMap | undefined = hasCtx
+			? buildRawContext(router.ctxConfig, req.header, url)
+			: undefined
 
 		if (req.method === 'GET' && pathname === MANIFEST_PATH) {
 			if (effectiveHashMap) return errorResponse(403, 'FORBIDDEN', 'Manifest disabled')

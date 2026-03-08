@@ -33,8 +33,8 @@ describe('router with context', () => {
 		},
 	)
 
-	it('contextExtractKeys returns header names', () => {
-		expect(router.contextExtractKeys()).toEqual(['authorization'])
+	it('hasContext returns true when context is defined', () => {
+		expect(router.hasContext()).toBe(true)
 	})
 
 	it('passes resolved ctx to handler', async () => {
@@ -42,7 +42,7 @@ describe('router with context', () => {
 			'getSecret',
 			{ key: 'foo' },
 			{
-				authorization: 'Bearer tok',
+				auth: 'Bearer tok',
 			},
 		)
 		expect(result.status).toBe(200)
@@ -97,8 +97,8 @@ describe('router without context config', () => {
 		},
 	})
 
-	it('contextExtractKeys returns empty', () => {
-		expect(router.contextExtractKeys()).toEqual([])
+	it('hasContext returns false', () => {
+		expect(router.hasContext()).toBe(false)
 	})
 
 	it('manifest context is empty object', () => {
@@ -167,7 +167,7 @@ describe('page loader with context', () => {
 	)
 
 	it('resolves context in page loaders', async () => {
-		const result = await router.handlePage('/dashboard', {}, { authorization: 'Bearer secret' })
+		const result = await router.handlePage('/dashboard', {}, { auth: 'Bearer secret' })
 		expect(result).not.toBeNull()
 		const { status, html } = result as HandlePageResult
 		expect(status).toBe(200)
@@ -223,9 +223,49 @@ describe('batch with context', () => {
 				{ procedure: 'getA', input: {} },
 				{ procedure: 'getB', input: {} },
 			],
-			{ authorization: 'tok' },
+			{ auth: 'tok' },
 		)
 		expect(result.results[0]).toEqual({ ok: true, data: { token: 'tok' } })
 		expect(result.results[1]).toEqual({ ok: true, data: { n: 42 } })
+	})
+})
+
+describe('router with cookie and query context', () => {
+	const router = createRouter(
+		{
+			getSession: {
+				input: t.object({}),
+				output: t.object({ session: t.nullable(t.string()), lang: t.nullable(t.string()) }),
+				context: ['session', 'lang'],
+				handler: ({ ctx }) => ({
+					session: (ctx.session as string) ?? null,
+					lang: (ctx.lang as string) ?? null,
+				}),
+			},
+		},
+		{
+			context: {
+				session: { extract: 'cookie:sid', schema: t.nullable(t.string()) },
+				lang: { extract: 'query:lang', schema: t.nullable(t.string()) },
+			},
+		},
+	)
+
+	it('resolves cookie and query context', async () => {
+		const result = await router.handle('getSession', {}, { session: 'sess123', lang: 'en' })
+		expect(result.status).toBe(200)
+		expect(result.body).toEqual({
+			ok: true,
+			data: { session: 'sess123', lang: 'en' },
+		})
+	})
+
+	it('passes null for missing cookie and query', async () => {
+		const result = await router.handle('getSession', {}, { session: null, lang: null })
+		expect(result.status).toBe(200)
+		expect(result.body).toEqual({
+			ok: true,
+			data: { session: null, lang: null },
+		})
 	})
 })

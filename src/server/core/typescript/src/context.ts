@@ -26,16 +26,52 @@ export function parseExtractRule(rule: string): { source: string; key: string } 
 	return { source, key }
 }
 
-/** Collect all header names needed by the context config */
-export function contextExtractKeys(config: ContextConfig): string[] {
-	const keys: string[] = []
-	for (const field of Object.values(config)) {
-		const { source, key } = parseExtractRule(field.extract)
-		if (source === 'header') {
-			keys.push(key)
+/** Check whether any context fields are defined */
+export function contextHasExtracts(config: ContextConfig): boolean {
+	return Object.keys(config).length > 0
+}
+
+/** Parse a Cookie header into key-value pairs */
+export function parseCookieHeader(header: string): Record<string, string> {
+	const result: Record<string, string> = {}
+	for (const pair of header.split(';')) {
+		const idx = pair.indexOf('=')
+		if (idx > 0) {
+			result[pair.slice(0, idx).trim()] = pair.slice(idx + 1).trim()
 		}
 	}
-	return [...new Set(keys)]
+	return result
+}
+
+/** Build a RawContextMap keyed by config key from request headers, cookies, and query params */
+export function buildRawContext(
+	config: ContextConfig,
+	headerFn: ((name: string) => string | null) | undefined,
+	url: URL,
+): RawContextMap {
+	const raw: RawContextMap = {}
+	let cookieCache: Record<string, string> | undefined
+	for (const [key, field] of Object.entries(config)) {
+		const { source, key: extractKey } = parseExtractRule(field.extract)
+		switch (source) {
+			case 'header':
+				raw[key] = headerFn?.(extractKey) ?? null
+				break
+			case 'cookie': {
+				if (!cookieCache) {
+					cookieCache = parseCookieHeader(headerFn?.('cookie') ?? '')
+				}
+				raw[key] = cookieCache[extractKey] ?? null
+				break
+			}
+			case 'query':
+				raw[key] = url.searchParams.get(extractKey) ?? null
+				break
+			default:
+				raw[key] = null
+		}
+	}
+	return raw
 }
 
 /**
@@ -63,9 +99,7 @@ export function resolveContext(
 			)
 		}
 
-		const { source, key: extractKey } = parseExtractRule(field.extract)
-		const rawKey = source === 'header' ? extractKey : extractKey
-		const rawValue = raw[rawKey] ?? null
+		const rawValue = raw[key] ?? null
 
 		let value: unknown
 		if (rawValue === null) {

@@ -1,6 +1,6 @@
 /* src/server/core/typescript/src/router/state.ts */
 
-import { contextExtractKeys } from '../context.js'
+import { contextHasExtracts } from '../context.js'
 import { buildManifest } from '../manifest/index.js'
 import type { PageDef } from '../page/index.js'
 import { RouteMatcher } from '../page/route-matcher.js'
@@ -45,7 +45,7 @@ export function initRouterState(procedures: DefinitionMap, opts?: RouterOptions)
 	const { strategies, hasUrlPrefix } = buildStrategies(opts)
 	if (i18nConfig) registerI18nQuery(procedureMap, i18nConfig)
 	const channelsMeta = collectChannelMeta(opts?.channels)
-	const extractKeys = contextExtractKeys(ctxConfig)
+	const hasCtx = contextHasExtracts(ctxConfig)
 	return {
 		ctxConfig,
 		procedureMap,
@@ -61,7 +61,7 @@ export function initRouterState(procedures: DefinitionMap, opts?: RouterOptions)
 		strategies,
 		hasUrlPrefix,
 		channelsMeta,
-		extractKeys,
+		hasCtx,
 	}
 }
 
@@ -75,7 +75,6 @@ function buildRpcMethods(
 				state.procedureMap,
 				procedureName,
 				rawCtx,
-				state.extractKeys,
 				state.ctxConfig,
 			)
 			if (error) return error
@@ -90,9 +89,7 @@ function buildRpcMethods(
 		},
 		handleBatch(calls, rawCtx) {
 			const ctxResolver = rawCtx
-				? (name: string) =>
-						resolveCtxFor(state.procedureMap, name, rawCtx, state.extractKeys, state.ctxConfig) ??
-						{}
+				? (name: string) => resolveCtxFor(state.procedureMap, name, rawCtx, state.ctxConfig) ?? {}
 				: undefined
 			return handleBatchRequest(
 				state.procedureMap,
@@ -103,13 +100,7 @@ function buildRpcMethods(
 			)
 		},
 		async handleUpload(name, body, file, rawCtx) {
-			const { ctx, error } = resolveCtxSafe(
-				state.uploadMap,
-				name,
-				rawCtx,
-				state.extractKeys,
-				state.ctxConfig,
-			)
+			const { ctx, error } = resolveCtxSafe(state.uploadMap, name, rawCtx, state.ctxConfig)
 			if (error) return error
 			return handleUploadRequest(
 				state.uploadMap,
@@ -132,21 +123,16 @@ export function buildRouterMethods(
 ): Omit<Router<DefinitionMap>, 'procedures' | 'rpcHashMap'> {
 	return {
 		hasPages: !!state.pages && Object.keys(state.pages).length > 0,
-		contextExtractKeys() {
-			return state.extractKeys
+		ctxConfig: state.ctxConfig,
+		hasContext() {
+			return state.hasCtx
 		},
 		manifest() {
 			return buildManifest(procedures, state.channelsMeta, state.ctxConfig, opts?.transportDefaults)
 		},
 		...buildRpcMethods(state),
 		handleSubscription(name, input, rawCtx) {
-			const ctx = resolveCtxFor(
-				state.subscriptionMap,
-				name,
-				rawCtx,
-				state.extractKeys,
-				state.ctxConfig,
-			)
+			const ctx = resolveCtxFor(state.subscriptionMap, name, rawCtx, state.ctxConfig)
 			return handleSubscription(
 				state.subscriptionMap,
 				name,
@@ -157,7 +143,7 @@ export function buildRouterMethods(
 			)
 		},
 		handleStream(name, input, rawCtx) {
-			const ctx = resolveCtxFor(state.streamMap, name, rawCtx, state.extractKeys, state.ctxConfig)
+			const ctx = resolveCtxFor(state.streamMap, name, rawCtx, state.ctxConfig)
 			return handleStream(
 				state.streamMap,
 				name,
@@ -181,7 +167,6 @@ export function buildRouterMethods(
 				headers,
 				rawCtx,
 				state.ctxConfig,
-				state.extractKeys,
 				state.shouldValidateInput,
 			)
 		},

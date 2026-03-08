@@ -87,10 +87,9 @@ export function resolveCtxFor(
 	map: Map<string, { contextKeys: string[] }>,
 	name: string,
 	rawCtx: RawContextMap | undefined,
-	extractKeys: string[],
 	ctxConfig: ContextConfig,
 ): Record<string, unknown> | undefined {
-	if (!rawCtx || extractKeys.length === 0) return undefined
+	if (!rawCtx) return undefined
 	const proc = map.get(name)
 	if (!proc || proc.contextKeys.length === 0) return undefined
 	return resolveContext(ctxConfig, rawCtx, proc.contextKeys)
@@ -109,7 +108,6 @@ export async function matchAndHandlePage(
 	headers?: PageRequestHeaders,
 	rawCtx?: RawContextMap,
 	ctxConfig?: ContextConfig,
-	extractKeys?: string[],
 	shouldValidateInput?: boolean,
 ): Promise<HandlePageResult | null> {
 	let pathLocale: string | null = null
@@ -153,13 +151,12 @@ export async function matchAndHandlePage(
 	const i18nOpts =
 		locale && i18nConfig ? { locale, config: i18nConfig, routePattern: match.pattern } : undefined
 
-	const ctxResolver =
-		rawCtx && extractKeys && extractKeys.length > 0
-			? (proc: { contextKeys: string[] }) => {
-					if (proc.contextKeys.length === 0) return {}
-					return resolveContext(ctxConfig ?? {}, rawCtx, proc.contextKeys)
-				}
-			: undefined
+	const ctxResolver = rawCtx
+		? (proc: { contextKeys: string[] }) => {
+				if (proc.contextKeys.length === 0) return {}
+				return resolveContext(ctxConfig ?? {}, rawCtx, proc.contextKeys)
+			}
+		: undefined
 
 	return handlePageRequest(
 		match.value,
@@ -177,11 +174,10 @@ export function resolveCtxSafe(
 	map: Map<string, { contextKeys: string[] }>,
 	name: string,
 	rawCtx: RawContextMap | undefined,
-	extractKeys: string[],
 	ctxConfig: ContextConfig,
 ): { ctx?: Record<string, unknown>; error?: HandleResult } {
 	try {
-		return { ctx: resolveCtxFor(map, name, rawCtx, extractKeys, ctxConfig) }
+		return { ctx: resolveCtxFor(map, name, rawCtx, ctxConfig) }
 	} catch (err) {
 		if (err instanceof SeamError) {
 			return { error: { status: err.status, body: err.toJSON() } }

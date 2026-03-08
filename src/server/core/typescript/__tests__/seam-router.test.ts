@@ -106,7 +106,7 @@ describe('router()', () => {
 		const result = await r.handle(
 			'getSecret',
 			{},
-			{ authorization: JSON.stringify({ userId: 'u1', role: 'admin' }) },
+			{ auth: JSON.stringify({ userId: 'u1', role: 'admin' }) },
 		)
 		expect(result.status).toBe(200)
 		expect(result.body).toEqual({ ok: true, data: { uid: 'u1' } })
