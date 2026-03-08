@@ -11,6 +11,7 @@ pub mod page;
 pub mod procedure;
 pub mod resolve;
 pub mod server;
+pub mod validation;
 
 // Re-exports for ergonomic use
 pub use build_loader::{RpcHashMap, load_build_output, load_i18n_config, load_rpc_hash_map};
@@ -29,6 +30,10 @@ pub use resolve::{
 };
 pub use seam_macros::{SeamType, seam_command, seam_procedure, seam_subscription};
 pub use server::{SeamParts, SeamServer};
+pub use validation::{
+	CompiledSchema, ValidationDetail, ValidationMode, compile_schema, should_validate,
+	validate_compiled, validate_input,
+};
 
 /// Trait for types that can describe themselves as a JTD schema.
 /// Derive with `#[derive(SeamType)]` or implement manually.
