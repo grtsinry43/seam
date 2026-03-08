@@ -1,19 +1,15 @@
 /* src/cli/core/src/build/config.rs */
 
+use std::path::Path;
+
 use anyhow::{Result, bail};
 
 use crate::config::{I18nSection, SeamConfig};
-
-#[derive(Debug, Clone)]
-pub enum BundlerMode {
-	BuiltIn { entry: String },
-	Custom { command: String },
-}
+use crate::ui;
 
 #[derive(Debug, Clone)]
 pub struct BuildConfig {
-	pub bundler_mode: BundlerMode,
-	pub bundler_manifest: String,
+	pub entry: String,
 	pub routes: String,
 	pub out_dir: String,
 	pub renderer: String,
@@ -29,10 +25,8 @@ pub struct BuildConfig {
 	pub rpc_salt: Option<String>,
 	pub root_id: String,
 	pub data_id: String,
-	pub entry: Option<String>,
 	pub pages_dir: Option<String>,
 	pub i18n: Option<I18nSection>,
-	pub vite: Option<serde_json::Value>,
 	/// Absolute path to seam.config.ts/mjs (for bundler scripts via SEAM_CONFIG_PATH)
 	pub config_path: Option<String>,
 }
@@ -40,6 +34,12 @@ pub struct BuildConfig {
 impl BuildConfig {
 	pub fn from_seam_config(config: &SeamConfig) -> Result<Self> {
 		let build = &config.build;
+
+		if build.bundler_command.is_some() || config.frontend.build_command.is_some() {
+			bail!(
+				"bundlerCommand has been removed -- use frontend.entry with the built-in bundler instead"
+			);
+		}
 
 		let pages_dir = build.pages_dir.clone();
 		let routes = match (&build.routes, &pages_dir) {
@@ -55,23 +55,8 @@ impl BuildConfig {
 			.or_else(|| config.frontend.out_dir.clone())
 			.unwrap_or_else(|| ".seam/output".to_string());
 
-		// Bundler mode: explicit command takes priority, then built-in via frontend.entry
-		let entry = config.frontend.entry.clone();
-		let (bundler_mode, bundler_manifest) = if let Some(cmd) =
-			build.bundler_command.clone().or_else(|| config.frontend.build_command.clone())
-		{
-			let manifest = match &build.bundler_manifest {
-				Some(m) => m.clone(),
-				None => bail!("build.bundler_manifest is required when using a custom bundler command"),
-			};
-			(BundlerMode::Custom { command: cmd }, manifest)
-		} else if let Some(ref e) = entry {
-			(BundlerMode::BuiltIn { entry: e.clone() }, ".seam/dist/.vite/manifest.json".to_string())
-		} else {
-			bail!(
-				"set frontend.entry for the built-in bundler, or build.bundler_command for a custom bundler"
-			);
-		};
+		let entry =
+			config.frontend.entry.clone().ok_or_else(|| anyhow::anyhow!("frontend.entry is required"))?;
 
 		let renderer = build.renderer.clone().unwrap_or_else(|| "react".to_string());
 		if renderer != "react" {
@@ -93,12 +78,10 @@ impl BuildConfig {
 		let root_id = config.frontend.root_id.clone();
 		let data_id = config.frontend.data_id.clone();
 		let i18n = config.i18n.clone();
-		let vite = config.vite.clone();
 		let config_path = config.config_file_path.clone();
 
 		Ok(Self {
-			bundler_mode,
-			bundler_manifest,
+			entry,
 			routes,
 			out_dir,
 			renderer,
@@ -114,21 +97,30 @@ impl BuildConfig {
 			rpc_salt: None,
 			root_id,
 			data_id,
-			entry,
 			pages_dir,
 			i18n,
-			vite,
 			config_path,
 		})
 	}
 
-	/// Derive the dist directory from `bundler_manifest` (e.g. "frontend/dist/.vite/manifest.json" -> "frontend/dist").
+	/// Dist directory is always `.seam/dist` (built-in bundler only).
+	#[allow(clippy::unused_self)]
 	pub fn dist_dir(&self) -> &str {
-		std::path::Path::new(&self.bundler_manifest)
-			.parent()
-			.and_then(|p| p.parent())
-			.and_then(|p| p.to_str())
-			.unwrap_or(".seam/dist")
+		".seam/dist"
+	}
+
+	/// Vite manifest path within the dist directory.
+	pub fn bundler_manifest(&self) -> String {
+		format!("{}/.vite/manifest.json", self.dist_dir())
+	}
+
+	/// Warn if a stale vite.config.ts/js/mjs exists in the project directory.
+	pub fn warn_stale_vite_config(base_dir: &Path) {
+		for name in ["vite.config.ts", "vite.config.js", "vite.config.mjs"] {
+			if base_dir.join(name).exists() {
+				ui::warn(&format!("{name} is ignored -- move settings to seam.config.ts vite field"));
+			}
+		}
 	}
 
 	pub fn from_seam_config_dev(config: &SeamConfig) -> Result<Self> {
@@ -174,67 +166,37 @@ router_file = "src/server/router.ts"
 	}
 
 	#[test]
-	fn custom_bundler_with_explicit_command() {
-		let config = parse_config(
-			r#"
-[project]
-name = "test"
-
-[build]
-routes = "./src/routes.ts"
-out_dir = "dist"
-bundler_command = "npx vite build"
-bundler_manifest = "dist/.vite/manifest.json"
-renderer = "react"
-"#,
-		);
-		let build = BuildConfig::from_seam_config(&config).unwrap();
-		assert!(
-			matches!(build.bundler_mode, BundlerMode::Custom { command } if command == "npx vite build")
-		);
-		assert_eq!(build.bundler_manifest, "dist/.vite/manifest.json");
-		assert_eq!(build.routes, "./src/routes.ts");
-		assert_eq!(build.out_dir, "dist");
-		assert_eq!(build.renderer, "react");
-		assert!(!build.is_fullstack);
-	}
-
-	#[test]
 	fn builtin_bundler_with_entry() {
 		let config = parse_fullstack("", "");
 		let build = BuildConfig::from_seam_config(&config).unwrap();
-		assert!(
-			matches!(build.bundler_mode, BundlerMode::BuiltIn { entry } if entry == "src/client/main.tsx")
-		);
-		assert_eq!(build.bundler_manifest, ".seam/dist/.vite/manifest.json");
+		assert_eq!(build.entry, "src/client/main.tsx");
+		assert_eq!(build.bundler_manifest(), ".seam/dist/.vite/manifest.json");
 		assert!(build.is_fullstack);
 	}
 
 	#[test]
-	fn fullstack_custom_bundler() {
+	fn bundler_command_rejected() {
 		let config = parse_config(
 			r#"
 [project]
 name = "test"
 
+[frontend]
+entry = "src/main.tsx"
+
 [build]
 routes = "./src/routes.ts"
-out_dir = ".seam/output"
-bundler_command = "bunx vite build"
-bundler_manifest = "dist/.vite/manifest.json"
-backend_build_command = "bun build src/server/index.ts --target=bun --outdir=.seam/output/server"
-router_file = "src/server/router.ts"
-typecheck_command = "bunx tsc --noEmit"
+bundler_command = "npx vite build"
 "#,
 		);
-		let build = BuildConfig::from_seam_config(&config).unwrap();
-		assert!(matches!(build.bundler_mode, BundlerMode::Custom { .. }));
-		assert!(build.is_fullstack);
-		assert_eq!(build.typecheck_command.as_deref(), Some("bunx tsc --noEmit"));
+		let result = BuildConfig::from_seam_config(&config);
+		assert!(result.is_err());
+		let msg = result.unwrap_err().to_string();
+		assert!(msg.contains("bundlerCommand has been removed"));
 	}
 
 	#[test]
-	fn inherits_build_command_from_frontend() {
+	fn build_command_from_frontend_rejected() {
 		let config = parse_config(
 			r#"
 [project]
@@ -242,22 +204,20 @@ name = "test"
 
 [frontend]
 build_command = "bun run build"
-out_dir = "output"
+entry = "src/main.tsx"
 
 [build]
 routes = "./src/routes.ts"
-bundler_manifest = "output/.vite/manifest.json"
 "#,
 		);
-		let build = BuildConfig::from_seam_config(&config).unwrap();
-		assert!(
-			matches!(build.bundler_mode, BundlerMode::Custom { command } if command == "bun run build")
-		);
-		assert_eq!(build.out_dir, "output");
+		let result = BuildConfig::from_seam_config(&config);
+		assert!(result.is_err());
+		let msg = result.unwrap_err().to_string();
+		assert!(msg.contains("bundlerCommand has been removed"));
 	}
 
 	#[test]
-	fn no_entry_no_command_errors() {
+	fn no_entry_errors() {
 		let config = parse_config(
 			r#"
 [project]
@@ -482,20 +442,9 @@ channel = { prefer = "ws", fallback = ["http"] }
 	}
 
 	#[test]
-	fn custom_bundler_missing_manifest_errors() {
-		let config = parse_config(
-			r#"
-[project]
-name = "test"
-
-[build]
-routes = "./src/routes.ts"
-bundler_command = "npx vite build"
-"#,
-		);
-		let result = BuildConfig::from_seam_config(&config);
-		assert!(result.is_err());
-		let msg = result.unwrap_err().to_string();
-		assert!(msg.contains("bundler_manifest"));
+	fn dist_dir_is_constant() {
+		let config = parse_fullstack("", "");
+		let bc = BuildConfig::from_seam_config(&config).unwrap();
+		assert_eq!(bc.dist_dir(), ".seam/dist");
 	}
 }

@@ -40,8 +40,6 @@ entry = "frontend/src/client/main.tsx"
 
 [build]
 routes = "frontend/src/client/routes.ts"
-bundler_command = "cd frontend && bunx vite build"
-bundler_manifest = "frontend/dist/.vite/manifest.json"
 out_dir = ".seam/output"
 
 [workspace]
@@ -60,7 +58,6 @@ members = ["backends/ts-hono"]
 	assert_eq!(merged.backend.dev_command.as_deref(), Some("bun --watch src/index.ts"));
 	// Build: shared fields from root
 	assert_eq!(merged.build.routes.as_deref(), Some("frontend/src/client/routes.ts"));
-	assert_eq!(merged.build.bundler_command.as_deref(), Some("cd frontend && bunx vite build"));
 	// Build: overridden fields from member
 	assert_eq!(merged.build.backend_build_command.as_deref(), Some("bun build src/index.ts"));
 	assert_eq!(merged.build.router_file.as_deref(), Some("src/router.ts"));
@@ -144,10 +141,11 @@ router_file = "src/router.ts"
 [project]
 name = "test"
 
+[frontend]
+entry = "src/main.tsx"
+
 [build]
 routes = "routes.ts"
-bundler_command = "vite build"
-bundler_manifest = "dist/manifest.json"
 
 [workspace]
 members = ["a/hono", "b/hono"]
@@ -186,10 +184,11 @@ lang = "rust"
 [project]
 name = "test"
 
+[frontend]
+entry = "src/main.tsx"
+
 [build]
 routes = "routes.ts"
-bundler_command = "vite build"
-bundler_manifest = "dist/manifest.json"
 
 [workspace]
 members = ["member"]

@@ -4,11 +4,10 @@ use std::path::Path;
 
 use anyhow::{Context, Result, bail};
 
-use super::super::config::{BuildConfig, BundlerMode};
+use super::super::config::BuildConfig;
 use super::super::route::CacheStats;
 use super::super::types::ViteDevInfo;
 use crate::config::SeamConfig;
-use crate::shell::{run_builtin_bundler, run_command};
 use crate::ui;
 
 #[derive(Debug, Clone, Copy)]
@@ -17,19 +16,6 @@ pub enum RebuildMode {
 	Full,
 	/// src/client/** or shared/** changed — frontend only (bundle + skeletons + assets)
 	FrontendOnly,
-}
-
-/// Dispatch bundler based on mode
-pub(super) fn run_bundler(
-	base_dir: &Path,
-	mode: &BundlerMode,
-	dist_dir: &str,
-	env: &[(&str, &str)],
-) -> Result<()> {
-	match mode {
-		BundlerMode::BuiltIn { entry } => run_builtin_bundler(base_dir, entry, dist_dir, env),
-		BundlerMode::Custom { command } => run_command(base_dir, command, "bundler", env),
-	}
 }
 
 /// Generate RPC hash map when obfuscation is enabled, write to out_dir

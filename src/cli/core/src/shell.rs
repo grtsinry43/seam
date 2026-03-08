@@ -82,9 +82,8 @@ pub(crate) fn run_builtin_bundler(
 /// Locate a script bundled with @canmi/seam-cli.
 pub(crate) fn find_cli_script(base_dir: &Path, name: &str) -> Result<PathBuf> {
 	let suffix = format!("@canmi/seam-cli/scripts/{name}");
-	resolve_node_module(base_dir, &suffix).ok_or_else(|| {
-		anyhow::anyhow!("{name} not found -- install @canmi/seam-cli or set build.bundler_command")
-	})
+	resolve_node_module(base_dir, &suffix)
+		.ok_or_else(|| anyhow::anyhow!("{name} not found -- install @canmi/seam-cli"))
 }
 
 /// Resolve a path inside node_modules by walking up parent directories.

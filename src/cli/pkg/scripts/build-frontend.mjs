@@ -17,7 +17,7 @@ if (!entry) {
 process.env.SEAM_ENTRY = entry
 if (!process.env.SEAM_DIST_DIR) process.env.SEAM_DIST_DIR = outDir
 
-// Load user config: prefer SEAM_CONFIG_PATH (direct import), fall back to SEAM_VITE_CONFIG (JSON)
+// Load user config from seam.config.ts via SEAM_CONFIG_PATH
 let userConfig = {}
 if (process.env.SEAM_CONFIG_PATH) {
 	try {
@@ -25,11 +25,8 @@ if (process.env.SEAM_CONFIG_PATH) {
 		const raw = mod.default ?? mod
 		userConfig = raw.vite ?? {}
 	} catch {
-		// config import failed — fall through to SEAM_VITE_CONFIG
+		// config import failed — proceed with defaults
 	}
-}
-if (!Object.keys(userConfig).length && process.env.SEAM_VITE_CONFIG) {
-	userConfig = JSON.parse(process.env.SEAM_VITE_CONFIG)
 }
 
 // Warn on protected fields that seam controls

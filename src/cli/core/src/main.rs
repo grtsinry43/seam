@@ -197,6 +197,7 @@ async fn run() -> Result<()> {
 			let (config_path, seam_config) = resolve_config(config)?;
 			let base_dir = config_path.parent().unwrap_or_else(|| std::path::Path::new("."));
 			warn_seam_not_gitignored(base_dir);
+			build::config::BuildConfig::warn_stale_vite_config(base_dir);
 			if seam_config.is_workspace() {
 				workspace::run_workspace_build(&seam_config, base_dir, member.as_deref())?;
 			} else if member.is_some() {

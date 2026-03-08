@@ -11,17 +11,15 @@ fn camel_to_snake_all_fields() {
 		"project": { "name": "test" },
 		"backend": { "devCommand": "bun run", "port": 3000 },
 		"frontend": {
+			"entry": "src/main.tsx",
 			"devCommand": "vite",
 			"devPort": 5173,
-			"buildCommand": "vite build",
 			"outDir": "dist",
 			"rootId": "__app",
 			"dataId": "__d"
 		},
 		"build": {
 			"outDir": ".seam/output",
-			"bundlerCommand": "vite build",
-			"bundlerManifest": "dist/manifest.json",
 			"backendBuildCommand": "bun build",
 			"routerFile": "router.ts",
 			"manifestCommand": "cargo run",
@@ -46,13 +44,10 @@ fn camel_to_snake_all_fields() {
 	assert_eq!(result["backend"]["dev_command"], "bun run");
 	assert_eq!(result["frontend"]["dev_command"], "vite");
 	assert_eq!(result["frontend"]["dev_port"], 5173);
-	assert_eq!(result["frontend"]["build_command"], "vite build");
 	assert_eq!(result["frontend"]["out_dir"], "dist");
 	assert_eq!(result["frontend"]["root_id"], "__app");
 	assert_eq!(result["frontend"]["data_id"], "__d");
 	assert_eq!(result["build"]["out_dir"], ".seam/output");
-	assert_eq!(result["build"]["bundler_command"], "vite build");
-	assert_eq!(result["build"]["bundler_manifest"], "dist/manifest.json");
 	assert_eq!(result["build"]["backend_build_command"], "bun build");
 	assert_eq!(result["build"]["router_file"], "router.ts");
 	assert_eq!(result["build"]["manifest_command"], "cargo run");
@@ -284,10 +279,11 @@ router_file = "src/router.ts"
 [project]
 name = "test-ws"
 
+[frontend]
+entry = "src/main.tsx"
+
 [build]
 routes = "routes.ts"
-bundler_command = "vite build"
-bundler_manifest = "dist/manifest.json"
 
 [workspace]
 members = ["backends/ts-hono"]

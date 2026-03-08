@@ -58,6 +58,7 @@ pub struct SeamConfig {
 	#[serde(default)]
 	pub transport: Option<TransportSection>,
 	#[serde(default)]
+	#[allow(dead_code)] // deserialized for passthrough to bundler scripts via SEAM_CONFIG_PATH
 	pub vite: Option<serde_json::Value>,
 	#[serde(default)]
 	#[allow(dead_code)] // reserved for future router config
@@ -154,6 +155,7 @@ pub struct FrontendConfig {
 	pub entry: Option<String>,
 	pub dev_command: Option<String>,
 	pub dev_port: Option<u16>,
+	/// Deprecated: rejected at BuildConfig construction with clear error message
 	pub build_command: Option<String>,
 	pub out_dir: Option<String>,
 	#[serde(default = "default_root_id")]
@@ -188,7 +190,10 @@ fn default_data_id() -> String {
 pub struct BuildSection {
 	pub routes: Option<String>,
 	pub out_dir: Option<String>,
+	/// Deprecated: rejected at BuildConfig construction with clear error message
 	pub bundler_command: Option<String>,
+	/// Deprecated: ignored (built-in bundler always uses .seam/dist/.vite/manifest.json)
+	#[allow(dead_code)]
 	pub bundler_manifest: Option<String>,
 	pub renderer: Option<String>,
 	pub backend_build_command: Option<String>,

@@ -14,8 +14,8 @@ use super::super::route::{
 	report_narrowing_savings, run_skeleton_renderer,
 };
 use super::super::types::{AssetFiles, read_bundle_manifest};
-use super::helpers::{print_cache_stats, run_bundler};
-use crate::shell::resolve_node_module;
+use super::helpers::print_cache_stats;
+use crate::shell::{resolve_node_module, run_builtin_bundler};
 use crate::ui::{self, DIM, RESET, StepTracker, col};
 
 pub(crate) type EnvPairs = Vec<(String, String)>;
@@ -32,16 +32,9 @@ pub(crate) fn build_bundler_env(build_config: &BuildConfig, rpc_map_path: &str) 
 		("SEAM_RPC_MAP_PATH".into(), rpc_map_path.into()),
 		("SEAM_DIST_DIR".into(), build_config.dist_dir().to_string()),
 	];
-	if let Some(ref entry) = build_config.entry {
-		env.push(("SEAM_ENTRY".into(), entry.clone()));
-	}
+	env.push(("SEAM_ENTRY".into(), build_config.entry.clone()));
 	if let Some(ref path) = build_config.config_path {
 		env.push(("SEAM_CONFIG_PATH".into(), path.clone()));
-	}
-	if let Some(ref vite) = build_config.vite
-		&& let Ok(json) = serde_json::to_string(vite)
-	{
-		env.push(("SEAM_VITE_CONFIG".into(), json));
 	}
 	env
 }
@@ -70,7 +63,7 @@ pub(crate) fn render_skeletons(
 	Ok(output)
 }
 
-/// Run the bundler and parse the resulting asset manifest.
+/// Run the built-in bundler and parse the resulting asset manifest.
 pub(crate) fn bundle_frontend(
 	build_config: &BuildConfig,
 	base_dir: &Path,
@@ -78,8 +71,8 @@ pub(crate) fn bundle_frontend(
 ) -> Result<AssetFiles> {
 	let dist_dir = build_config.dist_dir().to_string();
 	let env_refs: Vec<(&str, &str)> = env.iter().map(|(k, v)| (k.as_str(), v.as_str())).collect();
-	run_bundler(base_dir, &build_config.bundler_mode, &dist_dir, &env_refs)?;
-	read_bundle_manifest(&base_dir.join(&build_config.bundler_manifest))
+	run_builtin_bundler(base_dir, &build_config.entry, &dist_dir, &env_refs)?;
+	read_bundle_manifest(&base_dir.join(build_config.bundler_manifest()))
 }
 
 /// Write route-manifest.json to the output directory.

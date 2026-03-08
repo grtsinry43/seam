@@ -28,16 +28,14 @@ dev_command = "cargo watch -x run"
 port = 8080
 
 [frontend]
+entry = "src/main.tsx"
 dev_command = "vite dev"
 dev_port = 5173
-build_command = "vite build"
 out_dir = "dist"
 
 [build]
 routes = "./src/routes.ts"
 out_dir = "dist"
-bundler_command = "npx vite build"
-bundler_manifest = "dist/.vite/manifest.json"
 renderer = "react"
 
 [generate]
@@ -59,10 +57,11 @@ fn parse_fullstack_build_config() {
 [project]
 name = "fullstack-app"
 
+[frontend]
+entry = "src/client/main.tsx"
+
 [build]
 routes = "./src/routes.ts"
-bundler_command = "bunx vite build"
-bundler_manifest = "dist/.vite/manifest.json"
 out_dir = ".seam/output"
 backend_build_command = "bun build src/server/index.ts --target=bun --outdir=.seam/output/server"
 router_file = "src/server/router.ts"
@@ -311,12 +310,13 @@ fn parse_manifest_command() {
 [project]
 name = "my-app"
 
+[frontend]
+entry = "frontend/src/client/main.tsx"
+
 [build]
 manifest_command = "cargo run --release -- --manifest"
 backend_build_command = "cargo build --release"
 routes = "frontend/src/client/routes.ts"
-bundler_command = "cd frontend && bunx vite build"
-bundler_manifest = "frontend/dist/.vite/manifest.json"
 "#;
 	let config: SeamConfig = toml::from_str(toml_str).unwrap();
 	assert_eq!(config.build.manifest_command.as_deref(), Some("cargo run --release -- --manifest"));

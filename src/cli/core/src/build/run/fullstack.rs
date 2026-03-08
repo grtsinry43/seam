@@ -83,7 +83,7 @@ pub(super) fn run_fullstack_build(
 ) -> Result<()> {
 	let started = Instant::now();
 	let out_dir = base_dir.join(&build_config.out_dir);
-	let manifest_path = base_dir.join(&build_config.bundler_manifest);
+	let manifest_path = base_dir.join(build_config.bundler_manifest());
 
 	ui::banner("build", Some(config.project_name()));
 

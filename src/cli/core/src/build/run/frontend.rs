@@ -50,7 +50,7 @@ pub(super) fn run_frontend_build(build_config: &BuildConfig, base_dir: &Path) ->
 		"SEAM_ROUTES_FILE".into(),
 		base_dir.join(&build_config.routes).to_string_lossy().to_string(),
 	));
-	let manifest_path = base_dir.join(&build_config.bundler_manifest);
+	let manifest_path = base_dir.join(build_config.bundler_manifest());
 	let assets = steps::bundle_frontend(build_config, base_dir, &bundler_env)?;
 	print_asset_files(base_dir, build_config.dist_dir(), &assets);
 	tracker.end_with(t, &format!("{} files", assets.js.len() + assets.css.len()));

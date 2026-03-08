@@ -4,7 +4,7 @@ use std::path::Path;
 
 use anyhow::Result;
 
-use crate::build::config::{BuildConfig, BundlerMode};
+use crate::build::config::BuildConfig;
 use crate::config::SeamConfig;
 use crate::ui::{self, BOLD, CYAN, DIM, GREEN, MAGENTA, RESET, UNDERLINE, YELLOW, col};
 
@@ -69,14 +69,7 @@ pub(super) fn build_frontend(config: &SeamConfig, base_dir: &Path) -> Result<()>
 	ui::step(1, 1, "Building frontend");
 	let build_config = BuildConfig::from_seam_config(config)?;
 	let dist_dir = build_config.dist_dir();
-	match &build_config.bundler_mode {
-		BundlerMode::BuiltIn { entry } => {
-			crate::shell::run_builtin_bundler(base_dir, entry, dist_dir, &[])?;
-		}
-		BundlerMode::Custom { command } => {
-			crate::shell::run_command(base_dir, command, "bundler", &[])?;
-		}
-	}
+	crate::shell::run_builtin_bundler(base_dir, &build_config.entry, dist_dir, &[])?;
 	ui::blank();
 	Ok(())
 }

@@ -16,7 +16,6 @@ export interface FrontendConfig {
 	entry?: string
 	devCommand?: string
 	devPort?: number
-	buildCommand?: string
 	outDir?: string
 	rootId?: string
 	dataId?: string
@@ -25,8 +24,6 @@ export interface FrontendConfig {
 export interface BuildSection {
 	routes?: string
 	outDir?: string
-	bundlerCommand?: string
-	bundlerManifest?: string
 	renderer?: string
 	backendBuildCommand?: string
 	routerFile?: string
