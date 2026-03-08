@@ -39,4 +39,19 @@ describe('hydrateFromSeamData', () => {
 		hydrateFromSeamData(qc, { foo: 'bar' })
 		// no error thrown, no data set
 	})
+
+	it('skips entries with error flag, hydrates healthy entries', () => {
+		const qc = new QueryClient()
+		const seamData = {
+			userData: { name: 'Alice' },
+			orgData: { __error: true, code: 'INTERNAL_ERROR', message: 'db down' },
+			__loaders: {
+				userData: { procedure: 'getUser', input: {} },
+				orgData: { procedure: 'getOrg', input: {}, error: true },
+			},
+		}
+		hydrateFromSeamData(qc, seamData)
+		expect(qc.getQueryData(['getUser', {}])).toEqual({ name: 'Alice' })
+		expect(qc.getQueryData(['getOrg', {}])).toBeUndefined()
+	})
 })

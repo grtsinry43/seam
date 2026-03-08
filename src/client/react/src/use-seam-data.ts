@@ -23,3 +23,19 @@ export function parseSeamData(dataId = '__data'): Record<string, unknown> {
 	if (!el?.textContent) throw new Error(`${dataId} not found`)
 	return JSON.parse(el.textContent) as Record<string, unknown>
 }
+
+export interface LoaderError {
+	__error: true
+	code: string
+	message: string
+}
+
+export function isLoaderError(value: unknown): value is LoaderError {
+	return (
+		typeof value === 'object' &&
+		value !== null &&
+		(value as Record<string, unknown>).__error === true &&
+		typeof (value as Record<string, unknown>).code === 'string' &&
+		typeof (value as Record<string, unknown>).message === 'string'
+	)
+}

@@ -1,5 +1,7 @@
 /* src/server/core/typescript/src/page/projection.ts */
 
+import { isLoaderError } from './loader-error.js'
+
 export type ProjectionMap = Record<string, string[]>
 
 /** Set a nested field by dot-separated path, creating intermediate objects as needed. */
@@ -84,9 +86,12 @@ export function applyProjection(
 
 	const result: Record<string, unknown> = {}
 	for (const [key, value] of Object.entries(data)) {
+		if (isLoaderError(value)) {
+			result[key] = value
+			continue
+		}
 		const fields = projections[key]
 		if (!fields) {
-			// No projection for this key — keep full value
 			result[key] = value
 		} else {
 			result[key] = pruneValue(value, fields)

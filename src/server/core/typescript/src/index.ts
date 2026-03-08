@@ -7,6 +7,7 @@ export { createSeamRouter } from './seam-router.js'
 export { createChannel } from './channel.js'
 export { SeamError } from './errors.js'
 export { definePage } from './page/index.js'
+export { isLoaderError } from './page/loader-error.js'
 export {
 	createHttpHandler,
 	sseDataEvent,
@@ -83,6 +84,7 @@ export type { HandlePageResult, PageTiming, I18nOpts } from './page/handler.js'
 export type { BuildOutput } from './page/build-loader.js'
 export type { PageDef, LayoutDef, LoaderFn, I18nConfig } from './page/index.js'
 export type { ErrorCode } from './errors.js'
+export type { LoaderError } from './page/loader-error.js'
 export type { CallbackSink } from './subscription.js'
 export type { ChannelDef, ChannelResult, ChannelMeta, IncomingDef } from './channel.js'
 export type { WsSink, ChannelWsSession, ChannelWsOptions } from './ws.js'

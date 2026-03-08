@@ -6,6 +6,7 @@ import { renderPage, escapeHtml } from '@canmi/seam-engine'
 import { SeamError } from '../errors.js'
 import type { InternalProcedure } from '../procedure.js'
 import type { PageDef, LayoutDef, LoaderFn, I18nConfig } from './index.js'
+import type { LoaderError } from './loader-error.js'
 import { applyProjection } from './projection.js'
 
 export interface PageTiming {
@@ -30,10 +31,12 @@ export interface I18nOpts {
 
 interface LoaderResults {
 	data: Record<string, unknown>
-	meta: Record<string, { procedure: string; input: unknown }>
+	meta: Record<string, { procedure: string; input: unknown; error?: true }>
 }
 
-/** Execute loaders, returning keyed results and metadata */
+/** Execute loaders, returning keyed results and metadata.
+ *  Each loader is wrapped in its own try-catch so a single failure
+ *  does not abort sibling loaders — the page renders at 200 with partial data. */
 async function executeLoaders(
 	loaders: Record<string, LoaderFn>,
 	params: Record<string, string>,
@@ -45,18 +48,34 @@ async function executeLoaders(
 	const results = await Promise.all(
 		entries.map(async ([key, loader]) => {
 			const { procedure, input } = loader(params, searchParams)
-			const proc = procedures.get(procedure)
-			if (!proc) throw new SeamError('INTERNAL_ERROR', `Procedure '${procedure}' not found`)
-			// Skip JTD validation -- loader input is trusted server-side code
-			const ctx = ctxResolver ? ctxResolver(proc) : {}
-			const result = await proc.handler({ input, ctx })
-			return { key, result, procedure, input }
+			try {
+				const proc = procedures.get(procedure)
+				if (!proc) {
+					throw new SeamError('INTERNAL_ERROR', `Procedure '${procedure}' not found`)
+				}
+				const ctx = ctxResolver ? ctxResolver(proc) : {}
+				const result = await proc.handler({ input, ctx })
+				return { key, result, procedure, input }
+			} catch (err) {
+				const code = err instanceof SeamError ? err.code : 'INTERNAL_ERROR'
+				const message = err instanceof Error ? err.message : 'Unknown error'
+				console.error(`[seam] Loader "${key}" failed:`, err)
+				const marker: LoaderError = { __error: true, code, message }
+				return { key, result: marker as unknown, procedure, input, error: true as const }
+			}
 		}),
 	)
 	return {
 		data: Object.fromEntries(results.map((r) => [r.key, r.result])),
 		meta: Object.fromEntries(
-			results.map((r) => [r.key, { procedure: r.procedure, input: r.input }]),
+			results.map((r) => {
+				const entry: { procedure: string; input: unknown; error?: true } = {
+					procedure: r.procedure,
+					input: r.input,
+				}
+				if (r.error) entry.error = true
+				return [r.key, entry]
+			}),
 		),
 	}
 }
@@ -118,7 +137,7 @@ export async function handlePageRequest(
 
 		// Merge all loader data and metadata into single objects
 		const allData: Record<string, unknown> = {}
-		const allMeta: Record<string, { procedure: string; input: unknown }> = {}
+		const allMeta: Record<string, { procedure: string; input: unknown; error?: true }> = {}
 		for (const { data, meta } of loaderResults) {
 			Object.assign(allData, data)
 			Object.assign(allMeta, meta)

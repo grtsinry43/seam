@@ -8,10 +8,11 @@ export function hydrateFromSeamData(
 	seamData: Record<string, unknown>,
 ): void {
 	const loaders = seamData.__loaders as
-		| Record<string, { procedure: string; input: unknown }>
+		| Record<string, { procedure: string; input: unknown; error?: boolean }>
 		| undefined
 	if (!loaders) return
 	for (const [key, meta] of Object.entries(loaders)) {
+		if (meta.error) continue
 		const data = seamData[key]
 		if (data === undefined) continue
 		queryClient.setQueryData([meta.procedure, meta.input], data)

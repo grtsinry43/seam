@@ -3,7 +3,7 @@
 import { describe, it, expect } from 'vitest'
 import { createElement } from 'react'
 import { renderToString } from 'react-dom/server'
-import { useSeamData, SeamDataProvider } from '../src/index.js'
+import { useSeamData, SeamDataProvider, isLoaderError } from '../src/index.js'
 
 // Helper component that renders useSeamData() result as JSON
 function DataCapture() {
@@ -45,5 +45,23 @@ describe('useSeamData', () => {
 		expect(() =>
 			renderToString(createElement(SeamDataProvider, { value: null }, createElement(DataCapture))),
 		).toThrow('useSeamData must be used inside <SeamDataProvider>')
+	})
+})
+
+describe('isLoaderError', () => {
+	it('returns true for valid error marker', () => {
+		expect(isLoaderError({ __error: true, code: 'FORBIDDEN', message: 'no access' })).toBe(true)
+	})
+
+	it('returns false for regular data', () => {
+		expect(isLoaderError({ name: 'Alice' })).toBe(false)
+		expect(isLoaderError(null)).toBe(false)
+		expect(isLoaderError('string')).toBe(false)
+	})
+
+	it('returns false for incomplete error marker', () => {
+		expect(isLoaderError({ __error: true, code: 'X' })).toBe(false)
+		expect(isLoaderError({ __error: true, message: 'x' })).toBe(false)
+		expect(isLoaderError({ __error: false, code: 'X', message: 'x' })).toBe(false)
 	})
 })

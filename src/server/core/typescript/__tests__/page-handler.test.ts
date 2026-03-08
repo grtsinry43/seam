@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest'
 import { handlePageRequest } from '../src/page/handler.js'
 import { definePage } from '../src/page/index.js'
 import type { LayoutDef } from '../src/page/index.js'
+import { isLoaderError } from '../src/page/loader-error.js'
 import {
 	makeProcedures,
 	mockProcedure,
@@ -31,31 +32,35 @@ describe('handlePageRequest', () => {
 		expect(result.html).toContain('__data')
 	})
 
-	it('returns 500 when procedure not found', async () => {
+	it('returns 200 with error marker when procedure not found', async () => {
 		const procs = makeProcedures()
-		const page = simplePage('<h1><!--seam:user.name--></h1>', {
+		const page = simplePage('<h1>hi</h1>', {
 			user: () => ({ procedure: 'missing', input: {} }),
 		})
 
 		const result = await handlePageRequest(page, {}, procs)
-		expect(result.status).toBe(500)
-		expect(result.html).toContain('not found')
+		expect(result.status).toBe(200)
+		const data = extractSeamData(result.html)
+		expect(isLoaderError(data.user)).toBe(true)
+		expect((data.user as { message: string }).message).toContain('not found')
 	})
 
-	it('returns 500 when handler throws', async () => {
+	it('returns 200 with error marker when handler throws', async () => {
 		const procs = makeProcedures([
 			'getUser',
 			mockProcedure(() => {
 				throw new Error('db down')
 			}),
 		])
-		const page = simplePage('<h1><!--seam:user.name--></h1>', {
+		const page = simplePage('<h1>hi</h1>', {
 			user: () => ({ procedure: 'getUser', input: {} }),
 		})
 
 		const result = await handlePageRequest(page, {}, procs)
-		expect(result.status).toBe(500)
-		expect(result.html).toContain('db down')
+		expect(result.status).toBe(200)
+		const data = extractSeamData(result.html)
+		expect(isLoaderError(data.user)).toBe(true)
+		expect((data.user as { message: string }).message).toBe('db down')
 	})
 
 	it('runs multiple loaders in parallel', async () => {
@@ -91,21 +96,24 @@ describe('handlePageRequest', () => {
 		expect(result.html).toContain('Found')
 	})
 
-	it('escapes error message in HTML', async () => {
+	it('error message is captured as structured error marker, not in HTML body', async () => {
 		const procs = makeProcedures([
 			'getUser',
 			mockProcedure(() => {
-				throw new Error('<script>alert(1)</script>')
+				throw new Error('sensitive-detail')
 			}),
 		])
-		const page = simplePage('<h1><!--seam:user.name--></h1>', {
+		const page = simplePage('<h1>hi</h1>', {
 			user: () => ({ procedure: 'getUser', input: {} }),
 		})
 
 		const result = await handlePageRequest(page, {}, procs)
-		expect(result.status).toBe(500)
-		expect(result.html).not.toContain('<script>alert(1)</script>')
-		expect(result.html).toContain('&lt;script&gt;')
+		expect(result.status).toBe(200)
+		// Error message is in JSON data, not rendered as HTML body text
+		expect(result.html).not.toContain('<p>sensitive-detail</p>')
+		const data = extractSeamData(result.html)
+		expect(isLoaderError(data.user)).toBe(true)
+		expect((data.user as { message: string }).message).toBe('sensitive-detail')
 	})
 
 	it('omits _layouts when no layouts present', async () => {
