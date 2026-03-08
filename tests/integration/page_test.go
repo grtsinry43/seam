@@ -140,9 +140,29 @@ func TestPageEndpoint(t *testing.T) {
 			})
 
 			t.Run("user id=999", func(t *testing.T) {
-				status, _ := getHTML(t, b.BaseURL+"/_seam/page/user/999")
-				if status == 200 {
-					t.Error("expected non-200 for missing user")
+				status, html := getHTML(t, b.BaseURL+"/_seam/page/user/999")
+				switch b.Name {
+				case "typescript", "node":
+					// TS server uses per-loader error boundaries: page 200 with error marker
+					if status != 200 {
+						t.Fatalf("status = %d, want 200 (per-loader error boundary)", status)
+					}
+					data := extractSeamData(t, html)
+					user, ok := data["user"].(map[string]any)
+					if !ok {
+						t.Fatalf("__data.user not an object: %v", data)
+					}
+					if errFlag, _ := user["__error"].(bool); !errFlag {
+						t.Error("user.__error should be true")
+					}
+					if code, _ := user["code"].(string); code != "NOT_FOUND" {
+						t.Errorf("user.code = %q, want NOT_FOUND", code)
+					}
+				default:
+					// Rust/Go backends return non-200 for loader errors
+					if status == 200 {
+						t.Error("expected non-200 for missing user")
+					}
 				}
 			})
 
