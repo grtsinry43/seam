@@ -67,6 +67,54 @@ func TestApplyProjectionNilPassthrough(t *testing.T) {
 	}
 }
 
+func TestApplyProjectionErrorMarkerBypass(t *testing.T) {
+	data := map[string]any{
+		"user": map[string]any{
+			"__error": true,
+			"code":    "NOT_FOUND",
+			"message": "User not found",
+		},
+	}
+	proj := map[string][]string{
+		"user": {"name"},
+	}
+
+	result := applyProjection(data, proj)
+	user := result["user"].(map[string]any)
+
+	if user["__error"] != true {
+		t.Error("__error should be true")
+	}
+	if user["code"] != "NOT_FOUND" {
+		t.Errorf("expected code=NOT_FOUND, got %v", user["code"])
+	}
+	if user["message"] != "User not found" {
+		t.Errorf("expected message='User not found', got %v", user["message"])
+	}
+}
+
+func TestIsLoaderError(t *testing.T) {
+	tests := []struct {
+		name string
+		val  any
+		want bool
+	}{
+		{"valid error marker", map[string]any{"__error": true, "code": "NOT_FOUND", "message": "nope"}, true},
+		{"missing code", map[string]any{"__error": true, "message": "nope"}, false},
+		{"missing message", map[string]any{"__error": true, "code": "NOT_FOUND"}, false},
+		{"__error false", map[string]any{"__error": false, "code": "NOT_FOUND", "message": "nope"}, false},
+		{"not a map", "hello", false},
+		{"nil", nil, false},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := isLoaderError(tc.val); got != tc.want {
+				t.Errorf("isLoaderError(%v) = %v, want %v", tc.val, got, tc.want)
+			}
+		})
+	}
+}
+
 func TestApplyProjectionMissingKeyPassthrough(t *testing.T) {
 	data := map[string]any{
 		"user":  map[string]any{"name": "Alice", "age": 30},

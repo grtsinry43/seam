@@ -115,22 +115,27 @@ func (s *appState) servePage(w http.ResponseWriter, r *http.Request, page *PageD
 		close(results)
 	}()
 
-	// Collect loader results, sorted for deterministic output
+	// Collect loader results with per-loader error boundary
 	data := make(map[string]any)
 	loaderMeta := make(map[string]any)
 	for res := range results {
 		if res.err != nil {
+			// Shared context deadline = page-level error (all loaders affected)
 			if ctx.Err() == context.DeadlineExceeded {
 				writeError(w, http.StatusGatewayTimeout, NewError("INTERNAL_ERROR", "Page loader timed out", http.StatusGatewayTimeout))
 				return
 			}
+			// Per-loader error boundary: error marker instead of aborting the page
+			code := "INTERNAL_ERROR"
+			message := res.err.Error()
 			if seamErr, ok := res.err.(*Error); ok {
-				status := errorHTTPStatus(seamErr)
-				writeError(w, status, seamErr)
-			} else {
-				writeError(w, http.StatusInternalServerError, InternalError(res.err.Error()))
+				code = seamErr.Code
+				message = seamErr.Message
 			}
-			return
+			fmt.Fprintf(os.Stderr, "[seam] Loader %q failed: %v\n", res.key, res.err)
+			data[res.key] = map[string]any{"__error": true, "code": code, "message": message}
+			loaderMeta[res.key] = map[string]any{"procedure": res.procedure, "input": res.input, "error": true}
+			continue
 		}
 		data[res.key] = res.value
 		loaderMeta[res.key] = map[string]any{

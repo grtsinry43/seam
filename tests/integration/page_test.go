@@ -141,28 +141,35 @@ func TestPageEndpoint(t *testing.T) {
 
 			t.Run("user id=999", func(t *testing.T) {
 				status, html := getHTML(t, b.BaseURL+"/_seam/page/user/999")
-				switch b.Name {
-				case "typescript", "node":
-					// TS server uses per-loader error boundaries: page 200 with error marker
-					if status != 200 {
-						t.Fatalf("status = %d, want 200 (per-loader error boundary)", status)
-					}
-					data := extractSeamData(t, html)
-					user, ok := data["user"].(map[string]any)
-					if !ok {
-						t.Fatalf("__data.user not an object: %v", data)
-					}
-					if errFlag, _ := user["__error"].(bool); !errFlag {
-						t.Error("user.__error should be true")
-					}
-					if code, _ := user["code"].(string); code != "NOT_FOUND" {
-						t.Errorf("user.code = %q, want NOT_FOUND", code)
-					}
-				default:
-					// Rust/Go backends return non-200 for loader errors
-					if status == 200 {
-						t.Error("expected non-200 for missing user")
-					}
+				// Per-loader error boundary: all backends return 200 + error marker
+				if status != 200 {
+					t.Fatalf("status = %d, want 200 (per-loader error boundary)", status)
+				}
+				data := extractSeamData(t, html)
+				user, ok := data["user"].(map[string]any)
+				if !ok {
+					t.Fatalf("__data.user not an object: %v", data)
+				}
+				if errFlag, _ := user["__error"].(bool); !errFlag {
+					t.Error("user.__error should be true")
+				}
+				if code, _ := user["code"].(string); code != "NOT_FOUND" {
+					t.Errorf("user.code = %q, want NOT_FOUND", code)
+				}
+				if msg, _ := user["message"].(string); msg == "" {
+					t.Error("user.message should be non-empty")
+				}
+				// Verify __loaders metadata marks the error
+				loaders, ok := data["__loaders"].(map[string]any)
+				if !ok {
+					t.Fatalf("__data.__loaders not an object: %v", data)
+				}
+				userMeta, ok := loaders["user"].(map[string]any)
+				if !ok {
+					t.Fatalf("__loaders.user not an object: %v", loaders)
+				}
+				if errFlag, _ := userMeta["error"].(bool); !errFlag {
+					t.Error("__loaders.user.error should be true")
 				}
 			})
 

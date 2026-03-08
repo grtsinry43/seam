@@ -16,6 +16,11 @@ func applyProjection(data map[string]any, projections map[string][]string) map[s
 			result[key] = value
 			continue
 		}
+		// Error markers pass through unchanged (per-loader error boundary)
+		if isLoaderError(value) {
+			result[key] = value
+			continue
+		}
 		result[key] = pruneValue(value, fields)
 	}
 	return result
@@ -105,6 +110,21 @@ func setNestedField(target map[string]any, path string, value any) {
 		current = next
 	}
 	current[parts[len(parts)-1]] = value
+}
+
+// isLoaderError checks if a value is a per-loader error marker.
+func isLoaderError(v any) bool {
+	m, ok := v.(map[string]any)
+	if !ok {
+		return false
+	}
+	errFlag, _ := m["__error"].(bool)
+	if !errFlag {
+		return false
+	}
+	_, hasCode := m["code"].(string)
+	_, hasMsg := m["message"].(string)
+	return hasCode && hasMsg
 }
 
 // splitDot splits a string by '.' without allocating for simple cases.

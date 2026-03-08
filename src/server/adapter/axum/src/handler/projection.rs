@@ -21,6 +21,12 @@ pub(super) fn apply_projection(
 			// No projection for this key — keep full value
 			continue;
 		};
+		// Error markers pass through unchanged (per-loader error boundary)
+		if let Some(Value::Object(obj)) = data.get(&key)
+			&& obj.get("__error") == Some(&Value::Bool(true))
+		{
+			continue;
+		}
 		if let Some(value) = data.remove(&key) {
 			data.insert(key, prune_value(value, fields));
 		}
@@ -148,6 +154,23 @@ mod tests {
 
 		apply_projection(&mut data, &None);
 		assert_eq!(data["user"], json!("full data"));
+	}
+
+	#[test]
+	fn error_marker_bypass() {
+		let mut data = serde_json::Map::new();
+		data.insert(
+			"user".into(),
+			json!({"__error": true, "code": "NOT_FOUND", "message": "User not found"}),
+		);
+		let proj = Some(HashMap::from([("user".to_string(), vec!["name".into()])]));
+
+		apply_projection(&mut data, &proj);
+
+		let user = data["user"].as_object().unwrap();
+		assert_eq!(user.get("__error"), Some(&json!(true)));
+		assert_eq!(user.get("code"), Some(&json!("NOT_FOUND")));
+		assert_eq!(user.get("message"), Some(&json!("User not found")));
 	}
 
 	#[test]

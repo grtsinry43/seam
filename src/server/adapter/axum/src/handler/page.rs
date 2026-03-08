@@ -6,10 +6,11 @@ use std::sync::Arc;
 use axum::extract::{MatchedPath, Path, State};
 use axum::response::Html;
 use seam_server::SeamError;
+use seam_server::context::resolve_context;
 use seam_server::page::PageDef;
 use tokio::task::JoinSet;
 
-use super::{AppState, lookup_i18n_messages};
+use super::{AppState, extract_raw_context, lookup_i18n_messages};
 use crate::error::AxumError;
 
 /// Resolve locale from request using the configured strategy chain.
@@ -50,52 +51,84 @@ struct LoaderOutput {
 }
 
 /// Run page loaders concurrently and collect keyed results + metadata.
+/// Per-loader error boundary: each loader fails independently, producing an
+/// error marker instead of aborting the entire page.
 async fn run_loaders(
-	state: &AppState,
+	state: &Arc<AppState>,
 	page: &PageDef,
 	params: &HashMap<String, String>,
 	headers: &axum::http::HeaderMap,
 ) -> Result<LoaderOutput, SeamError> {
 	let mut join_set = JoinSet::new();
 
+	// Extract raw context once (infallible) — shared across all loaders
+	let raw_ctx = Arc::new(extract_raw_context(headers, &state.context_extract_keys));
+
 	for loader in &page.loaders {
 		let input = (loader.input_fn)(params);
 		let proc_name = loader.procedure.clone();
 		let data_key = loader.data_key.clone();
-		let handlers = state.handlers.clone();
-		let proc = handlers
-			.get(&proc_name)
-			.ok_or_else(|| SeamError::internal(format!("Procedure '{proc_name}' not found")))?
-			.clone();
-		let ctx = super::resolve_ctx_for_proc(state, &proc.context_keys, headers)?;
-
-		if state.should_validate
-			&& let Some(cs) = state.compiled_input_schemas.get(&proc_name)
-			&& let Err((msg, details)) = seam_server::validate_compiled(cs, &input)
-		{
-			let detail_json = details.iter().map(seam_server::ValidationDetail::to_json).collect();
-			return Err(SeamError::validation_detailed(
-				format!("Input validation failed for procedure '{proc_name}': {msg}"),
-				detail_json,
-			));
-		}
+		let state = Arc::clone(state);
+		let raw_ctx = Arc::clone(&raw_ctx);
 
 		join_set.spawn(async move {
-			let result = (proc.handler)(input.clone(), ctx).await?;
-			Ok::<(String, serde_json::Value, String, serde_json::Value), SeamError>((
-				data_key, result, proc_name, input,
-			))
+			let result: Result<serde_json::Value, SeamError> = async {
+				let proc = state
+					.handlers
+					.get(&proc_name)
+					.ok_or_else(|| SeamError::internal(format!("Procedure '{proc_name}' not found")))?
+					.clone();
+
+				if state.should_validate
+					&& let Some(cs) = state.compiled_input_schemas.get(&proc_name)
+					&& let Err((msg, details)) = seam_server::validate_compiled(cs, &input)
+				{
+					let detail_json = details.iter().map(seam_server::ValidationDetail::to_json).collect();
+					return Err(SeamError::validation_detailed(
+						format!("Input validation failed for procedure '{proc_name}': {msg}"),
+						detail_json,
+					));
+				}
+
+				let ctx = if proc.context_keys.is_empty() {
+					serde_json::Value::Object(serde_json::Map::new())
+				} else {
+					resolve_context(&state.context_config, &raw_ctx, &proc.context_keys)?
+				};
+
+				(proc.handler)(input.clone(), ctx).await
+			}
+			.await;
+
+			(data_key, result, proc_name, input)
 		});
 	}
 
 	let mut data = serde_json::Map::new();
 	let mut meta = serde_json::Map::new();
-	while let Some(result) = join_set.join_next().await {
-		let (key, value, procedure, input) = result
-			.map_err(|e| SeamError::internal(e.to_string()))? // JoinError -> Internal (task panic)
-			?; // SeamError propagates unchanged
-		data.insert(key.clone(), value);
-		meta.insert(key, serde_json::json!({ "procedure": procedure, "input": input }));
+	while let Some(join_result) = join_set.join_next().await {
+		let (key, result, procedure, input) =
+			join_result.map_err(|e| SeamError::internal(e.to_string()))?; // JoinError (task panic) = infrastructure failure
+		match result {
+			Ok(value) => {
+				data.insert(key.clone(), value);
+				meta.insert(key, serde_json::json!({ "procedure": procedure, "input": input }));
+			}
+			Err(err) => {
+				data.insert(
+					key.clone(),
+					serde_json::json!({
+						"__error": true,
+						"code": err.code(),
+						"message": err.message(),
+					}),
+				);
+				meta.insert(
+					key,
+					serde_json::json!({ "procedure": procedure, "input": input, "error": true }),
+				);
+			}
+		}
 	}
 	Ok(LoaderOutput { data, meta })
 }
