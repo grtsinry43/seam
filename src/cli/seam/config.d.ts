@@ -22,9 +22,11 @@ export interface FrontendConfig {
 }
 
 export interface BuildSection {
+	/** Path to the router file. Mutually exclusive with `pagesDir`. */
 	routes?: string
 	outDir?: string
-	renderer?: string
+	/** Only `'react'` is supported. */
+	renderer?: 'react'
 	backendBuildCommand?: string
 	routerFile?: string
 	manifestCommand?: string
@@ -32,7 +34,9 @@ export interface BuildSection {
 	obfuscate?: boolean
 	sourcemap?: boolean
 	typeHint?: boolean
+	/** Route hash length. Must be between 4 and 64 (default: 12). */
 	hashLength?: number
+	/** Filesystem-based routing directory. Mutually exclusive with `routes`. */
 	pagesDir?: string
 }
 
@@ -46,11 +50,14 @@ export interface DevSection {
 	obfuscate?: boolean
 	sourcemap?: boolean
 	typeHint?: boolean
+	/** Route hash length override for dev mode. Must be between 4 and 64. */
 	hashLength?: number
 }
 
 export interface I18nSection {
+	/** List of supported locale codes. Must be non-empty. */
 	locales: string[]
+	/** Default locale. Must be one of `locales`. */
 	default?: string
 	messagesDir?: string
 	mode?: 'memory' | 'paged'

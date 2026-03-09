@@ -187,6 +187,7 @@ test-rs:
 
 # TS unit tests (vitest across all packages)
 test-ts:
+    {{pm}} run --filter '@canmi/seam' test
     {{pm}} run --filter '@canmi/seam-injector' test
     {{pm}} run --filter '@canmi/seam-server' test
     {{pm}} run --filter '@canmi/seam-injector-native' test
