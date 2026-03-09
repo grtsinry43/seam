@@ -61,4 +61,24 @@ describe('useSeamQuery', () => {
 			renderHook(() => useSeamQuery('getUser', {}))
 		}).toThrow('useSeamQuery must be used inside <SeamQueryProvider>')
 	})
+
+	it('populates error when rpcFn rejects', async () => {
+		const mockRpc = vi.fn().mockRejectedValue(new Error('network failure'))
+		const { result } = renderHook(() => useSeamQuery('getUser', { id: '1' }), {
+			wrapper: createWrapper(mockRpc),
+		})
+		await waitFor(() => expect(result.current.isError).toBe(true))
+		expect(result.current.error).toBeInstanceOf(Error)
+		expect(result.current.error!.message).toBe('network failure')
+	})
+
+	it('shares cache for same procedure + input', async () => {
+		const mockRpc = vi.fn().mockResolvedValue({ name: 'Alice' })
+		const wrapper = createWrapper(mockRpc)
+		const { result: r1 } = renderHook(() => useSeamQuery('getUser', { id: '1' }), { wrapper })
+		const { result: r2 } = renderHook(() => useSeamQuery('getUser', { id: '1' }), { wrapper })
+		await waitFor(() => expect(r1.current.isSuccess).toBe(true))
+		await waitFor(() => expect(r2.current.isSuccess).toBe(true))
+		expect(mockRpc).toHaveBeenCalledTimes(1)
+	})
 })

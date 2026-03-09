@@ -72,4 +72,46 @@ describe('SeamQueryProvider', () => {
 		)
 		expect(qc.getQueryData(['getUser', {}])).toBeUndefined()
 	})
+
+	it('survives malformed JSON in __data', () => {
+		const el = document.createElement('script')
+		el.id = '__data'
+		el.type = 'application/json'
+		el.textContent = '{invalid json!!!'
+		document.body.appendChild(el)
+
+		const qc = new QueryClient()
+		const spy = vi.spyOn(qc, 'setQueryData')
+		render(
+			<SeamQueryProvider rpcFn={mockRpc} queryClient={qc}>
+				<div data-testid="malformed">ok</div>
+			</SeamQueryProvider>,
+		)
+		expect(screen.getByTestId('malformed').textContent).toBe('ok')
+		expect(spy).not.toHaveBeenCalled()
+	})
+
+	it('hydrates only once across re-renders', () => {
+		injectDataScript('__data', {
+			userData: { name: 'Alice' },
+			__loaders: {
+				userData: { procedure: 'getUser', input: { id: '1' } },
+			},
+		})
+		const qc = new QueryClient()
+		const spy = vi.spyOn(qc, 'setQueryData')
+		const { rerender } = render(
+			<SeamQueryProvider rpcFn={mockRpc} queryClient={qc}>
+				<div />
+			</SeamQueryProvider>,
+		)
+		const callCount = spy.mock.calls.length
+		expect(callCount).toBeGreaterThan(0)
+		rerender(
+			<SeamQueryProvider rpcFn={mockRpc} queryClient={qc}>
+				<div />
+			</SeamQueryProvider>,
+		)
+		expect(spy.mock.calls.length).toBe(callCount)
+	})
 })

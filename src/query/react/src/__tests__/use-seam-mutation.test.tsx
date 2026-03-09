@@ -2,7 +2,7 @@
 // @vitest-environment jsdom
 
 import { QueryClient } from '@tanstack/react-query'
-import { renderHook, act } from '@testing-library/react'
+import { renderHook, act, waitFor } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import type { ProcedureConfigMap } from '@canmi/seam-query'
 import { SeamQueryProvider } from '../provider.js'
@@ -68,5 +68,29 @@ describe('useSeamMutation', () => {
 		const { result } = renderHook(() => useSeamMutation('deleteUser'), { wrapper })
 		await act(() => result.current.mutateAsync({ userId: '1' }))
 		expect(spy).not.toHaveBeenCalled()
+	})
+
+	it('populates error when rpcFn rejects', async () => {
+		const mockRpc = vi.fn().mockRejectedValue(new Error('server error'))
+		const { wrapper } = createWrapper(mockRpc)
+		const { result } = renderHook(() => useSeamMutation('updatePost'), { wrapper })
+		act(() => result.current.mutate({ postId: '1' }))
+		await waitFor(() => expect(result.current.isError).toBe(true))
+		expect(result.current.error).toBeInstanceOf(Error)
+		expect(result.current.error!.message).toBe('server error')
+	})
+
+	it('calls user onError when rpcFn rejects', async () => {
+		const mockRpc = vi.fn().mockRejectedValue(new Error('fail'))
+		const userOnError = vi.fn()
+		const { wrapper } = createWrapper(mockRpc)
+		const { result } = renderHook(() => useSeamMutation('updatePost', { onError: userOnError }), {
+			wrapper,
+		})
+		act(() => result.current.mutate({ postId: '1' }))
+		await waitFor(() => expect(userOnError).toHaveBeenCalled())
+		const [err] = userOnError.mock.calls[0]
+		expect(err).toBeInstanceOf(Error)
+		expect(err.message).toBe('fail')
 	})
 })
