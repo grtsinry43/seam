@@ -397,3 +397,51 @@ func TestHiddenAboutPage(t *testing.T) {
 		t.Errorf("lang = %q, want %q", lang, "zh")
 	}
 }
+
+// -- Invalid locale tests --
+
+func TestPrefixInvalidLocale404(t *testing.T) {
+	// "fr" is not a configured locale — prefix mode should not match this route
+	status, _ := getHTML(t, prefixBaseURL+"/_seam/page/fr/")
+	if status != 404 {
+		t.Fatalf("status = %d, want 404 for invalid locale prefix", status)
+	}
+}
+
+func TestHiddenInvalidCookieFallback(t *testing.T) {
+	// Invalid locale in cookie should fall back to default (en)
+	status, html := getHTMLWithHeaders(t, hiddenBaseURL+"/_seam/page/", map[string]string{
+		"Cookie": "seam-locale=fr",
+	})
+	if status != 200 {
+		t.Fatalf("status = %d, want 200", status)
+	}
+
+	lang := extractLang(t, html)
+	if lang != "en" {
+		t.Errorf("lang = %q, want %q (invalid cookie should fall back to default)", lang, "en")
+	}
+
+	locale := extractI18nLocale(t, html)
+	if locale != "en" {
+		t.Errorf("_i18n.locale = %q, want %q", locale, "en")
+	}
+}
+
+func TestHiddenInvalidQueryFallback(t *testing.T) {
+	// Invalid locale in query param should fall back to default (en)
+	status, html := getHTML(t, hiddenBaseURL+"/_seam/page/?lang=fr")
+	if status != 200 {
+		t.Fatalf("status = %d, want 200", status)
+	}
+
+	lang := extractLang(t, html)
+	if lang != "en" {
+		t.Errorf("lang = %q, want %q (invalid query locale should fall back to default)", lang, "en")
+	}
+
+	locale := extractI18nLocale(t, html)
+	if locale != "en" {
+		t.Errorf("_i18n.locale = %q, want %q", locale, "en")
+	}
+}

@@ -112,6 +112,7 @@ func buildHandler(procedures []ProcedureDef, subscriptions []SubscriptionDef, st
 	// Register built-in __seam_i18n_query procedure when i18n is configured
 	if i18nConfig != nil {
 		i18nCfg := i18nConfig
+		validLocales := state.localeSet
 		i18nQueryProc := ProcedureDef{
 			Name:         "__seam_i18n_query",
 			InputSchema:  map[string]any{},
@@ -124,13 +125,17 @@ func buildHandler(procedures []ProcedureDef, subscriptions []SubscriptionDef, st
 				if err := json.Unmarshal(input, &req); err != nil {
 					return nil, ValidationError("Invalid input")
 				}
-				messages := lookupI18nMessages(i18nCfg, req.Route, req.Locale)
+				locale := req.Locale
+				if !validLocales[locale] {
+					locale = i18nCfg.Default
+				}
+				messages := lookupI18nMessages(i18nCfg, req.Route, locale)
 				result := map[string]json.RawMessage{
 					"messages": messages,
 				}
 				// Include content hash when available
 				if localeHashes, ok := i18nCfg.ContentHashes[req.Route]; ok {
-					if hash, ok := localeHashes[req.Locale]; ok {
+					if hash, ok := localeHashes[locale]; ok {
 						hashJSON, _ := json.Marshal(hash)
 						result["hash"] = json.RawMessage(hashJSON)
 					}

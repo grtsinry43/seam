@@ -114,6 +114,7 @@ pub(crate) fn build_router(
 	// Register built-in __seam_i18n_query procedure (route-hash-based lookup)
 	if let Some(ref i18n) = i18n_config {
 		let i18n_clone = i18n.clone();
+		let valid_locales: std::collections::HashSet<String> = i18n.locales.iter().cloned().collect();
 		handlers.insert(
 			"__seam_i18n_query".to_string(),
 			Arc::new(ProcedureDef {
@@ -127,10 +128,15 @@ pub(crate) fn build_router(
 				cache: None,
 				handler: Arc::new(move |input: serde_json::Value, _ctx: serde_json::Value| {
 					let i18n = i18n_clone.clone();
+					let valid = valid_locales.clone();
 					Box::pin(async move {
 						let route_hash = input.get("route").and_then(|v| v.as_str()).unwrap_or("").to_string();
-						let locale =
-							input.get("locale").and_then(|v| v.as_str()).unwrap_or(&i18n.default).to_string();
+						let raw_locale = input.get("locale").and_then(|v| v.as_str()).unwrap_or(&i18n.default);
+						let locale = if valid.contains(raw_locale) {
+							raw_locale.to_string()
+						} else {
+							i18n.default.clone()
+						};
 
 						let messages = lookup_i18n_messages(&i18n, &route_hash, &locale);
 						let hash = i18n

@@ -39,12 +39,14 @@ export function registerI18nQuery(
 	procedureMap: Map<string, InternalProcedure>,
 	config: I18nConfig,
 ): void {
+	const localeSet = new Set(config.locales)
 	procedureMap.set('__seam_i18n_query', {
 		inputSchema: {},
 		outputSchema: {},
 		contextKeys: [],
 		handler: ({ input }) => {
-			const { route, locale } = input as { route: string; locale: string }
+			const { route, locale: rawLocale } = input as { route: string; locale: string }
+			const locale = localeSet.has(rawLocale) ? rawLocale : config.default
 			const messages = lookupI18nMessages(config, route, locale)
 			const hash = config.contentHashes[route]?.[locale] ?? ''
 			return { hash, messages }
