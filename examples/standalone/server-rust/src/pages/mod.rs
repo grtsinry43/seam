@@ -22,5 +22,7 @@ pub fn user_page() -> PageDef {
 		page_loader_keys: vec!["user".to_string()],
 		i18n_keys: Vec::new(),
 		projections: None,
+		prerender: false,
+		static_dir: None,
 	}
 }

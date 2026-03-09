@@ -192,6 +192,8 @@ export interface Router<T extends DefinitionMap> {
 		headers?: PageRequestHeaders,
 		rawCtx?: RawContextMap,
 	): Promise<HandlePageResult | null>
+	/** Serve __data.json for a prerendered page (SPA navigation) */
+	handlePageData(path: string): Promise<unknown>
 	hasContext(): boolean
 	readonly ctxConfig: ContextConfig
 	readonly hasPages: boolean

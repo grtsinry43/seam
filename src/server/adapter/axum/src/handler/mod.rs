@@ -229,10 +229,13 @@ pub(crate) fn build_router(
 	}
 
 	let mut page_map = HashMap::new();
-	let mut router = Router::new().route("/_seam/manifest.json", get(rpc::handle_manifest)).route(
-		"/_seam/procedure/{name}",
-		post(rpc::handle_procedure_post).get(subscribe::handle_subscribe),
-	);
+	let mut router = Router::new()
+		.route("/_seam/manifest.json", get(rpc::handle_manifest))
+		.route(
+			"/_seam/procedure/{name}",
+			post(rpc::handle_procedure_post).get(subscribe::handle_subscribe),
+		)
+		.route("/_seam/data/{*path}", get(handle_page_data));
 
 	// Pages are served under /_seam/page/* prefix only.
 	for page in pages {
@@ -274,6 +277,32 @@ pub(crate) fn build_router(
 	});
 
 	router.with_state(state)
+}
+
+/// Serve __data.json for prerendered pages (SPA navigation).
+async fn handle_page_data(
+	axum::extract::State(state): axum::extract::State<Arc<AppState>>,
+	axum::extract::Path(raw_path): axum::extract::Path<String>,
+) -> Result<axum::response::Json<serde_json::Value>, crate::error::AxumError> {
+	let page_path = format!("/{}", raw_path.trim_end_matches('/'));
+
+	for page in state.pages.values() {
+		if !page.prerender {
+			continue;
+		}
+		let Some(ref static_dir) = page.static_dir else {
+			continue;
+		};
+		let sub_path = if page_path == "/" { "" } else { &page_path };
+		let data_path = static_dir.join(sub_path.trim_start_matches('/')).join("__data.json");
+		if let Ok(content) = tokio::fs::read_to_string(&data_path).await
+			&& let Ok(parsed) = serde_json::from_str::<serde_json::Value>(&content)
+		{
+			return Ok(axum::response::Json(parsed));
+		}
+	}
+
+	Err(SeamError::not_found("Page data not found").into())
 }
 
 /// Look up pre-resolved messages by route hash + locale. Zero merge, zero filter.

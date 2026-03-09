@@ -36,6 +36,7 @@ interface RouteManifestEntry {
 	i18n_keys?: string[]
 	assets?: PageAssets
 	projections?: Record<string, string[]>
+	prerender?: boolean
 }
 
 interface LoaderConfig {
@@ -270,6 +271,10 @@ export function loadBuildOutput(distDir: string): Record<string, PageDef> {
 		if (lt) layoutLocaleTemplates[id] = lt
 	}
 
+	// Static dir for prerendered pages (adjacent to output dir)
+	const staticDir = join(distDir, '..', 'static')
+	const hasStaticDir = existsSync(staticDir)
+
 	const pages: Record<string, PageDef> = {}
 	for (const [path, entry] of Object.entries(manifest.routes)) {
 		const templatePath = join(distDir, resolveTemplatePath(entry, defaultLocale))
@@ -286,7 +291,7 @@ export function loadBuildOutput(distDir: string): Record<string, PageDef> {
 		// Merge i18n_keys from layout chain + route
 		const i18nKeys = mergeI18nKeys(entry, layoutEntries)
 
-		pages[path] = {
+		const page: PageDef = {
 			template,
 			localeTemplates: loadLocaleTemplates(entry, distDir),
 			loaders,
@@ -297,6 +302,13 @@ export function loadBuildOutput(distDir: string): Record<string, PageDef> {
 			pageAssets: entry.assets,
 			projections: entry.projections,
 		}
+
+		if (entry.prerender && hasStaticDir) {
+			page.prerender = true
+			page.staticDir = staticDir
+		}
+
+		pages[path] = page
 	}
 	return pages
 }

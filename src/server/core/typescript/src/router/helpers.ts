@@ -140,6 +140,17 @@ export async function matchAndHandlePage(
 	const match = pageMatcher.match(routePath)
 	if (!match) return null
 
+	// SSG short-circuit: serve pre-rendered HTML without loader execution
+	if (match.value.prerender && match.value.staticDir) {
+		const htmlPath = join(match.value.staticDir, routePath === '/' ? '' : routePath, 'index.html')
+		try {
+			const html = readFileSync(htmlPath, 'utf-8')
+			return { status: 200, html }
+		} catch {
+			// Fall through to dynamic rendering (graceful degradation)
+		}
+	}
+
 	let searchParams: URLSearchParams | undefined
 	if (headers?.url) {
 		try {

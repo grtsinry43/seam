@@ -42,6 +42,10 @@ export interface PageDef {
 	i18nKeys?: string[]
 	pageAssets?: PageAssets
 	projections?: Record<string, string[]>
+	/** SSG: page was pre-rendered at build time */
+	prerender?: boolean
+	/** SSG: directory containing pre-rendered HTML and __data.json */
+	staticDir?: string
 }
 
 export interface I18nConfig {

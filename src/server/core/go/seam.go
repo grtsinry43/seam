@@ -229,6 +229,8 @@ type PageDef struct {
 	HeadMeta        string              // head metadata HTML (injected at render time by engine)
 	Assets          *PageAssets         // per-page CSS/JS/preload/prefetch (nil when splitting is off)
 	Projections     map[string][]string // per-loader field projections for schema narrowing (nil = no narrowing)
+	Prerender       bool                // SSG: serve pre-rendered static HTML instead of running loaders
+	StaticDir       string              // SSG: directory containing pre-rendered HTML files
 }
 
 // I18nConfig holds runtime i18n state loaded from build output.

@@ -24,6 +24,27 @@ func (s *appState) makePageHandler(page *PageDef) http.HandlerFunc {
 }
 
 func (s *appState) servePage(w http.ResponseWriter, r *http.Request, page *PageDef) {
+	// SSG short-circuit: serve pre-rendered HTML without loader execution
+	if page.Prerender && page.StaticDir != "" {
+		routePath := r.URL.Path
+		// Strip /_seam/page prefix and optional locale prefix
+		routePath = strings.TrimPrefix(routePath, "/_seam/page")
+		if routePath == "" {
+			routePath = "/"
+		}
+		subPath := routePath
+		if subPath == "/" {
+			subPath = ""
+		}
+		htmlPath := filepath.Join(page.StaticDir, subPath, "index.html")
+		if data, err := os.ReadFile(htmlPath); err == nil {
+			w.Header().Set("Content-Type", "text/html; charset=utf-8")
+			_, _ = w.Write(data)
+			return
+		}
+		// Fall through to dynamic rendering (graceful degradation)
+	}
+
 	params := extractParams(page.Route, r)
 
 	// Resolve locale when i18n is active

@@ -15,7 +15,7 @@ import (
 
 type routeManifest struct {
 	Layouts map[string]layoutEntry `json:"layouts"`
-	Routes  map[string]routeEntry  `json:"routes"`
+	Routes  map[string]*routeEntry `json:"routes"`
 	DataID  string                 `json:"data_id"`
 	I18n    *i18nManifest          `json:"i18n"`
 }
@@ -46,6 +46,7 @@ type routeEntry struct {
 	I18nKeys    []string            `json:"i18n_keys"`
 	Assets      *PageAssets         `json:"assets"`
 	Projections map[string][]string `json:"projections"`
+	Prerender   *bool               `json:"prerender"`
 }
 
 // pickTemplate returns the template path: prefer singular "template",
@@ -343,7 +344,7 @@ func LoadBuildOutput(dir string) ([]PageDef, error) {
 		}
 		i18nKeys = append(i18nKeys, entry.I18nKeys...)
 
-		pages = append(pages, PageDef{
+		page := PageDef{
 			Route:           routePath,
 			Template:        template,
 			LocaleTemplates: localeTemplates,
@@ -355,7 +356,18 @@ func LoadBuildOutput(dir string) ([]PageDef, error) {
 			HeadMeta:        entry.HeadMeta,
 			Assets:          entry.Assets,
 			Projections:     entry.Projections,
-		})
+		}
+
+		// SSG: mark prerendered pages and resolve static directory
+		if entry.Prerender != nil && *entry.Prerender {
+			staticDir := filepath.Join(dir, "..", "static")
+			if info, err := os.Stat(staticDir); err == nil && info.IsDir() {
+				page.Prerender = true
+				page.StaticDir = staticDir
+			}
+		}
+
+		pages = append(pages, page)
 	}
 
 	return pages, nil

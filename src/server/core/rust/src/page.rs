@@ -35,6 +35,10 @@ pub struct PageDef {
 	pub i18n_keys: Vec<String>,
 	/// Per-loader field projections for schema narrowing. None = no narrowing.
 	pub projections: Option<HashMap<String, Vec<String>>>,
+	/// SSG: serve pre-rendered static HTML instead of running loaders.
+	pub prerender: bool,
+	/// SSG: directory containing pre-rendered HTML files.
+	pub static_dir: Option<std::path::PathBuf>,
 }
 
 /// Runtime i18n configuration loaded from build output.

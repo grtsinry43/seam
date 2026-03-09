@@ -53,6 +53,7 @@ export interface HttpHandlerOptions {
 
 const PROCEDURE_PREFIX = '/_seam/procedure/'
 const PAGE_PREFIX = '/_seam/page/'
+const DATA_PREFIX = '/_seam/data/'
 const STATIC_PREFIX = '/_seam/static/'
 const MANIFEST_PATH = '/_seam/manifest.json'
 
@@ -412,6 +413,15 @@ export function createHttpHandler<T extends DefinitionMap>(
 			const result = await router.handlePage(pagePath, headers, rawCtx)
 			if (result) {
 				return { status: result.status, headers: HTML_HEADER, body: result.html }
+			}
+		}
+
+		// Page data endpoint: serves __data.json for prerendered pages (SPA navigation)
+		if (req.method === 'GET' && pathname.startsWith(DATA_PREFIX) && router.hasPages) {
+			const pagePath = '/' + pathname.slice(DATA_PREFIX.length).replace(/\/$/, '')
+			const dataResult = await router.handlePageData(pagePath)
+			if (dataResult !== null) {
+				return jsonResponse(200, dataResult)
 			}
 		}
 

@@ -8,6 +8,8 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
+	"path/filepath"
 	"strings"
 )
 
@@ -30,6 +32,7 @@ type appState struct {
 	compiledSubSchemas    map[string]*compiledSchema
 	compiledStreamSchemas map[string]*compiledSchema
 	compiledUploadSchemas map[string]*compiledSchema
+	prerenderPages        map[string]*PageDef // route -> page (prerender only)
 }
 
 func buildHandler(procedures []ProcedureDef, subscriptions []SubscriptionDef, streams []StreamDef, uploads []UploadDef, channels []ChannelDef, pages []PageDef, rpcHashMap *RpcHashMap, i18nConfig *I18nConfig, strategies []ResolveStrategy, contextConfigs map[string]ContextConfig, opts HandlerOptions, validationMode ValidationMode) http.Handler {
@@ -186,10 +189,20 @@ func buildHandler(procedures []ProcedureDef, subscriptions []SubscriptionDef, st
 		}
 	}
 
+	// Collect prerender page info for data endpoint
+	prerenderPages := make(map[string]*PageDef)
+	for i := range pages {
+		if pages[i].Prerender && pages[i].StaticDir != "" {
+			prerenderPages[pages[i].Route] = &pages[i]
+		}
+	}
+	state.prerenderPages = prerenderPages
+
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /_seam/manifest.json", state.handleManifest)
 	mux.HandleFunc("POST /_seam/procedure/{name}", state.handleRPC)
 	mux.HandleFunc("GET /_seam/procedure/{name}", state.handleSubscribe)
+	mux.HandleFunc("GET /_seam/data/{path...}", state.handlePageData)
 
 	// Pages are served under /_seam/page/* prefix only.
 	// Root-path serving (e.g. "/" or "/dashboard/:id") is the application's
@@ -439,6 +452,34 @@ func (s *appState) handleRPC(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(map[string]any{"ok": true, "data": result})
+}
+
+// --- page data handler ---
+
+func (s *appState) handlePageData(w http.ResponseWriter, r *http.Request) {
+	rawPath := r.PathValue("path")
+	pagePath := "/" + strings.TrimSuffix(rawPath, "/")
+
+	// Find a prerendered page matching this path
+	for _, page := range s.prerenderPages {
+		if page.StaticDir == "" {
+			continue
+		}
+		subPath := pagePath
+		if subPath == "/" {
+			subPath = ""
+		}
+		dataPath := filepath.Join(page.StaticDir, subPath, "__data.json")
+		data, err := os.ReadFile(dataPath)
+		if err != nil {
+			continue
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write(data)
+		return
+	}
+
+	writeError(w, http.StatusNotFound, NotFoundError("Page data not found"))
 }
 
 // --- helpers ---

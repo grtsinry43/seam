@@ -219,6 +219,14 @@ pub fn load_build_output(dir: &str) -> Result<Vec<PageDef>, Box<dyn std::error::
 		let i18n_keys = collect_i18n_keys(entry, &manifest.layouts);
 		let data_id = manifest.data_id.clone().unwrap_or_else(|| "__data".to_string());
 
+		// SSG: mark prerendered pages and resolve static directory
+		let (prerender, static_dir) = if entry.prerender == Some(true) {
+			let static_path = base.join("..").join("static");
+			if static_path.is_dir() { (true, Some(static_path)) } else { (false, None) }
+		} else {
+			(false, None)
+		};
+
 		pages.push(PageDef {
 			route: axum_route,
 			template,
@@ -229,6 +237,8 @@ pub fn load_build_output(dir: &str) -> Result<Vec<PageDef>, Box<dyn std::error::
 			page_loader_keys,
 			i18n_keys,
 			projections: entry.projections.clone(),
+			prerender,
+			static_dir,
 		});
 	}
 

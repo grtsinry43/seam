@@ -1,5 +1,7 @@
 /* src/server/core/typescript/src/router/state.ts */
 
+import { readFileSync, existsSync } from 'node:fs'
+import { join } from 'node:path'
 import { contextHasExtracts } from '../context.js'
 import { buildManifest } from '../manifest/index.js'
 import type { PageDef } from '../page/index.js'
@@ -170,6 +172,19 @@ export function buildRouterMethods(
 				state.ctxConfig,
 				state.shouldValidateInput,
 			)
+		},
+		handlePageData(path) {
+			const match = state.pageMatcher?.match(path)
+			if (!match) return Promise.resolve(null)
+			const page = match.value
+			if (!page.prerender || !page.staticDir) return Promise.resolve(null)
+			const dataPath = join(page.staticDir, path === '/' ? '' : path, '__data.json')
+			try {
+				if (!existsSync(dataPath)) return Promise.resolve(null)
+				return Promise.resolve(JSON.parse(readFileSync(dataPath, 'utf-8')) as unknown)
+			} catch {
+				return Promise.resolve(null)
+			}
 		},
 	}
 }

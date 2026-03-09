@@ -215,6 +215,19 @@ pub(super) async fn handle_page(
 	let page =
 		state.pages.get(&route_pattern).ok_or_else(|| SeamError::not_found("Page not found"))?;
 
+	// SSG short-circuit: serve pre-rendered HTML without loader execution
+	if page.prerender
+		&& let Some(ref static_dir) = page.static_dir
+	{
+		let route_path = uri.path().strip_prefix("/_seam/page").unwrap_or(uri.path());
+		let sub_path = if route_path == "/" { "" } else { route_path };
+		let html_path = static_dir.join(sub_path.trim_start_matches('/')).join("index.html");
+		if let Ok(html) = tokio::fs::read_to_string(&html_path).await {
+			return Ok(Html(html));
+		}
+		// Fall through to dynamic rendering (graceful degradation)
+	}
+
 	let locale = resolve_locale(&state, &mut params, &uri, &headers)?;
 
 	// Select locale-specific template (pre-resolved with layout chain)
