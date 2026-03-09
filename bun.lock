@@ -283,6 +283,19 @@
         "vite": "^7.3.1",
       },
     },
+    "examples/markdown-demo/server-ts": {
+      "name": "demo-markdown-ts",
+      "version": "1.0.0",
+      "dependencies": {
+        "@canmi/seam-adapter-bun": "workspace:*",
+        "@canmi/seam-server": "workspace:*",
+        "marked": "^15",
+      },
+      "devDependencies": {
+        "@canmi/seam": "workspace:*",
+        "@types/node": "^25",
+      },
+    },
     "examples/standalone/client-react": {
       "name": "demo-client-react",
       "version": "1.0.0",
@@ -1348,6 +1361,8 @@
 
     "demo-client-vanilla": ["demo-client-vanilla@workspace:examples/standalone/client-vanilla"],
 
+    "demo-markdown-ts": ["demo-markdown-ts@workspace:examples/markdown-demo/server-ts"],
+
     "demo-server-bun": ["demo-server-bun@workspace:examples/standalone/server-bun"],
 
     "demo-server-node": ["demo-server-node@workspace:examples/standalone/server-node"],
@@ -1543,6 +1558,8 @@
     "lz-string": ["lz-string@1.5.0", "", { "bin": { "lz-string": "bin/bin.js" } }, "sha512-h5bgJWpxJNswbU7qCrV0tIKQCaS3blPDrqKWx+QxzuzL1zGUzij9XCWLrSLsJPu5t+eWA/ycetzYAO5IOMcWAQ=="],
 
     "magic-string": ["magic-string@0.30.21", "", { "dependencies": { "@jridgewell/sourcemap-codec": "^1.5.5" } }, "sha512-vd2F4YUyEXKGcLHoq+TEyCjxueSeHnFxyyjNp80yg0XV4vUhnDer/lvvlqM/arB5bXQN5K2/3oinyCRyx8T2CQ=="],
+
+    "marked": ["marked@15.0.12", "", { "bin": { "marked": "bin/marked.js" } }, "sha512-8dD6FusOQSrpv9Z1rdNMdlSgQOIP880DHqnohobOmYLElGEqAL/JvxvuxZO16r4HtjTlfPRDC1hbvxC9dPN2nA=="],
 
     "mdn-data": ["mdn-data@2.12.2", "", {}, "sha512-IEn+pegP1aManZuckezWCO+XZQDplx1366JoVhTpMpBB1sPey/SbveZQUosKiKiGYjg1wH4pMlNgXbCiYgihQA=="],
 

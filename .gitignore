@@ -21,6 +21,7 @@ examples/standalone/server-go-chi/server-go-chi
 examples/github-dashboard/backends/go-gin/go-gin
 examples/github-dashboard/backends/go-gin/server
 examples/github-dashboard/backends/go-gin/server-go
+examples/markdown-demo/server-go/server-go
 
 # CLI platform binaries (regenerate via build-cli.sh)
 src/cli/wrapper/*/bin/

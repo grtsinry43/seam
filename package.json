@@ -37,7 +37,8 @@
     "examples/features/handoff-narrowing",
     "examples/features/channel-subscription",
     "tests/e2e/fixture",
-    "tests/e2e"
+    "tests/e2e",
+    "examples/markdown-demo/server-ts"
   ],
   "type": "module",
   "scripts": {

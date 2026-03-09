@@ -1,0 +1,15 @@
+{
+  "name": "demo-markdown-ts",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@canmi/seam-adapter-bun": "workspace:*",
+    "@canmi/seam-server": "workspace:*",
+    "marked": "^15"
+  },
+  "devDependencies": {
+    "@canmi/seam": "workspace:*",
+    "@types/node": "^25"
+  }
+}
