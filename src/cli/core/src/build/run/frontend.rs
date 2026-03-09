@@ -14,7 +14,7 @@ use crate::ui::{self, BRIGHT_CYAN, BRIGHT_GREEN, RESET, StepTracker, col};
 
 // -- Step registry --
 
-fn frontend_steps(build_config: &BuildConfig) -> Vec<&'static str> {
+fn frontend_steps(build_config: &BuildConfig, has_ssg: bool) -> Vec<&'static str> {
 	let mut steps = Vec::new();
 	if build_config.pages_dir.is_some() {
 		steps.push("Generating routes");
@@ -22,6 +22,9 @@ fn frontend_steps(build_config: &BuildConfig) -> Vec<&'static str> {
 	steps.extend(["Bundling frontend", "Rendering skeletons", "Processing routes"]);
 	if build_config.i18n.is_some() {
 		steps.push("Exporting i18n");
+	}
+	if has_ssg {
+		steps.push("Pre-rendering static pages");
 	}
 	steps
 }
@@ -33,7 +36,9 @@ pub(super) fn run_frontend_build(build_config: &BuildConfig, base_dir: &Path) ->
 
 	ui::banner("build", None);
 
-	let mut tracker = StepTracker::new(frontend_steps(build_config));
+	use crate::config::OutputMode;
+	let has_ssg = matches!(build_config.output, OutputMode::Static | OutputMode::Hybrid);
+	let mut tracker = StepTracker::new(frontend_steps(build_config, has_ssg));
 
 	// -- Generating routes (conditional) --
 	if let Some(pages_dir) = &build_config.pages_dir {
@@ -97,6 +102,20 @@ pub(super) fn run_frontend_build(build_config: &BuildConfig, base_dir: &Path) ->
 		&mut tracker,
 	)?;
 
+	// -- Pre-rendering static pages (conditional) --
+	let ssg_count = if has_ssg && steps::has_prerender_routes(&skeleton_output, build_config.output) {
+		let t = tracker.begin();
+		let ssg = steps::render_static_pages(build_config, base_dir, &out_dir)?;
+		tracker.end_with(t, &format!("{} pages", ssg.pages));
+		ssg.pages
+	} else if has_ssg {
+		let t = tracker.begin();
+		tracker.end_with(t, "0 pages");
+		0
+	} else {
+		0
+	};
+
 	// Summary
 	ui::blank();
 	let elapsed = started.elapsed().as_secs_f64();
@@ -104,10 +123,17 @@ pub(super) fn run_frontend_build(build_config: &BuildConfig, base_dir: &Path) ->
 	let asset_count = assets.js.len() + assets.css.len();
 	let (bg, bc, r) = (col(BRIGHT_GREEN), col(BRIGHT_CYAN), col(RESET));
 	ui::ok(&format!("build complete in {bc}{elapsed:.1}s{r}"));
-	ui::detail(&format!(
-		"{bg}{template_count}{r} templates \u{00b7} {bg}{asset_count}{r} assets \u{00b7} {}",
-		build_config.renderer,
-	));
+	if ssg_count > 0 {
+		ui::detail(&format!(
+			"{bg}{template_count}{r} templates \u{00b7} {bg}{ssg_count}{r} prerendered \u{00b7} {bg}{asset_count}{r} assets \u{00b7} {}",
+			build_config.renderer,
+		));
+	} else {
+		ui::detail(&format!(
+			"{bg}{template_count}{r} templates \u{00b7} {bg}{asset_count}{r} assets \u{00b7} {}",
+			build_config.renderer,
+		));
+	}
 
 	Ok(())
 }

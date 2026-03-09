@@ -24,7 +24,7 @@ use crate::ui::{self, BRIGHT_CYAN, BRIGHT_GREEN, RESET, StepTracker, col};
 
 // -- Step registry --
 
-fn fullstack_steps(build_config: &BuildConfig) -> Vec<&'static str> {
+fn fullstack_steps(build_config: &BuildConfig, has_ssg: bool) -> Vec<&'static str> {
 	let mut steps = Vec::new();
 	if build_config.pages_dir.is_some() {
 		steps.push("Generating routes");
@@ -45,6 +45,9 @@ fn fullstack_steps(build_config: &BuildConfig) -> Vec<&'static str> {
 		steps.push("Exporting i18n");
 	}
 	steps.push("Packaging output");
+	if has_ssg {
+		steps.push("Pre-rendering static pages");
+	}
 	steps
 }
 
@@ -87,7 +90,9 @@ pub(super) fn run_fullstack_build(
 
 	ui::banner("build", Some(config.project_name()));
 
-	let mut tracker = StepTracker::new(fullstack_steps(build_config));
+	use crate::config::OutputMode;
+	let has_ssg = matches!(build_config.output, OutputMode::Static | OutputMode::Hybrid);
+	let mut tracker = StepTracker::new(fullstack_steps(build_config, has_ssg));
 
 	// -- Generating routes (conditional) --
 	if let Some(pages_dir) = &build_config.pages_dir {
@@ -204,11 +209,34 @@ pub(super) fn run_fullstack_build(
 	package_static_assets(base_dir, package_assets, &out_dir, build_config.dist_dir())?;
 	tracker.end_with(t, &format!("{} files", package_assets.js.len() + package_assets.css.len()));
 
+	// -- Pre-rendering static pages (conditional) --
+	let ssg_count = if has_ssg && steps::has_prerender_routes(&skeleton_output, build_config.output) {
+		let t = tracker.begin();
+		let ssg = steps::render_static_pages(build_config, base_dir, &out_dir)?;
+		tracker.end_with(t, &format!("{} pages", ssg.pages));
+		ssg.pages
+	} else if has_ssg {
+		let t = tracker.begin();
+		tracker.end_with(t, "0 pages");
+		0
+	} else {
+		0
+	};
+
+	let extra = if ssg_count > 0 {
+		format!(
+			"{} prerendered \u{00b7} {} assets",
+			ssg_count,
+			package_assets.js.len() + package_assets.css.len()
+		)
+	} else {
+		format!("{} assets", package_assets.js.len() + package_assets.css.len())
+	};
 	print_build_summary(
 		started,
 		manifest.procedures.len(),
 		skeleton_output.routes.len(),
-		&format!("{} assets", package_assets.js.len() + package_assets.css.len()),
+		&extra,
 		&build_config.renderer,
 		"build",
 	);

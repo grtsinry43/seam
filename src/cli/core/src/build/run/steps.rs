@@ -15,7 +15,8 @@ use super::super::route::{
 };
 use super::super::types::{AssetFiles, read_bundle_manifest};
 use super::helpers::print_cache_stats;
-use crate::shell::{resolve_node_module, run_builtin_bundler};
+use crate::config::OutputMode;
+use crate::shell::{resolve_node_module, run_builtin_bundler, which_exists};
 use crate::ui::{self, DIM, RESET, StepTracker, col};
 
 pub(crate) type EnvPairs = Vec<(String, String)>;
@@ -149,4 +150,61 @@ pub(crate) fn execute_route_steps(
 	}
 
 	Ok(())
+}
+
+/// Check whether the build has any effective prerender routes.
+pub(crate) fn has_prerender_routes(skeleton: &SkeletonOutput, output: OutputMode) -> bool {
+	match output {
+		OutputMode::Static => true,
+		OutputMode::Server => false,
+		OutputMode::Hybrid => skeleton.routes.iter().any(|r| r.prerender == Some(true)),
+	}
+}
+
+/// SSG output from the render script.
+#[derive(serde::Deserialize)]
+pub(crate) struct SsgOutput {
+	pub pages: usize,
+	#[allow(dead_code)] // used in Phase 5 (static output packaging)
+	pub paths: Vec<String>,
+}
+
+/// Pre-render static pages via `@canmi/seam-react` SSG script.
+pub(crate) fn render_static_pages(
+	build_config: &BuildConfig,
+	base_dir: &Path,
+	out_dir: &Path,
+) -> Result<SsgOutput> {
+	let script_path = resolve_node_module(base_dir, "@canmi/seam-react/scripts/ssg-render.mjs")
+		.ok_or_else(|| anyhow::anyhow!("ssg-render.mjs not found -- install @canmi/seam-react"))?;
+
+	let static_dir = base_dir.join(".seam/static");
+	let routes_path = base_dir.join(&build_config.routes);
+	let runtime = if which_exists("bun") { "bun" } else { "node" };
+
+	let output = std::process::Command::new(runtime)
+		.arg(&script_path)
+		.arg("--out-dir")
+		.arg(out_dir)
+		.arg("--static-dir")
+		.arg(&static_dir)
+		.arg("--routes-file")
+		.arg(&routes_path)
+		.arg("--output-mode")
+		.arg(match build_config.output {
+			OutputMode::Static => "static",
+			OutputMode::Server => "server",
+			OutputMode::Hybrid => "hybrid",
+		})
+		.current_dir(base_dir)
+		.output()
+		.context("failed to spawn SSG renderer")?;
+
+	if !output.status.success() {
+		let stderr = String::from_utf8_lossy(&output.stderr);
+		anyhow::bail!("SSG rendering failed:\n{stderr}");
+	}
+
+	let stdout = String::from_utf8(output.stdout).context("invalid UTF-8 from SSG renderer")?;
+	serde_json::from_str(&stdout).context("failed to parse SSG output JSON")
 }

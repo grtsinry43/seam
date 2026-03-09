@@ -67,7 +67,7 @@ pub(crate) struct SkeletonRoute {
 	#[serde(rename = "i18nKeys", default)]
 	pub(super) i18n_keys: Option<Vec<String>>,
 	#[serde(default)]
-	pub(super) prerender: Option<bool>,
+	pub(crate) prerender: Option<bool>,
 }
 
 #[derive(Deserialize)]
