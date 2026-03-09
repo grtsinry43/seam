@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"sync"
 	"time"
 )
 
@@ -61,66 +62,73 @@ func (s *appState) handleBatch(w http.ResponseWriter, r *http.Request) {
 	}
 
 	results := make([]batchResult, len(batch.Calls))
+	var wg sync.WaitGroup
 	for i, call := range batch.Calls {
-		// Resolve hash -> original name
-		name := call.Procedure
-		if s.hashToName != nil {
-			resolved, ok := s.hashToName[name]
+		wg.Add(1)
+		go func(i int, call batchCall) {
+			defer wg.Done()
+
+			// Resolve hash -> original name
+			name := call.Procedure
+			if s.hashToName != nil {
+				resolved, ok := s.hashToName[name]
+				if !ok {
+					results[i] = batchResult{Ok: false, Error: &batchError{Code: "NOT_FOUND", Message: fmt.Sprintf("Procedure '%s' not found", name)}}
+					return
+				}
+				name = resolved
+			}
+
+			proc, ok := s.handlers[name]
 			if !ok {
 				results[i] = batchResult{Ok: false, Error: &batchError{Code: "NOT_FOUND", Message: fmt.Sprintf("Procedure '%s' not found", name)}}
-				continue
+				return
 			}
-			name = resolved
-		}
 
-		proc, ok := s.handlers[name]
-		if !ok {
-			results[i] = batchResult{Ok: false, Error: &batchError{Code: "NOT_FOUND", Message: fmt.Sprintf("Procedure '%s' not found", name)}}
-			continue
-		}
+			input := call.Input
+			if len(input) == 0 {
+				input = json.RawMessage("{}")
+			}
 
-		input := call.Input
-		if len(input) == 0 {
-			input = json.RawMessage("{}")
-		}
-
-		if s.shouldValidate {
-			if cs, ok := s.compiledInputSchemas[name]; ok {
-				var parsed any
-				_ = json.Unmarshal(input, &parsed)
-				if msg, details := validateCompiled(cs, parsed); msg != "" {
-					results[i] = batchResult{Ok: false, Error: &batchError{
-						Code:    "VALIDATION_ERROR",
-						Message: fmt.Sprintf("Input validation failed for procedure '%s': %s", name, msg),
-						Details: toAnySlice(details),
-					}}
-					continue
+			if s.shouldValidate {
+				if cs, ok := s.compiledInputSchemas[name]; ok {
+					var parsed any
+					_ = json.Unmarshal(input, &parsed)
+					if msg, details := validateCompiled(cs, parsed); msg != "" {
+						results[i] = batchResult{Ok: false, Error: &batchError{
+							Code:    "VALIDATION_ERROR",
+							Message: fmt.Sprintf("Input validation failed for procedure '%s': %s", name, msg),
+							Details: toAnySlice(details),
+						}}
+						return
+					}
 				}
 			}
-		}
 
-		// Inject per-procedure context
-		callCtx := ctx
-		if rawCtx != nil && len(proc.ContextKeys) > 0 {
-			filtered := resolveContextForProc(rawCtx, proc.ContextKeys)
-			callCtx = injectContext(callCtx, filtered)
-		}
+			// Inject per-procedure context
+			callCtx := ctx
+			if rawCtx != nil && len(proc.ContextKeys) > 0 {
+				filtered := resolveContextForProc(rawCtx, proc.ContextKeys)
+				callCtx = injectContext(callCtx, filtered)
+			}
 
-		result, err := proc.Handler(callCtx, input)
-		if err != nil {
-			if ctx.Err() == context.DeadlineExceeded {
-				results[i] = batchResult{Ok: false, Error: &batchError{Code: "INTERNAL_ERROR", Message: "RPC timed out"}}
-				continue
+			result, err := proc.Handler(callCtx, input)
+			if err != nil {
+				if ctx.Err() == context.DeadlineExceeded {
+					results[i] = batchResult{Ok: false, Error: &batchError{Code: "INTERNAL_ERROR", Message: "RPC timed out"}}
+					return
+				}
+				if seamErr, ok := err.(*Error); ok {
+					results[i] = batchResult{Ok: false, Error: &batchError{Code: seamErr.Code, Message: seamErr.Message, Details: seamErr.Details}}
+				} else {
+					results[i] = batchResult{Ok: false, Error: &batchError{Code: "INTERNAL_ERROR", Message: err.Error()}}
+				}
+				return
 			}
-			if seamErr, ok := err.(*Error); ok {
-				results[i] = batchResult{Ok: false, Error: &batchError{Code: seamErr.Code, Message: seamErr.Message, Details: seamErr.Details}}
-			} else {
-				results[i] = batchResult{Ok: false, Error: &batchError{Code: "INTERNAL_ERROR", Message: err.Error()}}
-			}
-			continue
-		}
-		results[i] = batchResult{Ok: true, Data: result}
+			results[i] = batchResult{Ok: true, Data: result}
+		}(i, call)
 	}
+	wg.Wait()
 
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(map[string]any{"ok": true, "data": map[string]any{"results": results}})
@@ -163,6 +171,9 @@ func (s *appState) handleSubscribe(w http.ResponseWriter, r *http.Request) {
 	}
 
 	subCtx := r.Context()
+	if lastID := r.Header.Get("Last-Event-ID"); lastID != "" {
+		subCtx = context.WithValue(subCtx, lastEventIDKey, lastID)
+	}
 	if len(s.contextConfigs) > 0 && len(sub.ContextKeys) > 0 {
 		rawCtxSub := extractRawContext(r, s.contextConfigs)
 		filtered := resolveContextForProc(rawCtxSub, sub.ContextKeys)
@@ -188,6 +199,7 @@ func (s *appState) handleSubscribe(w http.ResponseWriter, r *http.Request) {
 	heartbeatTicker := time.NewTicker(s.opts.HeartbeatInterval)
 	defer heartbeatTicker.Stop()
 
+	seq := 0
 	var idleTimer *time.Timer
 	if idle > 0 {
 		idleTimer = time.NewTimer(idle)
@@ -201,7 +213,8 @@ func (s *appState) handleSubscribe(w http.ResponseWriter, r *http.Request) {
 				if !ok {
 					goto complete
 				}
-				writeSSEEvent(w, ev)
+				writeSSEEvent(w, ev, seq)
+				seq++
 				if canFlush {
 					flusher.Flush()
 				}
@@ -228,7 +241,8 @@ func (s *appState) handleSubscribe(w http.ResponseWriter, r *http.Request) {
 				if !ok {
 					goto complete
 				}
-				writeSSEEvent(w, ev)
+				writeSSEEvent(w, ev, seq)
+				seq++
 				if canFlush {
 					flusher.Flush()
 				}
@@ -250,13 +264,13 @@ complete:
 	}
 }
 
-func writeSSEEvent(w http.ResponseWriter, ev SubscriptionEvent) {
+func writeSSEEvent(w http.ResponseWriter, ev SubscriptionEvent, seq int) {
 	if ev.Err != nil {
 		_, _ = fmt.Fprintf(w, "event: error\ndata: %s\n\n", mustJSON(map[string]any{
 			"code": ev.Err.Code, "message": ev.Err.Message, "transient": false,
 		}))
 	} else {
-		_, _ = fmt.Fprintf(w, "event: data\ndata: %s\n\n", mustJSON(ev.Value))
+		_, _ = fmt.Fprintf(w, "event: data\nid: %d\ndata: %s\n\n", seq, mustJSON(ev.Value))
 	}
 }
 
