@@ -56,6 +56,8 @@ At build time, SeamJS renders each page component to static HTML using `renderTo
 
 The client runtime reads injected data from `__data`, hydrates the skeleton, and replaces slot markers with live components. The server never imports React, Vue, or any UI library — it only performs string replacement on the skeleton.
 
+**Structured Head Metadata**: routes can declare `head: HeadConfig | HeadFn` for per-page `<title>`, `<meta>`, and `<link>` tags. At build time, slot proxies generate head markers; at request time, the server resolves the head config with actual data. During SPA navigation, `updateHead()` manages `document.head` tags using `data-seam-head` markers.
+
 - [Sentinel Protocol](../protocol/sentinel-protocol.md) — build-time placeholder format
 - [Slot Protocol](../protocol/slot-protocol.md) — server-side HTML injection syntax
 - [Skeleton Constraints](../protocol/skeleton-constraints.md) — rules for build-safe components
