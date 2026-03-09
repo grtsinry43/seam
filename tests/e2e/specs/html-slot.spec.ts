@@ -86,3 +86,56 @@ test.describe('html slot injection', () => {
 		expect(details, 'hydration errors on /test-html').toEqual([])
 	})
 })
+
+test.describe('nested html slot injection', () => {
+	test('nested html slot value is inserted as raw HTML', async ({ page }) => {
+		const response = await page.goto('/test-nested-html', { waitUntil: 'networkidle' })
+		const html = await response!.text()
+
+		expect(html).toContain('<p>Nested <strong>HTML</strong> content.</p>')
+		expect(html).not.toContain('&lt;p&gt;')
+		expect(html).not.toContain('&lt;strong&gt;')
+	})
+
+	test('nested text slot renders as plain text alongside html slot', async ({ page }) => {
+		await page.goto('/test-nested-html', { waitUntil: 'networkidle' })
+
+		const title = page.getByTestId('title')
+		await expect(title).toHaveText('Nested Post')
+
+		const body = page.getByTestId('body')
+		await expect(body.locator('strong')).toHaveText('HTML')
+	})
+
+	test('no hydration errors on /test-nested-html', async ({ page }) => {
+		const consoleErrors: ConsoleMessage[] = []
+		page.on('console', (msg) => {
+			if (isHydrationError(msg)) consoleErrors.push(msg)
+		})
+
+		const pageErrors: Error[] = []
+		page.on('pageerror', (error) => {
+			pageErrors.push(error)
+		})
+
+		await page.goto('/test-nested-html', { waitUntil: 'networkidle' })
+
+		await page
+			.locator('#__seam')
+			.locator(':scope > *')
+			.first()
+			.waitFor({ timeout: 5_000 })
+			.catch(() => {})
+
+		await page.waitForTimeout(500)
+
+		const hydrationPageErrors = pageErrors.filter((e) =>
+			HYDRATION_ERROR_PATTERNS.some((p) => e.message.includes(p)),
+		)
+		const details = [
+			...consoleErrors.map((e) => e.text()),
+			...hydrationPageErrors.map((e) => e.message),
+		]
+		expect(details, 'hydration errors on /test-nested-html').toEqual([])
+	})
+})

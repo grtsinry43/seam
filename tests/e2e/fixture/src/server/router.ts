@@ -11,6 +11,7 @@ import {
 	getAsyncPageData,
 	getAsyncItems,
 	getRenderedContent,
+	getNestedHtmlData,
 } from './procedures.js'
 
 export const procedures = {
@@ -22,6 +23,7 @@ export const procedures = {
 	getAsyncPageData,
 	getAsyncItems,
 	getRenderedContent,
+	getNestedHtmlData,
 }
 
 export function buildRouter(opts?: RouterOptions) {

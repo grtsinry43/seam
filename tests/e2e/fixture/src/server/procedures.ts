@@ -69,6 +69,22 @@ export const getRenderedContent: QueryDef = {
 	}),
 }
 
+export const getNestedHtmlData: QueryDef = {
+	input: t.object({}),
+	output: t.object({
+		post: t.object({
+			title: t.string(),
+			body: t.html(),
+		}),
+	}),
+	handler: () => ({
+		post: {
+			title: 'Nested Post',
+			body: '<p>Nested <strong>HTML</strong> content.</p>',
+		},
+	}),
+}
+
 export const getAsyncItems: QueryDef = {
 	input: t.object({}),
 	output: t.object({
