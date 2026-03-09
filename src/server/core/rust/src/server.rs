@@ -109,6 +109,33 @@ impl SeamServer {
 		self
 	}
 
+	/// Register procedures under a dot-separated namespace prefix (e.g. "blog" -> "blog.getPost").
+	pub fn namespace(mut self, prefix: &str, procedures: Vec<ProcedureDef>) -> Self {
+		for mut p in procedures {
+			p.name = format!("{prefix}.{}", p.name);
+			self.procedures.push(p);
+		}
+		self
+	}
+
+	/// Register subscriptions under a dot-separated namespace prefix.
+	pub fn namespace_subs(mut self, prefix: &str, subs: Vec<SubscriptionDef>) -> Self {
+		for mut s in subs {
+			s.name = format!("{prefix}.{}", s.name);
+			self.subscriptions.push(s);
+		}
+		self
+	}
+
+	/// Register streams under a dot-separated namespace prefix.
+	pub fn namespace_streams(mut self, prefix: &str, streams: Vec<StreamDef>) -> Self {
+		for mut s in streams {
+			s.name = format!("{prefix}.{}", s.name);
+			self.streams.push(s);
+		}
+		self
+	}
+
 	pub fn page(mut self, page: PageDef) -> Self {
 		self.pages.push(page);
 		self

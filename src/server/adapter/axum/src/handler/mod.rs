@@ -95,7 +95,7 @@ pub(crate) fn build_router(
 		Some(m) => {
 			let mut rev = m.reverse_lookup();
 			// Built-in procedures bypass hash obfuscation (identity mapping)
-			rev.insert("__seam_i18n_query".to_string(), "__seam_i18n_query".to_string());
+			rev.insert("seam.i18n.query".to_string(), "seam.i18n.query".to_string());
 			(Some(rev), Some(m.batch))
 		}
 		None => (None, None),
@@ -111,14 +111,36 @@ pub(crate) fn build_router(
 
 	let has_url_prefix = strategies.iter().any(|s| s.kind() == "url_prefix");
 
-	// Register built-in __seam_i18n_query procedure (route-hash-based lookup)
+	// Validate user-defined procedure names before registering built-in ones
+	for name in handlers.keys() {
+		if name.starts_with("seam.") {
+			panic!("procedure name {name:?} uses reserved \"seam.\" namespace");
+		}
+	}
+	for name in subscriptions.keys() {
+		if name.starts_with("seam.") {
+			panic!("subscription name {name:?} uses reserved \"seam.\" namespace");
+		}
+	}
+	for name in streams.keys() {
+		if name.starts_with("seam.") {
+			panic!("stream name {name:?} uses reserved \"seam.\" namespace");
+		}
+	}
+	for name in uploads.keys() {
+		if name.starts_with("seam.") {
+			panic!("upload name {name:?} uses reserved \"seam.\" namespace");
+		}
+	}
+
+	// Register built-in seam.i18n.query procedure (route-hash-based lookup)
 	if let Some(ref i18n) = i18n_config {
 		let i18n_clone = i18n.clone();
 		let valid_locales: std::collections::HashSet<String> = i18n.locales.iter().cloned().collect();
 		handlers.insert(
-			"__seam_i18n_query".to_string(),
+			"seam.i18n.query".to_string(),
 			Arc::new(ProcedureDef {
-				name: "__seam_i18n_query".to_string(),
+				name: "seam.i18n.query".to_string(),
 				proc_type: ProcedureType::Query,
 				input_schema: serde_json::json!({}),
 				output_schema: serde_json::json!({}),

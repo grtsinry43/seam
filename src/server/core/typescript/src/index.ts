@@ -58,6 +58,7 @@ export type {
 	StreamDef,
 	UploadDef,
 	DefinitionMap,
+	NestedDefinitionMap,
 	ProcedureKind,
 	Router,
 	RouterOptions,

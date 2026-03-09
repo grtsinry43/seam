@@ -58,7 +58,7 @@ func buildHandler(procedures []ProcedureDef, subscriptions []SubscriptionDef, st
 		state.hashToName = rpcHashMap.ReverseLookup()
 		state.batchHash = rpcHashMap.Batch
 		// Built-in procedures bypass hash obfuscation (identity mapping)
-		state.hashToName["__seam_i18n_query"] = "__seam_i18n_query"
+		state.hashToName["seam.i18n.query"] = "seam.i18n.query"
 	}
 
 	// Expand channels into Level 0 primitives
@@ -78,18 +78,30 @@ func buildHandler(procedures []ProcedureDef, subscriptions []SubscriptionDef, st
 	state.manifestJSON, _ = json.Marshal(manifest)
 
 	for i := range procedures {
+		if strings.HasPrefix(procedures[i].Name, "seam.") {
+			panic(fmt.Sprintf("procedure name %q uses reserved \"seam.\" namespace", procedures[i].Name))
+		}
 		state.handlers[procedures[i].Name] = &procedures[i]
 	}
 	for i := range subscriptions {
+		if strings.HasPrefix(subscriptions[i].Name, "seam.") {
+			panic(fmt.Sprintf("subscription name %q uses reserved \"seam.\" namespace", subscriptions[i].Name))
+		}
 		state.subs[subscriptions[i].Name] = &subscriptions[i]
 	}
 
 	state.streams = make(map[string]*StreamDef)
 	for i := range streams {
+		if strings.HasPrefix(streams[i].Name, "seam.") {
+			panic(fmt.Sprintf("stream name %q uses reserved \"seam.\" namespace", streams[i].Name))
+		}
 		state.streams[streams[i].Name] = &streams[i]
 	}
 	state.uploads = make(map[string]*UploadDef)
 	for i := range uploads {
+		if strings.HasPrefix(uploads[i].Name, "seam.") {
+			panic(fmt.Sprintf("upload name %q uses reserved \"seam.\" namespace", uploads[i].Name))
+		}
 		state.uploads[uploads[i].Name] = &uploads[i]
 	}
 
@@ -109,12 +121,12 @@ func buildHandler(procedures []ProcedureDef, subscriptions []SubscriptionDef, st
 		state.kindMap[name] = "upload"
 	}
 
-	// Register built-in __seam_i18n_query procedure when i18n is configured
+	// Register built-in seam.i18n.query procedure when i18n is configured
 	if i18nConfig != nil {
 		i18nCfg := i18nConfig
 		validLocales := state.localeSet
 		i18nQueryProc := ProcedureDef{
-			Name:         "__seam_i18n_query",
+			Name:         "seam.i18n.query",
 			InputSchema:  map[string]any{},
 			OutputSchema: map[string]any{},
 			Handler: func(ctx context.Context, input json.RawMessage) (any, error) {
@@ -143,7 +155,7 @@ func buildHandler(procedures []ProcedureDef, subscriptions []SubscriptionDef, st
 				return result, nil
 			},
 		}
-		state.handlers["__seam_i18n_query"] = &i18nQueryProc
+		state.handlers["seam.i18n.query"] = &i18nQueryProc
 	}
 
 	state.shouldValidate = shouldValidateMode(validationMode)

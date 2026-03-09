@@ -36,6 +36,9 @@ export function categorizeProcedures(
 	const kindMap = new Map<string, ProcedureKind>()
 
 	for (const [name, def] of Object.entries(definitions)) {
+		if (name.startsWith('seam.')) {
+			throw new Error(`Procedure name "${name}" uses reserved "seam." namespace`)
+		}
 		const kind = resolveKind(name, def)
 		kindMap.set(name, kind)
 		const contextKeys = (def as { context?: string[] }).context ?? []
