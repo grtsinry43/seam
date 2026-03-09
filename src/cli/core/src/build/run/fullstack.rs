@@ -210,18 +210,27 @@ pub(super) fn run_fullstack_build(
 	tracker.end_with(t, &format!("{} files", package_assets.js.len() + package_assets.css.len()));
 
 	// -- Pre-rendering static pages (conditional) --
-	let ssg_count = if has_ssg && steps::has_prerender_routes(&skeleton_output, build_config.output) {
+	let ssg_result = if has_ssg && steps::has_prerender_routes(&skeleton_output, build_config.output)
+	{
 		let t = tracker.begin();
 		let ssg = steps::render_static_pages(build_config, base_dir, &out_dir)?;
 		tracker.end_with(t, &format!("{} pages", ssg.pages));
-		ssg.pages
+		Some(ssg)
 	} else if has_ssg {
 		let t = tracker.begin();
 		tracker.end_with(t, "0 pages");
-		0
+		None
 	} else {
-		0
+		None
 	};
+	let ssg_count = ssg_result.as_ref().map_or(0, |s| s.pages);
+
+	// Package SSG output for full static deployment
+	if let Some(ref ssg) = ssg_result
+		&& build_config.output == crate::config::OutputMode::Static
+	{
+		steps::package_ssg_output(base_dir, ssg, build_config.dist_dir())?;
+	}
 
 	let extra = if ssg_count > 0 {
 		format!(

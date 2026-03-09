@@ -165,7 +165,6 @@ pub(crate) fn has_prerender_routes(skeleton: &SkeletonOutput, output: OutputMode
 #[derive(serde::Deserialize)]
 pub(crate) struct SsgOutput {
 	pub pages: usize,
-	#[allow(dead_code)] // used in Phase 5 (static output packaging)
 	pub paths: Vec<String>,
 }
 
@@ -207,4 +206,62 @@ pub(crate) fn render_static_pages(
 
 	let stdout = String::from_utf8(output.stdout).context("invalid UTF-8 from SSG renderer")?;
 	serde_json::from_str(&stdout).context("failed to parse SSG output JSON")
+}
+
+/// Package SSG output for full static deployment (`output: 'static'`).
+/// Copies bundled assets and __data.json files into .seam/static/ for CDN serving.
+pub(crate) fn package_ssg_output(
+	base_dir: &Path,
+	ssg: &SsgOutput,
+	dist_dir: &str,
+) -> Result<usize> {
+	let static_dir = base_dir.join(".seam/static");
+	let source_dist = base_dir.join(dist_dir);
+
+	// Copy JS/CSS bundles to .seam/static/_seam/static/
+	let target_assets = static_dir.join("_seam/static");
+	if source_dist.is_dir() {
+		copy_dir_recursive(&source_dist, &target_assets)?;
+	}
+
+	// Copy __data.json files to .seam/static/_seam/data/{path}/index.json
+	let mut data_count = 0;
+	for path in &ssg.paths {
+		let sub = path.strip_prefix('/').unwrap_or(path);
+		let src = if sub.is_empty() {
+			static_dir.join("__data.json")
+		} else {
+			static_dir.join(sub).join("__data.json")
+		};
+		if src.is_file() {
+			let target = if sub.is_empty() {
+				static_dir.join("_seam/data/index.json")
+			} else {
+				static_dir.join("_seam/data").join(sub).join("index.json")
+			};
+			if let Some(parent) = target.parent() {
+				std::fs::create_dir_all(parent)?;
+			}
+			std::fs::copy(&src, &target)?;
+			data_count += 1;
+		}
+	}
+
+	Ok(data_count)
+}
+
+/// Recursively copy a directory tree.
+fn copy_dir_recursive(src: &Path, dst: &Path) -> Result<()> {
+	std::fs::create_dir_all(dst)?;
+	for entry in std::fs::read_dir(src)? {
+		let entry = entry?;
+		let ty = entry.file_type()?;
+		let target = dst.join(entry.file_name());
+		if ty.is_dir() {
+			copy_dir_recursive(&entry.path(), &target)?;
+		} else {
+			std::fs::copy(entry.path(), &target)?;
+		}
+	}
+	Ok(())
 }

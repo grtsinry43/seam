@@ -103,18 +103,27 @@ pub(super) fn run_frontend_build(build_config: &BuildConfig, base_dir: &Path) ->
 	)?;
 
 	// -- Pre-rendering static pages (conditional) --
-	let ssg_count = if has_ssg && steps::has_prerender_routes(&skeleton_output, build_config.output) {
+	let ssg_result = if has_ssg && steps::has_prerender_routes(&skeleton_output, build_config.output)
+	{
 		let t = tracker.begin();
 		let ssg = steps::render_static_pages(build_config, base_dir, &out_dir)?;
 		tracker.end_with(t, &format!("{} pages", ssg.pages));
-		ssg.pages
+		Some(ssg)
 	} else if has_ssg {
 		let t = tracker.begin();
 		tracker.end_with(t, "0 pages");
-		0
+		None
 	} else {
-		0
+		None
 	};
+	let ssg_count = ssg_result.as_ref().map_or(0, |s| s.pages);
+
+	// Package SSG output for full static deployment
+	if let Some(ref ssg) = ssg_result
+		&& build_config.output == crate::config::OutputMode::Static
+	{
+		steps::package_ssg_output(base_dir, ssg, build_config.dist_dir())?;
+	}
 
 	// Summary
 	ui::blank();
@@ -123,9 +132,11 @@ pub(super) fn run_frontend_build(build_config: &BuildConfig, base_dir: &Path) ->
 	let asset_count = assets.js.len() + assets.css.len();
 	let (bg, bc, r) = (col(BRIGHT_GREEN), col(BRIGHT_CYAN), col(RESET));
 	ui::ok(&format!("build complete in {bc}{elapsed:.1}s{r}"));
+	let is_static = build_config.output == crate::config::OutputMode::Static;
 	if ssg_count > 0 {
+		let suffix = if is_static { " \u{00b7} static output" } else { "" };
 		ui::detail(&format!(
-			"{bg}{template_count}{r} templates \u{00b7} {bg}{ssg_count}{r} prerendered \u{00b7} {bg}{asset_count}{r} assets \u{00b7} {}",
+			"{bg}{template_count}{r} templates \u{00b7} {bg}{ssg_count}{r} prerendered \u{00b7} {bg}{asset_count}{r} assets \u{00b7} {}{suffix}",
 			build_config.renderer,
 		));
 	} else {
