@@ -22,4 +22,4 @@ npx @canmi/seam-cli <command>
 ## Notes
 
 - The CLI logic is split across three Rust crates: `seam-skeleton`, `seam-codegen`, and `seam-cli` (in `src/cli/`)
-- This package only contains the binary resolver and platform binaries
+- Config helper (`defineConfig`) has moved to `@canmi/seam` — this package only contains the binary resolver and platform binaries

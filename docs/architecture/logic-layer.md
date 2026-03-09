@@ -33,6 +33,7 @@ The engine source of truth is the Rust crate [`seam-engine`](../../src/server/en
 | [cli/skeleton](../../src/cli/skeleton/) | `seam-skeleton`    | HTML skeleton extraction pipeline (slot, extract, document)                  |
 | [cli/codegen](../../src/cli/codegen/)   | `seam-codegen`     | TypeScript codegen, manifest types, RPC hash map                             |
 | [cli/core](../../src/cli/core/)         | `seam-cli`         | Build orchestration, dev servers, CLI entry point                            |
+| [cli/seam](../../src/cli/seam/)         | `@canmi/seam`      | `defineConfig` helper and `SeamConfig` types (peer: vite)                    |
 | [cli/pkg](../../src/cli/pkg/)           | `@canmi/seam-cli`  | npm distribution wrapper for the CLI binary                                  |
 | [cli/vite](../../src/cli/vite/)         | `@canmi/seam-vite` | Vite plugin suite (virtual modules, page splitting, config, RPC obfuscation) |
 
