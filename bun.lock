@@ -285,7 +285,7 @@
     },
     "examples/markdown-demo/server-ts": {
       "name": "demo-markdown-ts",
-      "version": "1.0.0",
+      "version": "0.0.0",
       "dependencies": {
         "@canmi/seam-adapter-bun": "workspace:*",
         "@canmi/seam-server": "workspace:*",
@@ -298,7 +298,7 @@
     },
     "examples/standalone/client-react": {
       "name": "demo-client-react",
-      "version": "1.0.0",
+      "version": "0.0.0",
       "dependencies": {
         "@canmi/seam-react": "workspace:*",
         "react": "^19.2.4",
@@ -317,7 +317,7 @@
     },
     "examples/standalone/client-vanilla": {
       "name": "demo-client-vanilla",
-      "version": "1.0.0",
+      "version": "0.0.0",
       "dependencies": {
         "@canmi/seam-client": "workspace:*",
         "eventsource": "^4.1.0",
@@ -325,7 +325,7 @@
     },
     "examples/standalone/server-bun": {
       "name": "demo-server-bun",
-      "version": "1.0.0",
+      "version": "0.0.0",
       "dependencies": {
         "@canmi/seam-adapter-bun": "workspace:*",
         "@canmi/seam-client": "workspace:*",
@@ -339,7 +339,7 @@
     },
     "examples/standalone/server-node": {
       "name": "demo-server-node",
-      "version": "1.0.0",
+      "version": "0.0.0",
       "dependencies": {
         "@canmi/seam-adapter-node": "workspace:*",
         "@canmi/seam-server": "workspace:*",
@@ -362,7 +362,6 @@
       },
       "devDependencies": {
         "@types/node": "^25.3.3",
-        "typescript": "^5.9.3",
         "vitest": "^4.0.18",
       },
       "optionalDependencies": {
@@ -452,7 +451,9 @@
       "version": "0.5.30",
       "devDependencies": {
         "@types/react": "^19.2.14",
+        "@types/react-dom": "^19.2.3",
         "react": "^19.2.4",
+        "react-dom": "^19.2.4",
         "tsdown": "^0.20.3",
         "typescript": "^5.9.3",
         "vitest": "^4.0.18",
