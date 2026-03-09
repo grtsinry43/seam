@@ -25,12 +25,19 @@ export interface PageAssets {
 	prefetch: string[]
 }
 
+export type HeadFn = (data: Record<string, unknown>) => {
+	title?: string
+	meta?: Record<string, string | undefined>[]
+	link?: Record<string, string | undefined>[]
+}
+
 export interface PageDef {
 	template: string
 	localeTemplates?: Record<string, string>
 	loaders: Record<string, LoaderFn>
 	layoutChain?: LayoutDef[]
 	headMeta?: string
+	headFn?: HeadFn
 	dataId?: string
 	i18nKeys?: string[]
 	pageAssets?: PageAssets

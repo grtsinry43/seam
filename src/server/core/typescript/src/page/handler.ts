@@ -5,7 +5,8 @@ import { join } from 'node:path'
 import { renderPage, escapeHtml } from '@canmi/seam-engine'
 import { SeamError } from '../errors.js'
 import type { InternalProcedure } from '../procedure.js'
-import type { PageDef, LayoutDef, LoaderFn, I18nConfig } from './index.js'
+import type { PageDef, LayoutDef, LoaderFn, I18nConfig, HeadFn } from './index.js'
+import { headConfigToHtml } from './head.js'
 import type { LoaderError } from './loader-error.js'
 import { applyProjection } from './projection.js'
 import { validateInput, formatValidationErrors } from '../validation/index.js'
@@ -179,6 +180,17 @@ export async function handlePageRequest(
 			composedTemplate = layoutTemplate.replace('<!--seam:outlet-->', composedTemplate)
 		}
 
+		// Resolve head metadata from headFn (overrides manifest head_meta)
+		let resolvedHeadMeta = page.headMeta
+		if (page.headFn) {
+			try {
+				const headConfig = page.headFn(allData)
+				resolvedHeadMeta = headConfigToHtml(headConfig)
+			} catch (err) {
+				console.error('[seam] head function failed:', err)
+			}
+		}
+
 		// Build PageConfig for engine
 		const config: Record<string, unknown> = {
 			layout_chain: layoutChain.map((l) => ({
@@ -186,7 +198,7 @@ export async function handlePageRequest(
 				loader_keys: Object.keys(l.loaders),
 			})),
 			data_id: page.dataId ?? '__data',
-			head_meta: page.headMeta,
+			head_meta: resolvedHeadMeta,
 			loader_metadata: allMeta,
 		}
 		if (page.pageAssets) {
