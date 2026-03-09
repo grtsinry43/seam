@@ -80,49 +80,7 @@ func buildHandler(procedures []ProcedureDef, subscriptions []SubscriptionDef, st
 	manifest := buildManifest(procedures, subscriptions, streams, uploads, channelMetas, state.contextConfigs)
 	state.manifestJSON, _ = json.Marshal(manifest)
 
-	for i := range procedures {
-		if strings.HasPrefix(procedures[i].Name, "seam.") {
-			panic(fmt.Sprintf("procedure name %q uses reserved \"seam.\" namespace", procedures[i].Name))
-		}
-		state.handlers[procedures[i].Name] = &procedures[i]
-	}
-	for i := range subscriptions {
-		if strings.HasPrefix(subscriptions[i].Name, "seam.") {
-			panic(fmt.Sprintf("subscription name %q uses reserved \"seam.\" namespace", subscriptions[i].Name))
-		}
-		state.subs[subscriptions[i].Name] = &subscriptions[i]
-	}
-
-	state.streams = make(map[string]*StreamDef)
-	for i := range streams {
-		if strings.HasPrefix(streams[i].Name, "seam.") {
-			panic(fmt.Sprintf("stream name %q uses reserved \"seam.\" namespace", streams[i].Name))
-		}
-		state.streams[streams[i].Name] = &streams[i]
-	}
-	state.uploads = make(map[string]*UploadDef)
-	for i := range uploads {
-		if strings.HasPrefix(uploads[i].Name, "seam.") {
-			panic(fmt.Sprintf("upload name %q uses reserved \"seam.\" namespace", uploads[i].Name))
-		}
-		state.uploads[uploads[i].Name] = &uploads[i]
-	}
-
-	// Build kind map for POST dispatcher
-	state.kindMap = make(map[string]string)
-	for name, p := range state.handlers {
-		if p.Type == "command" {
-			state.kindMap[name] = "command"
-		} else {
-			state.kindMap[name] = "query"
-		}
-	}
-	for name := range state.streams {
-		state.kindMap[name] = "stream"
-	}
-	for name := range state.uploads {
-		state.kindMap[name] = "upload"
-	}
+	state.registerProcedures(procedures, subscriptions, streams, uploads)
 
 	// Register built-in seam.i18n.query procedure when i18n is configured
 	if i18nConfig != nil {
@@ -163,30 +121,7 @@ func buildHandler(procedures []ProcedureDef, subscriptions []SubscriptionDef, st
 
 	state.shouldValidate = shouldValidateMode(validationMode)
 	if state.shouldValidate {
-		state.compiledInputSchemas = make(map[string]*compiledSchema)
-		for name, proc := range state.handlers {
-			if cs, err := compileSchema(proc.InputSchema); err == nil {
-				state.compiledInputSchemas[name] = cs
-			}
-		}
-		state.compiledSubSchemas = make(map[string]*compiledSchema)
-		for name, sub := range state.subs {
-			if cs, err := compileSchema(sub.InputSchema); err == nil {
-				state.compiledSubSchemas[name] = cs
-			}
-		}
-		state.compiledStreamSchemas = make(map[string]*compiledSchema)
-		for name, s := range state.streams {
-			if cs, err := compileSchema(s.InputSchema); err == nil {
-				state.compiledStreamSchemas[name] = cs
-			}
-		}
-		state.compiledUploadSchemas = make(map[string]*compiledSchema)
-		for name, u := range state.uploads {
-			if cs, err := compileSchema(u.InputSchema); err == nil {
-				state.compiledUploadSchemas[name] = cs
-			}
-		}
+		state.compileValidationSchemas()
 	}
 
 	// Collect prerender page info for data endpoint
@@ -243,124 +178,83 @@ func seamRouteToGoPattern(route string) string {
 	return strings.Join(parts, "/")
 }
 
-// --- manifest ---
+// --- registration helpers ---
 
-type manifestSchema struct {
-	Version           int                             `json:"version"`
-	Context           map[string]contextManifestEntry `json:"context,omitempty"`
-	Procedures        map[string]procedureEntry       `json:"procedures"`
-	Channels          map[string]channelMeta          `json:"channels,omitempty"`
-	TransportDefaults map[string]any                  `json:"transportDefaults"`
-}
-
-type contextManifestEntry struct {
-	Extract string `json:"extract"`
-}
-
-type procedureEntry struct {
-	Kind        string   `json:"kind"`
-	Input       any      `json:"input"`
-	Output      any      `json:"output,omitempty"`
-	ChunkOutput any      `json:"chunkOutput,omitempty"`
-	Error       any      `json:"error,omitempty"`
-	Context     []string `json:"context,omitempty"`
-	Suppress    []string `json:"suppress,omitempty"`
-	Cache       any      `json:"cache,omitempty"`
-}
-
-func buildManifest(procedures []ProcedureDef, subscriptions []SubscriptionDef, streams []StreamDef, uploads []UploadDef, channels map[string]channelMeta, contextConfigs map[string]ContextConfig) manifestSchema {
-	procs := make(map[string]procedureEntry)
+// registerProcedures populates handler/sub/stream/upload maps and builds
+// the kindMap used by the POST dispatcher. Panics on reserved "seam." prefix.
+func (s *appState) registerProcedures(procedures []ProcedureDef, subscriptions []SubscriptionDef, streams []StreamDef, uploads []UploadDef) {
 	for i := range procedures {
-		p := &procedures[i]
-		procType := p.Type
-		if procType == "" {
-			procType = "query"
+		if strings.HasPrefix(procedures[i].Name, "seam.") {
+			panic(fmt.Sprintf("procedure name %q uses reserved \"seam.\" namespace", procedures[i].Name))
 		}
-		entry := procedureEntry{
-			Kind:   procType,
-			Input:  p.InputSchema,
-			Output: p.OutputSchema,
-			Error:  p.ErrorSchema,
-		}
-		if len(p.ContextKeys) > 0 {
-			entry.Context = p.ContextKeys
-		}
-		if len(p.Suppress) > 0 {
-			entry.Suppress = p.Suppress
-		}
-		if p.Cache != nil {
-			entry.Cache = p.Cache
-		}
-		procs[p.Name] = entry
+		s.handlers[procedures[i].Name] = &procedures[i]
 	}
-	for _, s := range subscriptions {
-		entry := procedureEntry{
-			Kind:   "subscription",
-			Input:  s.InputSchema,
-			Output: s.OutputSchema,
-			Error:  s.ErrorSchema,
+	for i := range subscriptions {
+		if strings.HasPrefix(subscriptions[i].Name, "seam.") {
+			panic(fmt.Sprintf("subscription name %q uses reserved \"seam.\" namespace", subscriptions[i].Name))
 		}
-		if len(s.ContextKeys) > 0 {
-			entry.Context = s.ContextKeys
-		}
-		if len(s.Suppress) > 0 {
-			entry.Suppress = s.Suppress
-		}
-		procs[s.Name] = entry
+		s.subs[subscriptions[i].Name] = &subscriptions[i]
 	}
-	for _, st := range streams {
-		entry := procedureEntry{
-			Kind:        "stream",
-			Input:       st.InputSchema,
-			ChunkOutput: st.ChunkOutputSchema,
-			Error:       st.ErrorSchema,
+
+	s.streams = make(map[string]*StreamDef)
+	for i := range streams {
+		if strings.HasPrefix(streams[i].Name, "seam.") {
+			panic(fmt.Sprintf("stream name %q uses reserved \"seam.\" namespace", streams[i].Name))
 		}
-		if len(st.ContextKeys) > 0 {
-			entry.Context = st.ContextKeys
-		}
-		if len(st.Suppress) > 0 {
-			entry.Suppress = st.Suppress
-		}
-		procs[st.Name] = entry
+		s.streams[streams[i].Name] = &streams[i]
 	}
-	for _, u := range uploads {
-		entry := procedureEntry{
-			Kind:   "upload",
-			Input:  u.InputSchema,
-			Output: u.OutputSchema,
-			Error:  u.ErrorSchema,
+	s.uploads = make(map[string]*UploadDef)
+	for i := range uploads {
+		if strings.HasPrefix(uploads[i].Name, "seam.") {
+			panic(fmt.Sprintf("upload name %q uses reserved \"seam.\" namespace", uploads[i].Name))
 		}
-		if len(u.ContextKeys) > 0 {
-			entry.Context = u.ContextKeys
+		s.uploads[uploads[i].Name] = &uploads[i]
+	}
+
+	// Build kind map for POST dispatcher
+	s.kindMap = make(map[string]string)
+	for name, p := range s.handlers {
+		if p.Type == "command" {
+			s.kindMap[name] = "command"
+		} else {
+			s.kindMap[name] = "query"
 		}
-		if len(u.Suppress) > 0 {
-			entry.Suppress = u.Suppress
-		}
-		procs[u.Name] = entry
 	}
-	m := manifestSchema{
-		Version:           2,
-		Procedures:        procs,
-		TransportDefaults: make(map[string]any),
+	for name := range s.streams {
+		s.kindMap[name] = "stream"
 	}
-	if len(channels) > 0 {
-		m.Channels = channels
+	for name := range s.uploads {
+		s.kindMap[name] = "upload"
 	}
-	if len(contextConfigs) > 0 {
-		ctxManifest := make(map[string]contextManifestEntry)
-		for key, cfg := range contextConfigs {
-			ctxManifest[key] = contextManifestEntry(cfg)
-		}
-		m.Context = ctxManifest
-	}
-	return m
 }
 
-// --- manifest handler ---
-
-func (s *appState) handleManifest(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-	_, _ = w.Write(s.manifestJSON)
+// compileValidationSchemas pre-compiles JTD schemas for all registered
+// procedures, subscriptions, streams, and uploads.
+func (s *appState) compileValidationSchemas() {
+	s.compiledInputSchemas = make(map[string]*compiledSchema)
+	for name, proc := range s.handlers {
+		if cs, err := compileSchema(proc.InputSchema); err == nil {
+			s.compiledInputSchemas[name] = cs
+		}
+	}
+	s.compiledSubSchemas = make(map[string]*compiledSchema)
+	for name, sub := range s.subs {
+		if cs, err := compileSchema(sub.InputSchema); err == nil {
+			s.compiledSubSchemas[name] = cs
+		}
+	}
+	s.compiledStreamSchemas = make(map[string]*compiledSchema)
+	for name, st := range s.streams {
+		if cs, err := compileSchema(st.InputSchema); err == nil {
+			s.compiledStreamSchemas[name] = cs
+		}
+	}
+	s.compiledUploadSchemas = make(map[string]*compiledSchema)
+	for name, u := range s.uploads {
+		if cs, err := compileSchema(u.InputSchema); err == nil {
+			s.compiledUploadSchemas[name] = cs
+		}
+	}
 }
 
 // --- RPC handler ---

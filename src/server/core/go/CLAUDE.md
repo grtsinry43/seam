@@ -8,7 +8,8 @@ See root CLAUDE.md for general project rules.
 
 - `seam.go` — public API: `Router`, `HandlerOptions`, `PageAssets`, `ContextConfig`, `ProcedureOption`, `StreamDef`, `UploadDef`, `SeamFileHandle`, type definitions, error constructors; `PageDef.Prerender` and `PageDef.StaticDir` fields for SSG
 - `context.go` — context system: `ContextValue[T]` generic helper, `extractRawContext`, `resolveContextForProc`, `injectContext`
-- `handler.go` — core handler: `appState`, `buildHandler`, manifest, RPC handler (uses `engine.I18nQuery` for built-in i18n), error helpers; `seam.` namespace validation (panic on reserved prefix); `handlePageData` for `/_seam/data/{path}` SSG endpoint
+- `handler.go` — core handler: `appState`, `buildHandler`, `registerProcedures`, `compileValidationSchemas`, RPC handler (uses `engine.I18nQuery` for built-in i18n), error helpers; `seam.` namespace validation (panic on reserved prefix); `handlePageData` for `/_seam/data/{path}` SSG endpoint
+- `manifest.go` — manifest v2 types (`manifestSchema`, `procedureEntry`), `buildManifest`, `handleManifest`
 - `handler_batch.go` — batch RPC handler (parallel execution via `sync.WaitGroup` + goroutines), SSE subscribe handler, SSE helpers
 - `handler_stream.go` — stream handler: SSE with incrementing `id` field, idle timeout, `writeStreamEvent`
 - `handler_upload.go` — upload handler: multipart/form-data parsing, `SeamFileHandle`, metadata JSON extraction

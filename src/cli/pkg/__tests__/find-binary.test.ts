@@ -39,7 +39,8 @@ describe('PLATFORM_PACKAGES', () => {
 
 describe('findBinary', () => {
 	it('returns null for unsupported platform (win32)', () => {
-		const origPlatform = Object.getOwnPropertyDescriptor(process, 'platform')!
+		const origPlatform = Object.getOwnPropertyDescriptor(process, 'platform')
+		if (!origPlatform) throw new Error('process.platform descriptor missing')
 		Object.defineProperty(process, 'platform', { value: 'win32', configurable: true })
 		try {
 			expect(findBinary()).toBeNull()
