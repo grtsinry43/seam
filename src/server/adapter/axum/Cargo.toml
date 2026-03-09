@@ -28,4 +28,5 @@ http-body-util = "0.1"
 multer = "3"
 
 [dev-dependencies]
+tokio-tungstenite = "0.26"
 tower = { version = "0.5", features = ["util"] }

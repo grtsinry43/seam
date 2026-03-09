@@ -1,6 +1,7 @@
 /* src/server/core/typescript/__tests__/fixtures.ts */
 
 import { createRouter, t } from '../src/index.js'
+import type { SubscriptionDef, StreamDef, UploadDef } from '../src/index.js'
 
 /** Canonical greet router used across adapter and handler tests */
 export const greetRouter = createRouter({
@@ -15,6 +16,28 @@ export const greetRouter = createRouter({
 		output: t.object({ success: t.boolean() }),
 		handler: () => ({ success: true }),
 	},
+	onCount: {
+		type: 'subscription',
+		input: t.object({ max: t.int32() }),
+		output: t.object({ n: t.int32() }),
+		handler: async function* ({ input }) {
+			for (let i = 0; i < input.max; i++) yield { n: i }
+		},
+	} satisfies SubscriptionDef<{ max: number }, { n: number }>,
+	countdown: {
+		kind: 'stream',
+		input: t.object({ max: t.int32() }),
+		output: t.object({ n: t.int32() }),
+		handler: async function* ({ input }) {
+			for (let i = input.max; i >= 1; i--) yield { n: i }
+		},
+	} satisfies StreamDef<{ max: number }, { n: number }>,
+	uploadFile: {
+		kind: 'upload',
+		input: t.object({ title: t.string() }),
+		output: t.object({ title: t.string(), received: t.boolean() }),
+		handler: ({ input }) => ({ title: input.title, received: true }),
+	} satisfies UploadDef<{ title: string }, { title: string; received: boolean }>,
 })
 
 export const greetInput = { name: 'Alice' }

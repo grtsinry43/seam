@@ -101,6 +101,111 @@ describe('adapter-bun', () => {
 	})
 })
 
+// -- SSE helpers --
+
+interface SseEvent {
+	event?: string
+	id?: string
+	data?: string
+}
+
+function parseSSE(text: string): SseEvent[] {
+	return text
+		.split('\n\n')
+		.filter((block) => block.trim())
+		.map((block) => {
+			const evt: SseEvent = {}
+			for (const line of block.split('\n')) {
+				if (line.startsWith('event: ')) evt.event = line.slice(7)
+				else if (line.startsWith('id: ')) evt.id = line.slice(4)
+				else if (line.startsWith('data: ')) evt.data = line.slice(6)
+			}
+			return evt
+		})
+}
+
+// -- Subscription tests --
+
+describe('adapter-bun subscription', () => {
+	it('subscription returns SSE events', async () => {
+		const res = await fetch(`${base}/_seam/procedure/onCount?input=%7B%22max%22%3A2%7D`)
+		expect(res.status).toBe(200)
+		expect(res.headers.get('content-type')).toBe('text/event-stream')
+		const events = parseSSE(await res.text())
+		const dataEvents = events.filter((e) => e.event === 'data')
+		expect(dataEvents.length).toBe(2)
+		expect(JSON.parse(dataEvents[0]?.data ?? '')).toEqual({ n: 0 })
+		expect(JSON.parse(dataEvents[1]?.data ?? '')).toEqual({ n: 1 })
+	})
+
+	it('unknown subscription returns SSE error', async () => {
+		const res = await fetch(`${base}/_seam/procedure/nope`)
+		const events = parseSSE(await res.text())
+		expect(events.some((e) => e.event === 'error' && e.data?.includes('not found'))).toBe(true)
+	})
+})
+
+// -- Stream tests --
+
+describe('adapter-bun stream', () => {
+	it('stream returns SSE with incrementing ids', async () => {
+		const res = await fetch(`${base}/_seam/procedure/countdown`, {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ max: 2 }),
+		})
+		expect(res.status).toBe(200)
+		expect(res.headers.get('content-type')).toBe('text/event-stream')
+		const events = parseSSE(await res.text())
+		const dataEvents = events.filter((e) => e.event === 'data')
+		expect(dataEvents[0]?.id).toBe('0')
+		expect(dataEvents[1]?.id).toBe('1')
+		expect(JSON.parse(dataEvents[0]?.data ?? '')).toEqual({ n: 2 })
+		expect(JSON.parse(dataEvents[1]?.data ?? '')).toEqual({ n: 1 })
+		expect(events.some((e) => e.event === 'complete')).toBe(true)
+	})
+
+	it('stream invalid input returns SSE error', async () => {
+		const res = await fetch(`${base}/_seam/procedure/countdown`, {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ max: 'bad' }),
+		})
+		const events = parseSSE(await res.text())
+		expect(events.some((e) => e.event === 'error' && e.data?.includes('validation failed'))).toBe(
+			true,
+		)
+	})
+})
+
+// -- Upload tests --
+
+describe('adapter-bun upload', () => {
+	it('upload multipart returns success', async () => {
+		const form = new FormData()
+		form.append('metadata', JSON.stringify({ title: 'Doc' }))
+		form.append('file', new Blob(['hello'], { type: 'application/octet-stream' }), 'test.txt')
+		const res = await fetch(`${base}/_seam/procedure/uploadFile`, {
+			method: 'POST',
+			body: form,
+		})
+		expect(res.status).toBe(200)
+		const body = await res.json()
+		expect(body).toEqual({ ok: true, data: { title: 'Doc', received: true } })
+	})
+
+	it('upload without file returns 400', async () => {
+		const res = await fetch(`${base}/_seam/procedure/uploadFile`, {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ title: 'Doc' }),
+		})
+		expect(res.status).toBe(400)
+		const body = await res.json()
+		expect(body.error.code).toBe('VALIDATION_ERROR')
+	})
+})
+
 describe('adapter-bun staticDir', () => {
 	let staticDir: string
 	let staticServer: ReturnType<typeof serveBun>

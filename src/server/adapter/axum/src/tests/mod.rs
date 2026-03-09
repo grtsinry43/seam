@@ -1,5 +1,6 @@
 /* src/server/adapter/axum/src/tests/mod.rs */
 
+mod channel;
 mod rpc;
 mod stream;
 mod upload;

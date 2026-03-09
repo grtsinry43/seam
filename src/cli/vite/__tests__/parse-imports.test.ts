@@ -33,4 +33,41 @@ describe('parseComponentImports', () => {
 		const result = parseComponentImports('const x = 1;')
 		expect(result).toEqual(new Map())
 	})
+
+	it('skips dynamic import', () => {
+		const result = parseComponentImports('() => import("./X")')
+		expect(result).toEqual(new Map())
+	})
+
+	it('skips namespace import', () => {
+		const result = parseComponentImports('import * as Foo from "./foo"')
+		expect(result).toEqual(new Map())
+	})
+
+	it('skips side-effect import', () => {
+		const result = parseComponentImports('import "./styles.css"')
+		expect(result).toEqual(new Map())
+	})
+
+	it('handles multiple imports', () => {
+		const code = [
+			'import Home from "./Home"',
+			'import About from "./About"',
+			'import Contact from "./Contact"',
+		].join('\n')
+		const result = parseComponentImports(code)
+		expect(result).toEqual(
+			new Map([
+				['Home', './Home'],
+				['About', './About'],
+				['Contact', './Contact'],
+			]),
+		)
+	})
+
+	it('handles multiline import', () => {
+		const code = 'import\n  Home\n  from "./Home"'
+		const result = parseComponentImports(code)
+		expect(result).toEqual(new Map([['Home', './Home']]))
+	})
 })

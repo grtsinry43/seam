@@ -112,4 +112,57 @@ describe('createLoaderFromDefs()', () => {
 		expect(result).toEqual({ page: { tagline: 'Hello' } })
 		expect(mockRpc).toHaveBeenCalledWith('getHomeData', {})
 	})
+
+	// -- buildInput error paths --
+
+	it('non-numeric string for int param returns NaN', () => {
+		const result = buildInput(
+			{ procedure: 'getItem', params: { id: { from: 'route', type: 'int' } } },
+			{ id: 'abc' },
+		)
+		expect(result.id).toBeNaN()
+	})
+
+	it('missing param key returns undefined', () => {
+		const result = buildInput({ procedure: 'getUser', params: { id: 'route' } }, {})
+		expect(result.id).toBeUndefined()
+	})
+
+	it('undefined value with int type returns NaN', () => {
+		const result = buildInput(
+			{ procedure: 'getItem', params: { id: { from: 'route', type: 'int' } } },
+			{},
+		)
+		expect(result.id).toBeNaN()
+	})
+
+	// -- createLoaderFromDefs error paths --
+
+	it('RPC rejection propagates error', async () => {
+		const mockRpc = vi.fn().mockRejectedValue(new Error('network fail'))
+		const loader = createLoaderFromDefs({ data: { procedure: 'getData' } }, '/page')
+		const context: SeamRouterContext = { seamRpc: mockRpc, _seamInitial: null }
+		await expect(loader({ params: {}, context })).rejects.toThrow('network fail')
+	})
+
+	it('multiple loaders one fails rejects all', async () => {
+		const mockRpc = vi.fn()
+		mockRpc.mockResolvedValueOnce({ ok: true })
+		mockRpc.mockRejectedValueOnce(new Error('second fail'))
+		const loader = createLoaderFromDefs(
+			{ a: { procedure: 'getA' }, b: { procedure: 'getB' } },
+			'/page',
+		)
+		const context: SeamRouterContext = { seamRpc: mockRpc, _seamInitial: null }
+		await expect(loader({ params: {}, context })).rejects.toThrow('second fail')
+	})
+
+	it('empty loaderDefs returns empty object', async () => {
+		const mockRpc = vi.fn()
+		const loader = createLoaderFromDefs({}, '/')
+		const context: SeamRouterContext = { seamRpc: mockRpc, _seamInitial: null }
+		const result = await loader({ params: {}, context })
+		expect(result).toEqual({})
+		expect(mockRpc).not.toHaveBeenCalled()
+	})
 })

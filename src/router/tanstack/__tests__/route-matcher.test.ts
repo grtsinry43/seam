@@ -36,4 +36,14 @@ describe('matchSeamRoute()', () => {
 		const result = matchSeamRoute(patterns, '/dashboard')
 		expect(result).toBeNull()
 	})
+
+	it('empty patterns array returns null', () => {
+		const result = matchSeamRoute([], '/x')
+		expect(result).toBeNull()
+	})
+
+	it('empty pathname matches root pattern', () => {
+		const result = matchSeamRoute(['/'], '')
+		expect(result).toEqual({ path: '/', params: {} })
+	})
 })
