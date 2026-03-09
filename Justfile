@@ -245,7 +245,6 @@ typecheck:
       src/client/react
       src/router/tanstack
       src/router/seam
-      src/cli/pkg
       src/cli/vite
       src/eslint
       src/i18n
