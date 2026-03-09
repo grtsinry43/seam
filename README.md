@@ -6,7 +6,7 @@ The missing joint between anything that renders and anything that computes. Seam
 
 > **Audience**: SeamJS is in early development and targets developers who are comfortable reading source code, building from source, and working with unfinished APIs. It is not yet ready for general end-user consumption.
 >
-> **Status**: core pipeline validated with React + Rust/TypeScript/Go backends. HTTP RPC, SSE, i18n, TanStack Query integration, and zero-config `createSeamApp()` entry are ready. See [Roadmap](docs/roadmap.md) for what's next.
+> **Status**: core pipeline validated with React + Rust/TypeScript/Go backends. HTTP RPC, SSE, SSG (hybrid output modes), i18n, TanStack Query integration, and zero-config `createSeamApp()` entry are ready. See [Roadmap](docs/roadmap.md) for what's next.
 
 ## Why SeamJS
 
@@ -63,12 +63,12 @@ Not traditional SSR. Works alongside CTR for content that must be rendered at re
 **ISR — Incremental Cache** (Planned)
 Not incremental rendering — an incremental cache layer. Without server-side injection, a CTR page is naturally static and needs no regeneration. When CTR and SSR run together and produce rendering overhead, the assembled page only needs to be computed once — ISR here means caching the filled result.
 
-**SSG — Static Site Generation** (Not Planned)
-Pure static pages can be built by any UI framework natively. SeamJS provides cross-dimension abstraction for dynamic server-client interaction — SSG has no server dimension to decouple, so it falls outside SeamJS's scope.
+**SSG — Static Site Generation** (Implemented)
+Pre-renders pages at build time into static HTML. Three output modes via `OutputMode`: `static` (all pages SSG), `server` (all pages CTR), `hybrid` (per-page opt-in via `prerender: true`, default). Prerendered pages are served directly with `__data.json` sidecar files for SPA navigation — the client fetches page data from `/_seam/data/{path}` instead of requesting a full HTML page on route transitions.
 
 ## Current Status
 
-**Implemented**: React frontend (client, bindings, router, filesystem router, i18n, linter, query integration). Three backend runtimes (Rust, TypeScript, Go) with symmetric feature sets and framework adapters (Axum, Hono, Bun, Node, Gin, Chi). Five procedure kinds (query, command, subscription, stream, upload). HTTP RPC, batch RPC, SSE streaming, WebSocket channels, stream SSE, multipart upload. Declarative context extraction, command invalidation, per-procedure transport config. Full CLI (build, generate, dev, pull, clean) with virtual module system and `loadBuild()` API. Locale resolution with URL prefix, cookie, accept-language, and query strategies.
+**Implemented**: React frontend (client, bindings, router, filesystem router, i18n, linter, query integration). Three backend runtimes (Rust, TypeScript, Go) with symmetric feature sets and framework adapters (Axum, Hono, Bun, Node, Gin, Chi). Five procedure kinds (query, command, subscription, stream, upload). HTTP RPC, batch RPC, SSE streaming, WebSocket channels, stream SSE, multipart upload. SSG with hybrid output modes (`static`/`server`/`hybrid`). Structured head metadata (`HeadConfig`/`HeadFn`). Procedure namespaces (dot-path flattening with reserved `seam.` prefix). Runtime `defineConfig` validation. Subscription event IDs with `Last-Event-ID` resumption. Declarative context extraction, command invalidation, per-procedure transport config. Full CLI (build, generate, dev, pull, clean) with virtual module system and `loadBuild()` API. Locale resolution with URL prefix, cookie, accept-language, and query strategies.
 
 **Next**: additional UI frameworks (Vue, Svelte), desktop adapters (Tauri/Electron).
 

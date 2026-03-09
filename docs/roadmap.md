@@ -7,7 +7,7 @@ Everything listed here is planned and will be implemented. This is currently a s
 - [x] CTR — compile-time rendering (nearly zero-cost SSR: skeleton at build, data injection at request)
 - [ ] SSR — CTR + SSR hybrid (raw HTML slots for Markdown, rich text, server-rendered fragments)
 - [ ] ISR — incremental cache layer (cache assembled CTR + SSR pages, not incremental rendering)
-- ~~SSG~~ — not planned (pure static pages need no cross-dimension abstraction)
+- [x] SSG — hybrid output modes (`static`/`server`/`hybrid`), build-time rendering, SPA navigation via `/_seam/data/{path}`
 
 ## UI Frameworks
 
@@ -76,6 +76,11 @@ Everything listed here is planned and will be implemented. This is currently a s
 - [x] Procedure suppress and cache fields
 - [x] Cookie and query context extraction sources
 - [x] Built-in bundler consolidation (BundlerMode removed)
+- [x] Structured head metadata (`HeadConfig`/`HeadFn` on routes)
+- [x] Procedure namespaces (dot-path flattening, reserved `seam.` prefix)
+- [x] Runtime `defineConfig` validation
+- [x] Subscription event IDs (incrementing `id` + `Last-Event-ID` resumption)
+- [x] `SubscriptionParams`/`StreamParams` (Rust structured handler signatures)
 
 ## Architecture
 

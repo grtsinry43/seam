@@ -153,12 +153,16 @@ The `"type"` field is accepted as an alias for `"kind"` when deserializing (v1 m
 
 ## Procedure Naming
 
-Procedure names must match `[a-zA-Z][a-zA-Z0-9]*`. CamelCase is recommended.
+Procedure names support dot-separated namespaces (e.g., `users.getById`, `admin.settings.update`). Each segment must match `[a-zA-Z][a-zA-Z0-9]*`. CamelCase is recommended for segments.
 
-Valid: `greet`, `getUser`, `listUsers`, `createOrderV2`
+Valid: `greet`, `getUser`, `users.getById`, `admin.settings.update`
 Invalid: `get-user`, `_internal`, `123go`, `get user`
 
-Channel-expanded procedures use dot notation: `chat.send`, `chat.events`. The dot is reserved for channel expansion and must not appear in user-defined procedure names.
+Namespaces are created via `NestedDefinitionMap` (TS) or `namespace()`/`namespace_subs()`/`namespace_streams()` methods (Rust). Nested definitions are flattened to dot-separated names at registration time.
+
+The `seam.` prefix is reserved for built-in procedures (e.g., `seam.i18n.query`). User procedures with this prefix are rejected at registration time.
+
+Channel-expanded procedures also use dot notation: `chat.send`, `chat.events`.
 
 ## JTD Schema Forms
 

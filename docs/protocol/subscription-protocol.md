@@ -32,11 +32,12 @@ error occurs, or the client disconnects.
 A single value from the subscription stream.
 
 ```
+id: 0
 event: data
 data: {"n":1}
 ```
 
-The `data` payload is JSON matching the subscription's output schema.
+All subscription SSE events carry an incrementing `id` field (starting from 0). This is consistent across all backends (TS, Rust, Go). The `data` payload is JSON matching the subscription's output schema.
 
 ### `error`
 
@@ -110,6 +111,16 @@ When the client closes the SSE connection (e.g. by calling `EventSource.close()`
 or navigating away), the server should detect the broken pipe and stop
 producing values. Cleanup logic in subscription handlers should release
 resources promptly.
+
+## Resumption
+
+The browser `EventSource` API automatically sends a `Last-Event-ID` header on reconnect, containing the `id` of the last received event. The server passes this value to the subscription handler:
+
+- **TypeScript**: `handler({ input, ctx, lastEventId })` — `lastEventId` is `string | undefined`
+- **Rust**: `SubscriptionParams { input, ctx, last_event_id }` — `last_event_id` is `Option<String>`
+- **Go**: `context.Value(lastEventIDKey)` — extracted from the request header
+
+Handlers can use `lastEventId` to skip already-sent events and resume the stream from where the client left off.
 
 ## Error Handling
 
