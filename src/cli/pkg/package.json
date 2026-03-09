@@ -10,19 +10,13 @@
     "bin",
     "scripts"
   ],
-  "scripts": {
-    "test": "vitest run"
-  },
+  "scripts": {},
   "dependencies": {
     "@canmi/seam-vite": "0.5.30",
     "@vitejs/plugin-react": "^5.1.4",
     "vite": "^7.0.3"
   },
-  "devDependencies": {
-    "@types/node": "^25.3.3",
-    "typescript": "^5.9.3",
-    "vitest": "^4.0.18"
-  },
+  "devDependencies": {},
   "optionalDependencies": {
     "@canmi/seam-cli-darwin-arm64": "0.5.30",
     "@canmi/seam-cli-darwin-x64": "0.5.30",
