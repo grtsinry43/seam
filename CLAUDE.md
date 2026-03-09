@@ -8,6 +8,7 @@
 - Speak Chinese with the user, keep technical terms in English (e.g. procedure, manifest, codegen)
 - All file content (code, comments, docs, commit messages) must be concise declarative English
 - No emoji
+- User may use voice input — if a message contains nonsensical words, try matching by pronunciation to project terms (e.g. a Chinese homophone of a crate/package/concept name). If the match is convincing, proceed; if it feels like a stretch, ask the user to clarify
 
 ## Decision Making
 
@@ -23,7 +24,9 @@
 - For full verification (fmt + lint + build + all tests): `just verify`
 - Run `git commit` after each plan mode phase completes, do not push
 - Commit messages: conventional commit format (`feat:`, `fix:`, `refactor:`, `docs:`, `test:`, `chore:`, `deps:`, `revert:`, `perf:`); scope is optional and should only be added when it genuinely clarifies context — roughly 1 in 3 commits should have a scope (e.g. `feat(cli):` when the change is CLI-specific), the rest use bare prefix (e.g. `refactor: extract shared helpers`)
+- Commit messages must not mention plan mode phase names (e.g. "Phase 1", "Phase 2") — phases are internal planning details, not part of the project history
 - Commit messages must not mention version bumps (e.g. "bump 0.4.9") — version bumps are handled by `bump-version.sh` and staged into the last logical commit silently
+- `engine.wasm` (`src/server/engine/go/engine.wasm`): auto-compiled when related Rust code changes; Go modules require it in git (`go get` needs all source committed), so always commit it when it appears in unstaged changes
 
 ## Versioning
 
