@@ -2,111 +2,76 @@
 
 **Rendering is a protocol, not a runtime.**
 
-The missing joint between anything that renders and anything that computes. SeamJS decouples your UI framework, backend language, and transport channel into three independent dimensions — any combination works, and adding a new option in one dimension requires zero changes in the others.
+SeamJS decouples your UI framework, backend language, and transport channel into three independent dimensions — any combination works, and changing one never affects the others.
 
-> **Audience**: SeamJS is in early development and targets developers who are comfortable reading source code, building from source, and working with unfinished APIs. It is not yet ready for general end-user consumption.
->
-> **Status**: core pipeline validated with React + Rust/TypeScript/Go backends. HTTP RPC, SSE, SSG (hybrid output modes), i18n, TanStack Query integration, and zero-config `createSeamApp()` entry are ready. See [Roadmap](docs/roadmap.md) for what's next.
+## How It Works
 
-## Why SeamJS
+Traditional SSR and RSC tie your backend to a JavaScript runtime. SeamJS takes a different approach:
 
-SSR and RSC merge rendering into the server runtime. Your backend language must be JavaScript. Your deployment must run Node.js, etc. Your frontend framework must be the one the metaframework chose.
+1. **Build time** — UI components are rendered to HTML skeletons with typed injection points
+2. **Request time** — the server fills those slots with data via string replacement, in any language
+3. **Client** — hydrates the known skeleton and takes over
 
-SeamJS rejects this coupling. The server never imports or executes UI code. Instead:
+The server is a data source with a template engine, not a JavaScript runtime. A Rust backend works the same as a TypeScript one. A Go backend works the same as both.
 
-1. **Build time**: UI components are rendered to HTML skeletons with typed injection points
-2. **Request time**: the server fills those slots with data via string replacement — in any language
-3. **Client**: hydrates the known skeleton structure and takes over
+## What You Get
 
-This is **compile-time rendering (CTR)**. The server is a data source with a template engine, not a JavaScript runtime. A Rust backend works the same as a TypeScript one. A Go backend works the same as both. The UI framework is irrelevant to the server.
+**Frontend** — React: client bindings, TanStack Router, filesystem router, i18n, TanStack Query integration, ESLint plugin
 
-**SSR is still an option.** The [GitHub Dashboard](examples/github-dashboard/) ships the same UI as both CTR and [Next.js SSR](examples/github-dashboard/next-app/) to show where CTR can replace SSR without a JS runtime. When it can't, CTR and SSR are designed to coexist — see [Rendering Modes](#rendering-modes).
+**Backend** — Rust (Axum) / TypeScript (Hono, Bun, Node) / Go (Gin, Chi, net/http) — symmetric feature sets, same protocol
 
-## Three-Axis Decoupling
+**Procedures** — query, command, subscription, stream, upload — with codegen, namespaces, context extraction, invalidation, JTD validation
 
-SeamJS has three independent dimensions. Changing one never affects the others.
+**Transport** — HTTP RPC, batch RPC, SSE, WebSocket channels, stream SSE, multipart upload
 
-### [UI Layer](docs/architecture/ui-layer.md)
+**Rendering** — CTR (compile-time), SSR ([HTML slot injection](docs/protocol/slot-protocol.md)), SSG (static/server/hybrid output modes)
 
-Any framework that can `renderToString` can produce a SeamJS skeleton. The framework runs only in the browser — the server never touches it. React is implemented today; Vue, Svelte, Solid, and HTMX are planned.
+**CLI** — `seam build`, `seam generate`, `seam dev`, `seam pull`, `seam clean` — with virtual modules, `loadBuild()`, structured head metadata, `defineConfig` validation
 
-### [Logic Layer](docs/architecture/logic-layer.md)
+## Getting Started
 
-The server is defined by a protocol (`/_seam/*` endpoints), not a runtime. Any language that can serve HTTP and do string replacement is a valid backend. Rust, TypeScript, and Go are implemented today — with symmetric feature sets across all three.
+Pick a standalone server example and run it:
 
-### [Transport Layer](docs/architecture/transport-layer.md)
+```sh
+# TypeScript (Bun)
+cd examples/standalone/server-bun && bun run src/index.ts
 
-Procedure handlers are pure `(input) -> output` functions. The transport (HTTP, SSE, WebSocket, IPC) is a separate adapter layer. Today: HTTP RPC, batch RPC, SSE, WebSocket, stream SSE, and upload. Planned: Tauri IPC, Electron IPC.
+# Rust (Axum)
+cd examples/standalone/server-rust && cargo run
 
-## Application Scenarios
+# Go (net/http)
+cd examples/standalone/server-go && go run .
+```
 
-### Fullstack Web
+For a fullstack example with React frontend, see the [GitHub Dashboard](examples/github-dashboard/) — same UI running on three interchangeable backends.
 
-Any frontend + any backend. A React app calls typed procedures served by Rust, TypeScript, or Go — over HTTP RPC with auto-generated client code. No Node.js needed on the server. CTR replaces SSR: skeletons are built once, data is injected per request.
+## Examples
 
-### Desktop
-
-Tauri and Electron provide a window and IPC channel. SeamJS procedure handlers are transport-agnostic — swap the HTTP adapter for an IPC adapter and the same codebase runs as a desktop app. (Planned; the handler abstraction is ready, adapters are not yet built.)
-
-### The Missing Piece for Backend Developers
-
-If you're a Rust, Go, C++, or C# developer who wants a modern web UI without learning Next.js, Nuxt, or SvelteKit — SeamJS is the bridge. Implement the seam protocol in your language, and you get a typed frontend with React (or any future framework) without touching a JS metaframework. The protocol is simple: serve a manifest, handle RPC calls, inject data into skeletons.
-
-## Rendering Modes
-
-**CTR — Compile-Time Rendering** (Implemented)
-Nearly zero-cost SSR. Skeletons are extracted at build time; at request time the server fills typed slots via string replacement — no JS runtime, no component tree re-rendering. This covers the vast majority of traditional SSR use cases with near-zero overhead.
-
-**SSR — Server-Side Rendering** (Planned)
-Not traditional SSR. Works alongside CTR for content that must be rendered at request time — Markdown, rich text, dynamic HTML fragments. The server renders using any tool it wants (a Rust markdown parser, Go `html/template`, or even React `renderToString`) and injects the result through a [raw HTML slot](docs/protocol/slot-protocol.md) (`<!--seam:path:html-->`). This is a CTR + SSR hybrid, not standalone SSR. Traditional SSR also works: use a TypeScript backend, import React or any UI library that provides `renderToString` / `renderToReadableStream`, and pipe the HTML into a raw slot — same mechanism, your choice of rendering strategy.
-
-**ISR — Incremental Cache** (Planned)
-Not incremental rendering — an incremental cache layer. Without server-side injection, a CTR page is naturally static and needs no regeneration. When CTR and SSR run together and produce rendering overhead, the assembled page only needs to be computed once — ISR here means caching the filled result.
-
-**SSG — Static Site Generation** (Implemented)
-Pre-renders pages at build time into static HTML. Three output modes via `OutputMode`: `static` (all pages SSG), `server` (all pages CTR), `hybrid` (per-page opt-in via `prerender: true`, default). Prerendered pages are served directly with `__data.json` sidecar files for SPA navigation — the client fetches page data from `/_seam/data/{path}` instead of requesting a full HTML page on route transitions.
-
-## Current Status
-
-**Implemented**: React frontend (client, bindings, router, filesystem router, i18n, linter, query integration). Three backend runtimes (Rust, TypeScript, Go) with symmetric feature sets and framework adapters (Axum, Hono, Bun, Node, Gin, Chi). Five procedure kinds (query, command, subscription, stream, upload). HTTP RPC, batch RPC, SSE streaming, WebSocket channels, stream SSE, multipart upload. SSG with hybrid output modes (`static`/`server`/`hybrid`). Structured head metadata (`HeadConfig`/`HeadFn`). Procedure namespaces (dot-path flattening with reserved `seam.` prefix). Runtime `defineConfig` validation. Subscription event IDs with `Last-Event-ID` resumption. Declarative context extraction, command invalidation, per-procedure transport config. Full CLI (build, generate, dev, pull, clean) with virtual module system and `loadBuild()` API. Locale resolution with URL prefix, cookie, accept-language, and query strategies.
-
-**Next**: additional UI frameworks (Vue, Svelte), desktop adapters (Tauri/Electron).
-
-See [Roadmap](docs/roadmap.md) for the full list.
-
-## Quick Links
-
-**By dimension**
-
-- [UI Layer](docs/architecture/ui-layer.md) — frontend packages and framework support
-- [Logic Layer](docs/architecture/logic-layer.md) — backend packages, CLI, and the seam protocol
-- [Transport Layer](docs/architecture/transport-layer.md) — wire protocols and adapter architecture
-
-**Protocol specs**
-
-- [Slot Protocol](docs/protocol/slot-protocol.md) — server-side HTML injection syntax
-- [Sentinel Protocol](docs/protocol/sentinel-protocol.md) — build-time placeholder format
-- [Procedure Manifest](docs/protocol/procedure-manifest.md) — `/_seam/manifest.json` schema
-- [Subscription Protocol](docs/protocol/subscription-protocol.md) — SSE streaming specification
-- [Skeleton Constraints](docs/protocol/skeleton-constraints.md) — rules for build-safe components
-
-**Demos and examples**
-
-- [GitHub Dashboard](examples/github-dashboard/) — CTR with three backend runtimes (Rust, TypeScript, Go)
-- [i18n Demo](examples/i18n-demo/) — URL-prefix and hidden locale modes
+- [GitHub Dashboard](examples/github-dashboard/) — fullstack CTR with Rust, TypeScript, and Go backends
+- [Markdown Demo](examples/markdown-demo/) — SSR via HTML slot injection with server-side rendering
+- [i18n Demo](examples/i18n-demo/) — URL-prefix and hidden locale resolution
 - [FS Router Demo](examples/fs-router-demo/) — filesystem router with all route types
-- [Markdown Demo](examples/markdown-demo/) — HTML slot injection with server-side markdown rendering
-- [Feature examples](examples/features/) — focused demos for channels, context, streams, queries, and handoff
-- [Standalone examples](examples/standalone/) — minimal SDK usage for each language
+- [Feature Demos](examples/features/) — channels, context, streams, queries, and handoff
+- [Standalone Servers](examples/standalone/) — minimal SDK usage for each language
 
-**Community**
+## Documentation
 
-- [Ecosystem](ECOSYSTEM.md) — third-party frameworks, backends, and adapters built with SeamJS
+**Architecture** — [UI Layer](docs/architecture/ui-layer.md) / [Logic Layer](docs/architecture/logic-layer.md) / [Transport Layer](docs/architecture/transport-layer.md)
+
+**Protocol** — [Slot](docs/protocol/slot-protocol.md) / [Sentinel](docs/protocol/sentinel-protocol.md) / [Manifest](docs/protocol/procedure-manifest.md) / [Subscription](docs/protocol/subscription-protocol.md) / [Channel](docs/protocol/channel-protocol.md) / [Skeleton Constraints](docs/protocol/skeleton-constraints.md)
+
+**Development** — [Build commands, test matrix, prerequisites](docs/development.md)
+
+## Roadmap
+
+Soild, Svelte and Vue frontends. Tauri and Electron desktop adapters. Serverless deployment mode. Island Mode; See the [full roadmap](docs/roadmap.md).
+
+The seam protocol is open — any language that serves HTTP can be a backend. PRs for new UI frameworks, backend languages, and transport adapters are welcome.
+
+## Community
+
+- [Ecosystem](ECOSYSTEM.md) — third-party frameworks, backends, and adapters
 - [Code of Conduct](CODE_OF_CONDUCT.md)
-
-**Development**
-
-- [Development guide](docs/development.md) — prerequisites, build commands, test matrix
 
 ## License
 

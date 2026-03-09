@@ -44,11 +44,13 @@ SeamJS extracts HTML skeletons from UI components at build time via `renderToStr
 
 ## Planned
 
-- Vue bindings
 - Svelte bindings
 - Solid bindings
+- Vue bindings
 - HTMX support
-- Shell Router — page-level micro-frontend navigation with per-page UI framework switching
+- Shell Router — page-level micro-frontend navigation with per-page UI
+- Island Mode
+- framework switching
 
 ## How It Works
 

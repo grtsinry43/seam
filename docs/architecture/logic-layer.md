@@ -17,7 +17,7 @@ The engine source of truth is the Rust crate [`seam-engine`](../../src/server/en
 <details>
 <summary>Deprecated packages</summary>
 
-| Package                                              | Crate / npm                   | Replacement          |
+| Package                                              | Name                          | Replacement          |
 | ---------------------------------------------------- | ----------------------------- | -------------------- |
 | [injector/wasm](../../src/server/injector/wasm/)     | `seam-injector-wasm`          | `seam-engine-wasm`   |
 | [injector/js](../../src/server/injector/js/)         | `@canmi/seam-injector`        | `@canmi/seam-engine` |
@@ -28,7 +28,7 @@ The engine source of truth is the Rust crate [`seam-engine`](../../src/server/en
 
 ## CLI
 
-| Package                                 | Crate / npm        | Description                                                                  |
+| Package                                 | Name               | Description                                                                  |
 | --------------------------------------- | ------------------ | ---------------------------------------------------------------------------- |
 | [cli/skeleton](../../src/cli/skeleton/) | `seam-skeleton`    | HTML skeleton extraction pipeline (slot, extract, document)                  |
 | [cli/codegen](../../src/cli/codegen/)   | `seam-codegen`     | TypeScript codegen, manifest types, RPC hash map                             |
@@ -39,22 +39,20 @@ The engine source of truth is the Rust crate [`seam-engine`](../../src/server/en
 
 ## Router
 
-| Package                                       | npm                           | Description                                       |
+| Package                                       | Name                          | Description                                       |
 | --------------------------------------------- | ----------------------------- | ------------------------------------------------- |
 | [router/tanstack](../../src/router/tanstack/) | `@canmi/seam-tanstack-router` | TanStack Router integration for SeamJS            |
 | [router/seam](../../src/router/seam/)         | `@canmi/seam-router`          | Filesystem router (convention-based `src/pages/`) |
 
 ## Query
 
-| Package                               | npm                       | Description                                 |
+| Package                               | Name                      | Description                                 |
 | ------------------------------------- | ------------------------- | ------------------------------------------- |
 | [query/seam](../../src/query/seam/)   | `@canmi/seam-query`       | UI-agnostic TanStack Query integration core |
 | [query/react](../../src/query/react/) | `@canmi/seam-query-react` | React hooks for typed queries and mutations |
 
 ## Planned
 
-- Python server core
-- C# / .NET server core
 - Any language via protocol implementation — PRs welcome
 
 ## How It Works

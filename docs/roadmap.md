@@ -5,8 +5,7 @@ Everything listed here is planned and will be implemented. This is currently a s
 ## Rendering Modes
 
 - [x] CTR — compile-time rendering (nearly zero-cost SSR: skeleton at build, data injection at request)
-- [ ] SSR — CTR + SSR hybrid (raw HTML slots for Markdown, rich text, server-rendered fragments)
-- [ ] ISR — incremental cache layer (cache assembled CTR + SSR pages, not incremental rendering)
+- [x] SSR — CTR + SSR hybrid (raw HTML slots for Markdown, rich text, server-rendered fragments)
 - [x] SSG — hybrid output modes (`static`/`server`/`hybrid`), build-time rendering, SPA navigation via `/_seam/data/{path}`
 
 ## UI Frameworks
@@ -22,8 +21,6 @@ Everything listed here is planned and will be implemented. This is currently a s
 - [x] Rust (core, macros, Axum adapter, engine)
 - [x] TypeScript (core, Node/Bun/Hono adapters, engine via WASM)
 - [x] Go (core, engine via WASM)
-- [ ] Python
-- [ ] C# / .NET
 - Any language — implement the protocol, get a typed frontend
 
 ## Transport Channels

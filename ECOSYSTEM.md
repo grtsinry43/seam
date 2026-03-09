@@ -17,12 +17,12 @@ Frameworks and libraries that implement CTR skeleton extraction for their compon
 
 Languages and runtimes that implement the [seam protocol](docs/architecture/logic-layer.md#the-seam-protocol).
 
-| Project                                           | Language                 | Description                           |
-| ------------------------------------------------- | ------------------------ | ------------------------------------- |
-| [seam-server](src/server/core/rust/)              | Rust                     | Official Rust server (built-in)       |
-| [@canmi/seam-server](src/server/core/typescript/) | TypeScript               | Official TypeScript server (built-in) |
-| [seam-go](src/server/core/go/)                    | Go                       | Official Go server (built-in)         |
-| _Your project here_                               | Python / C# / Java / ... | Submit a PR                           |
+| Project                                           | Language     | Description                           |
+| ------------------------------------------------- | ------------ | ------------------------------------- |
+| [seam-server](src/server/core/rust/)              | Rust         | Official Rust server (built-in)       |
+| [@canmi/seam-server](src/server/core/typescript/) | TypeScript   | Official TypeScript server (built-in) |
+| [seam-go](src/server/core/go/)                    | Go           | Official Go server (built-in)         |
+| _Your project here_                               | Any language | Submit a PR                           |
 
 ## Transport Adapters
 
