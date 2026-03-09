@@ -171,7 +171,7 @@ mod tests {
 	}
 
 	fn dummy_sub_handler() -> SubscriptionHandlerFn {
-		Arc::new(|_, _| {
+		Arc::new(|_params| {
 			Box::pin(async {
 				let stream: BoxStream<Result<serde_json::Value, crate::errors::SeamError>> =
 					Box::pin(EmptyStream);
@@ -298,7 +298,7 @@ mod tests {
 	}
 
 	fn dummy_stream_handler() -> StreamHandlerFn {
-		Arc::new(|_, _| {
+		Arc::new(|_params| {
 			Box::pin(async {
 				let stream: BoxStream<Result<serde_json::Value, crate::errors::SeamError>> =
 					Box::pin(EmptyStream);

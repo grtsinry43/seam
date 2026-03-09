@@ -12,9 +12,9 @@ fn stream_router() -> axum::Router {
 		error_schema: None,
 		context_keys: vec![],
 		suppress: None,
-		handler: Arc::new(|input, _ctx| {
+		handler: Arc::new(|params| {
 			Box::pin(async move {
-				let n = input.get("n").and_then(serde_json::Value::as_i64).unwrap_or(3) as usize;
+				let n = params.input.get("n").and_then(serde_json::Value::as_i64).unwrap_or(3) as usize;
 				let stream: BoxStream<Result<serde_json::Value, SeamError>> =
 					Box::pin(futures_util::stream::iter((0..n).map(|i| Ok(serde_json::json!({"value": i})))));
 				Ok(stream)
@@ -68,7 +68,7 @@ async fn stream_validation_error() {
 			error_schema: None,
 			context_keys: vec![],
 			suppress: None,
-			handler: Arc::new(|_input, _ctx| {
+			handler: Arc::new(|_params| {
 				Box::pin(async move {
 					let stream: BoxStream<Result<serde_json::Value, SeamError>> =
 						Box::pin(futures_util::stream::empty());

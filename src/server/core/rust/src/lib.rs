@@ -25,7 +25,7 @@ pub use escape::ascii_escape_json;
 pub use page::I18nConfig;
 pub use procedure::{
 	BoxFuture, BoxStream, ProcedureDef, ProcedureType, SeamFileHandle, StreamDef, StreamHandlerFn,
-	SubscriptionDef, UploadDef, UploadHandlerFn,
+	StreamParams, SubscriptionDef, SubscriptionParams, UploadDef, UploadHandlerFn,
 };
 pub use resolve::{
 	ResolveData, ResolveStrategy, default_strategies, from_accept_language, from_cookie,

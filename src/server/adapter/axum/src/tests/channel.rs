@@ -16,7 +16,7 @@ fn channel_router() -> axum::Router {
 			error_schema: None,
 			context_keys: vec![],
 			suppress: None,
-			handler: Arc::new(|_input, _ctx| {
+			handler: Arc::new(|_params| {
 				Box::pin(async move {
 					let stream: BoxStream<Result<serde_json::Value, SeamError>> =
 						Box::pin(futures_util::stream::iter(vec![
@@ -54,7 +54,7 @@ fn uplink_router() -> axum::Router {
 			error_schema: None,
 			context_keys: vec![],
 			suppress: None,
-			handler: Arc::new(|_input, _ctx| {
+			handler: Arc::new(|_params| {
 				Box::pin(async move {
 					// Keep the stream alive long enough for uplink tests
 					let (tx, rx) = tokio::sync::mpsc::channel(8);
@@ -98,7 +98,7 @@ fn heartbeat_router(interval: Duration) -> axum::Router {
 			error_schema: None,
 			context_keys: vec![],
 			suppress: None,
-			handler: Arc::new(|_input, _ctx| {
+			handler: Arc::new(|_params| {
 				Box::pin(async move {
 					// Keep the stream alive so heartbeat has time to fire
 					let (tx, rx) = tokio::sync::mpsc::channel(8);

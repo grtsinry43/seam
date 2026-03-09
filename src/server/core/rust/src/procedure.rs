@@ -18,10 +18,15 @@ pub type HandlerFn = Arc<
 		+ Sync,
 >;
 
+pub struct SubscriptionParams {
+	pub input: serde_json::Value,
+	pub ctx: serde_json::Value,
+	pub last_event_id: Option<String>,
+}
+
 pub type SubscriptionHandlerFn = Arc<
 	dyn Fn(
-			serde_json::Value,
-			serde_json::Value,
+			SubscriptionParams,
 		) -> BoxFuture<Result<BoxStream<Result<serde_json::Value, SeamError>>, SeamError>>
 		+ Send
 		+ Sync,
@@ -55,9 +60,18 @@ pub struct SubscriptionDef {
 	pub handler: SubscriptionHandlerFn,
 }
 
-/// Stream reuses the same handler signature as subscription (returns BoxStream),
-/// but the SSE protocol differs: stream data events carry an incrementing `id`.
-pub type StreamHandlerFn = SubscriptionHandlerFn;
+pub struct StreamParams {
+	pub input: serde_json::Value,
+	pub ctx: serde_json::Value,
+}
+
+pub type StreamHandlerFn = Arc<
+	dyn Fn(
+			StreamParams,
+		) -> BoxFuture<Result<BoxStream<Result<serde_json::Value, SeamError>>, SeamError>>
+		+ Send
+		+ Sync,
+>;
 
 pub type UploadHandlerFn = Arc<
 	dyn Fn(

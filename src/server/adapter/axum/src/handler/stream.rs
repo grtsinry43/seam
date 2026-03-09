@@ -39,7 +39,7 @@ pub(super) async fn handle_stream_inner(
 		}
 
 		let ctx = resolve_ctx_for_proc(state, &stream.context_keys, headers, uri)?;
-		let data_stream = (stream.handler)(input, ctx).await?;
+		let data_stream = (stream.handler)(seam_server::StreamParams { input, ctx }).await?;
 		Ok::<_, SeamError>(data_stream)
 	};
 

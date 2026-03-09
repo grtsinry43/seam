@@ -109,24 +109,33 @@ async fn handle_subscribe_sse(
 		}
 
 		let ctx = resolve_ctx_for_proc(&state, &sub.context_keys, headers, uri)?;
-		let data_stream = (sub.handler)(raw_input, ctx).await?;
+		let last_event_id =
+			headers.get("last-event-id").and_then(|v| v.to_str().ok()).map(String::from);
+		let data_stream =
+			(sub.handler)(seam_server::SubscriptionParams { input: raw_input, ctx, last_event_id })
+				.await?;
 		Ok::<_, SeamError>(data_stream)
 	};
 
 	match setup.await {
 		Ok(data_stream) => {
-			let event_stream = data_stream.map(|item| match item {
-				Ok(value) => {
-					let data = serde_json::to_string(&value).unwrap_or_default();
-					Ok(Event::default().event("data").data(data))
-				}
-				Err(e) => {
-					let mut payload =
-						serde_json::json!({ "code": e.code(), "message": e.message(), "transient": false });
-					if let Some(details) = e.details() {
-						payload["details"] = serde_json::Value::Array(details.to_vec());
+			let mut seq: u64 = 0;
+			let event_stream = data_stream.map(move |item| {
+				let id = seq;
+				seq += 1;
+				match item {
+					Ok(value) => {
+						let data = serde_json::to_string(&value).unwrap_or_default();
+						Ok(Event::default().event("data").id(id.to_string()).data(data))
 					}
-					Ok(Event::default().event("error").data(payload.to_string()))
+					Err(e) => {
+						let mut payload =
+							serde_json::json!({ "code": e.code(), "message": e.message(), "transient": false });
+						if let Some(details) = e.details() {
+							payload["details"] = serde_json::Value::Array(details.to_vec());
+						}
+						Ok(Event::default().event("error").data(payload.to_string()))
+					}
 				}
 			});
 			let stream = super::sse_lifecycle::with_sse_lifecycle(

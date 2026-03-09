@@ -234,7 +234,13 @@ pub(super) async fn handle_channel_ws(
 		return;
 	}
 
-	let event_stream = match (sub.handler)(channel_input.clone(), ctx.clone()).await {
+	let event_stream = match (sub.handler)(seam_server::SubscriptionParams {
+		input: channel_input.clone(),
+		ctx: ctx.clone(),
+		last_event_id: None,
+	})
+	.await
+	{
 		Ok(stream) => stream,
 		Err(e) => {
 			let err_msg = serde_json::json!({
