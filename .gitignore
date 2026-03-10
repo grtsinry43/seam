@@ -30,6 +30,10 @@ src/cli/wrapper/*/bin/
 src/server/*/js/pkg/
 src/server/*/go/*.wasm
 
+# yalc (local package linking)
+.yalc/
+yalc.lock
+
 # Next.js
 .next/
 next-env.d.ts

@@ -361,6 +361,17 @@ clean-test:
 clean-deps:
     find . -type d -name node_modules -not -path '*/node_modules/*' -exec rm -rf {} +
 
+# Publish all TS packages to yalc local store
+yalc-publish:
+    bash scripts/yalc-publish.sh
+
+# Publish + push updates to linked projects
+yalc-push:
+    bash scripts/yalc-publish.sh --push
+
+# Build all TS + push to yalc
+yalc: build-ts yalc-push
+
 # Lines of code statistics
 scol:
     tokei
