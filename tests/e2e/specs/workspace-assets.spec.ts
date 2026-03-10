@@ -20,7 +20,7 @@ test.describe('workspace production assets', () => {
 
 		expect(html).not.toContain('/@vite/client')
 		expect(html).not.toContain('@react-refresh')
-		expect(html).not.toContain('/_seam/dev/ws')
+		expect(html).not.toContain('/_seam/dev/reload')
 	})
 
 	test('CSS asset returns 200 with correct content-type', async ({ request }) => {

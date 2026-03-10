@@ -23,7 +23,7 @@ test.describe('production assets', () => {
 		// Dev-only markers must be absent
 		expect(html).not.toContain('/@vite/client')
 		expect(html).not.toContain('@react-refresh')
-		expect(html).not.toContain('/_seam/dev/ws')
+		expect(html).not.toContain('/_seam/dev/reload')
 
 		// RPC hash map must not be exposed in production HTML
 		expect(html).not.toContain('__SEAM_RPC_MAP__')

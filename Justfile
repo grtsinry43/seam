@@ -134,8 +134,9 @@ build-ts-p3:
     {{pm}} run --filter '@canmi/seam-adapter-node' build
     {{pm}} run --filter '@canmi/seam-tanstack-router' build
 
-# Build all TS packages (3-phase dependency order)
+# Build all TS packages (3-phase dependency order), then push to yalc if available
 build-ts: build-ts-p1 build-ts-p2 build-ts-p3
+    @command -v yalc >/dev/null 2>&1 && bash scripts/yalc-publish.sh --push || true
 
 # Build Rust workspace
 build-rs:
@@ -369,8 +370,8 @@ yalc-publish:
 yalc-push:
     bash scripts/yalc-publish.sh --push
 
-# Build all TS + push to yalc
-yalc: build-ts yalc-push
+# Build all TS + push to yalc (alias for build-ts)
+yalc: build-ts
 
 # Lines of code statistics
 scol:

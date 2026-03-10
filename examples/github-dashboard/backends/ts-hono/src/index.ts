@@ -2,15 +2,12 @@
 
 import { resolve } from 'node:path'
 import { Hono } from 'hono'
-import { createBunWebSocket } from 'hono/bun'
-import { loadBuild, loadBuildDev, watchReloadTrigger } from '@canmi/seam-server'
+import { loadBuild, loadBuildDev } from '@canmi/seam-server'
+import type { BuildOutput } from '@canmi/seam-server'
 import { seam } from '@canmi/seam-adapter-hono'
 import { buildRouter } from './router.js'
 
-import type { ServerWebSocket } from 'bun'
-
 const isDev = process.env.SEAM_DEV === '1'
-const isVite = process.env.SEAM_VITE === '1'
 const BUILD_DIR =
 	process.env.SEAM_OUTPUT_DIR ?? (isDev ? '.seam/output' : resolve(import.meta.dir, '..'))
 
@@ -26,41 +23,7 @@ const router = buildRouter(build)
 
 const app = new Hono()
 
-// Dev-mode WebSocket for live reload (skipped when Vite handles HMR)
-const { upgradeWebSocket, websocket } = createBunWebSocket()
-const devClients = new Set<ServerWebSocket>()
-
-if (isDev && !isVite) {
-	app.get(
-		'/_seam/dev/ws',
-		upgradeWebSocket(() => ({
-			onOpen(_ev, ws) {
-				devClients.add(ws.raw as ServerWebSocket)
-			},
-			onClose(_ev, ws) {
-				devClients.delete(ws.raw as ServerWebSocket)
-			},
-		})),
-	)
-
-	watchReloadTrigger(BUILD_DIR, () => {
-		try {
-			const freshBuild = loadBuildDev(BUILD_DIR)
-			router.reload(freshBuild)
-		} catch {
-			// Manifest might be mid-write; skip this reload cycle
-		}
-		for (const c of devClients) {
-			try {
-				c.send('reload')
-			} catch {
-				devClients.delete(c)
-			}
-		}
-	})
-}
-
-// Seam middleware: handles /_seam/* (RPC, manifest, static, pages)
+// Seam middleware: handles /_seam/* (RPC, manifest, static, pages, dev reload)
 app.use('/*', seam(router, { staticDir: resolve(BUILD_DIR, 'public') }))
 
 // Root-path page serving -- inject timing into data script's _meta
@@ -87,10 +50,6 @@ app.get('*', async (c) => {
 
 const port = process.env.PORT !== undefined ? Number(process.env.PORT) : 3000
 
-const server = Bun.serve({
-	port,
-	fetch: app.fetch,
-	...(isDev ? { websocket } : {}),
-})
+const server = Bun.serve({ port, fetch: app.fetch })
 
 console.log(`GitHub Dashboard (ts-hono) running on http://localhost:${server.port}`)

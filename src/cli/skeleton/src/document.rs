@@ -2,17 +2,11 @@
 
 use crate::ViteDevInfo;
 
-const LIVE_RELOAD_SCRIPT: &str = concat!(
-	r#"<script>(function(){var ws,t;function c(){"#,
-	r#"ws=new WebSocket((location.protocol==="https:"?"wss:":"ws:")"#,
-	r#"+"//"+location.host+"/_seam/dev/ws");"#,
-	r#"ws.onmessage=function(){location.reload()};"#,
-	r#"ws.onclose=function(){t=setTimeout(c,1000)}}c()})()</script>"#
-);
+const LIVE_RELOAD_SCRIPT: &str = r#"<script>new EventSource("/_seam/dev/reload").onmessage=function(){location.reload()}</script>"#;
 
 /// Wrap a skeleton HTML fragment in a compact HTML5 document with asset references.
 /// Produces minimal single-line output for production templates.
-/// When `dev_mode` is true, injects a live reload WebSocket script before `</body>`.
+/// When `dev_mode` is true, injects a live reload SSE script before `</body>`.
 /// When `vite` is Some, replaces static CSS/JS refs with Vite dev server scripts.
 pub fn wrap_document(
 	skeleton: &str,
@@ -132,9 +126,9 @@ mod tests {
 	#[test]
 	fn dev_mode_injects_live_reload_script() {
 		let result = wrap_document("<p>dev</p>", &[], &["app.js".into()], true, None, "__seam");
-		assert!(result.contains("WebSocket"), "dev_mode should inject WebSocket live reload");
-		assert!(result.contains("/_seam/dev/ws"));
-		let script_pos = result.find("WebSocket").unwrap();
+		assert!(result.contains("EventSource"), "dev_mode should inject EventSource live reload");
+		assert!(result.contains("/_seam/dev/reload"));
+		let script_pos = result.find("EventSource").unwrap();
 		let module_pos = result.find("app.js").unwrap();
 		let page_scripts_pos = result.find("<!--seam:page-scripts-->").unwrap();
 		let body_end = result.find("</body>").unwrap();
@@ -146,7 +140,7 @@ mod tests {
 	#[test]
 	fn production_mode_no_reload_script() {
 		let result = wrap_document("<p>prod</p>", &[], &["app.js".into()], false, None, "__seam");
-		assert!(!result.contains("WebSocket"), "production mode must not inject live reload");
+		assert!(!result.contains("EventSource"), "production mode must not inject live reload");
 	}
 
 	#[test]
@@ -176,7 +170,7 @@ mod tests {
 	}
 
 	#[test]
-	fn vite_mode_skips_websocket_reload() {
+	fn vite_mode_skips_sse_reload() {
 		let vite = ViteDevInfo {
 			origin: "http://localhost:5173".to_string(),
 			entry: "src/client/main.tsx".to_string(),
@@ -185,8 +179,8 @@ mod tests {
 
 		// Vite scripts present
 		assert!(result.contains("/@vite/client"));
-		// WebSocket live reload must NOT be injected — Vite HMR handles reload
-		assert!(!result.contains("/_seam/dev/ws"), "vite mode must not inject WebSocket reload");
+		// SSE live reload must NOT be injected — Vite HMR handles reload
+		assert!(!result.contains("/_seam/dev/reload"), "vite mode must not inject SSE reload");
 	}
 
 	#[test]

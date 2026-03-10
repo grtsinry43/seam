@@ -8,6 +8,8 @@ import { buildRawContext } from './context.js'
 import type { SeamFileHandle } from './procedure.js'
 import { SeamError } from './errors.js'
 import { MIME_TYPES } from './mime.js'
+import { watchReloadTrigger } from './dev/index.js'
+import { loadBuildDev } from './page/build-loader.js'
 
 export interface HttpRequest {
 	method: string
@@ -49,6 +51,8 @@ export interface HttpHandlerOptions {
 	fallback?: HttpHandler
 	rpcHashMap?: RpcHashMap
 	sseOptions?: SseOptions
+	/** Build directory for dev reload. Auto-detected from SEAM_OUTPUT_DIR when omitted. */
+	devBuildDir?: string
 }
 
 const PROCEDURE_PREFIX = '/_seam/procedure/'
@@ -56,6 +60,7 @@ const PAGE_PREFIX = '/_seam/page/'
 const DATA_PREFIX = '/_seam/data/'
 const STATIC_PREFIX = '/_seam/static/'
 const MANIFEST_PATH = '/_seam/manifest.json'
+const DEV_RELOAD_PATH = '/_seam/dev/reload'
 
 const JSON_HEADER = { 'Content-Type': 'application/json' }
 const HTML_HEADER = { 'Content-Type': 'text/html; charset=utf-8' }
@@ -347,6 +352,27 @@ export function createHttpHandler<T extends DefinitionMap>(
 	const batchHash = effectiveHashMap?.batch ?? null
 	const hasCtx = router.hasContext()
 
+	// Dev-mode live reload: watch .reload-trigger, reload router, notify SSE clients
+	const devDir =
+		opts?.devBuildDir ??
+		(process.env.SEAM_DEV === '1' && process.env.SEAM_VITE !== '1'
+			? process.env.SEAM_OUTPUT_DIR
+			: undefined)
+	let devReloadResolvers: Set<() => void> | null = null
+	if (devDir) {
+		devReloadResolvers = new Set()
+		watchReloadTrigger(devDir, () => {
+			try {
+				router.reload(loadBuildDev(devDir))
+			} catch {
+				// Manifest might be mid-write; skip this reload cycle
+			}
+			const batch = devReloadResolvers!
+			devReloadResolvers = new Set()
+			for (const r of batch) r()
+		})
+	}
+
 	return async (req) => {
 		const url = new URL(req.url, 'http://localhost')
 		const { pathname } = url
@@ -428,6 +454,40 @@ export function createHttpHandler<T extends DefinitionMap>(
 		if (req.method === 'GET' && pathname.startsWith(STATIC_PREFIX) && opts?.staticDir) {
 			const assetPath = pathname.slice(STATIC_PREFIX.length)
 			return handleStaticAsset(assetPath, opts.staticDir)
+		}
+
+		// Dev-mode live reload SSE endpoint
+		if (req.method === 'GET' && pathname === DEV_RELOAD_PATH && devReloadResolvers) {
+			const controller = new AbortController()
+			// Read devReloadResolvers from closure each iteration — the watcher
+			// callback swaps the Set on each rebuild; a captured reference would go stale.
+			async function* devStream(): AsyncGenerator<string> {
+				yield ': connected\n\n'
+				const aborted = new Promise<never>((_, reject) => {
+					controller.signal.addEventListener('abort', () => reject(new Error('aborted')), {
+						once: true,
+					})
+				})
+				try {
+					while (!controller.signal.aborted) {
+						await Promise.race([
+							new Promise<void>((r) => {
+								devReloadResolvers!.add(r)
+							}),
+							aborted,
+						])
+						yield 'data: reload\n\n'
+					}
+				} catch {
+					/* aborted */
+				}
+			}
+			return {
+				status: 200,
+				headers: { ...SSE_HEADER, 'X-Accel-Buffering': 'no' },
+				stream: withSseLifecycle(devStream(), { sseIdleTimeout: 0 }),
+				onCancel: () => controller.abort(),
+			}
 		}
 
 		if (opts?.fallback) return opts.fallback(req)
