@@ -124,11 +124,13 @@ async function handlePublicFile(
 	}
 }
 
-function getPageRequestHeaders(req: HttpRequest): {
-	url: string
-	cookie?: string
-	acceptLanguage?: string
-} | undefined {
+function getPageRequestHeaders(req: HttpRequest):
+	| {
+			url: string
+			cookie?: string
+			acceptLanguage?: string
+	  }
+	| undefined {
 	if (!req.header) return undefined
 	return {
 		url: req.url,
@@ -427,9 +429,7 @@ export function createHttpHandler<T extends DefinitionMap>(
 		(process.env.SEAM_DEV === '1' && process.env.SEAM_VITE !== '1'
 			? process.env.SEAM_OUTPUT_DIR
 			: undefined)
-	const devState: { resolvers: Set<() => void> } | null = devDir
-		? { resolvers: new Set() }
-		: null
+	const devState: { resolvers: Set<() => void> } | null = devDir ? { resolvers: new Set() } : null
 	if (devState && devDir) {
 		watchReloadTrigger(devDir, () => {
 			try {
