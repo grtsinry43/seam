@@ -21,6 +21,7 @@ fmt:
     {{pm}} run fmt:md
     cargo fmt --all
     gofmt -w .
+    just fmt-swift
 
 # Format TS only (oxfmt)
 fmt-ts:
@@ -38,6 +39,33 @@ fmt-rust:
 fmt-go:
     gofmt -w .
 
+# Format Swift
+fmt-swift:
+    swift format --in-place --recursive src/server/core/seam-swift/Sources src/server/core/seam-swift/Tests
+    swift format --in-place --recursive src/server/engine/swift/Sources src/server/engine/swift/Tests
+    swift format --in-place --recursive src/server/adapter/seam-hummingbird/Sources src/server/adapter/seam-hummingbird/Tests
+
+# Check Swift formatting (lint mode = check without writing)
+fmt-check-swift:
+    swift format lint --recursive src/server/core/seam-swift/Sources src/server/core/seam-swift/Tests
+    swift format lint --recursive src/server/engine/swift/Sources src/server/engine/swift/Tests
+    swift format lint --recursive src/server/adapter/seam-hummingbird/Sources src/server/adapter/seam-hummingbird/Tests
+
+# Lint Swift (swiftlint)
+lint-swift:
+    swiftlint lint src/server/core/seam-swift src/server/engine/swift src/server/adapter/seam-hummingbird
+
+# Swift unit tests
+test-swift:
+    cd src/server/core/seam-swift && swift test
+    cd src/server/engine/swift && swift test
+    cd src/server/adapter/seam-hummingbird && swift test
+
+# Remove Swift build artifacts
+clean-swift:
+    find src/server -name .build -type d -exec rm -rf {} +
+    find src/server -name .swiftpm -type d -exec rm -rf {} +
+
 # Normalize file paths (chore)
 fmt-path:
     chore .
@@ -48,9 +76,10 @@ fmt-check:
     {{pm}} run fmt:md:check
     cargo fmt --all -- --check
     test -z "$(gofmt -l .)"
+    just fmt-check-swift
 
 # Run all linters
-lint: lint-ts lint-clippy lint-go lint-length
+lint: lint-ts lint-clippy lint-go lint-length lint-swift
 
 # Lint TS (oxlint + eslint)
 lint-ts:
@@ -180,7 +209,7 @@ build-fixtures:
 test: test-unit test-integration test-e2e
 
 # Run all unit tests (Rust + TS)
-test-unit: test-rs test-ts
+test-unit: test-rs test-ts test-swift
 
 # Rust unit tests
 test-rs:
@@ -326,7 +355,7 @@ inst:
     cargo install --path src/cli/core
 
 # Remove all build artifacts, caches, and dependencies
-clean: clean-rust clean-ts clean-wasm clean-seam clean-go clean-test clean-deps
+clean: clean-rust clean-ts clean-wasm clean-seam clean-go clean-swift clean-test clean-deps
 
 # Remove Rust build artifacts (target/)
 clean-rust:

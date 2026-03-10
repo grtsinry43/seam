@@ -30,6 +30,10 @@ src/cli/wrapper/*/bin/
 src/server/*/js/pkg/
 src/server/*/go/*.wasm
 
+# Swift
+.build/
+.swiftpm/
+
 # Next.js
 .next/
 next-env.d.ts
