@@ -24,6 +24,22 @@ const featureChannelDir = path.resolve(
 )
 const fsRouterDir = path.resolve(workspaceRoot, 'examples/fs-router-demo/.seam/output')
 
+function ensureNoProxy(name: 'NO_PROXY' | 'no_proxy') {
+	const required = ['localhost', '127.0.0.1', '::1']
+	const current =
+		process.env[name]
+			?.split(',')
+			.map((value) => value.trim())
+			.filter(Boolean) ?? []
+	for (const host of required) {
+		if (!current.includes(host)) current.push(host)
+	}
+	process.env[name] = current.join(',')
+}
+
+ensureNoProxy('NO_PROXY')
+ensureNoProxy('no_proxy')
+
 // Load .env from workspace root (GITHUB_TOKEN raises API rate limit from 60 to 5000/hour)
 try {
 	const envFile = readFileSync(path.join(workspaceRoot, '.env'), 'utf8')
