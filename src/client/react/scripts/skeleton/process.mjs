@@ -153,6 +153,7 @@ async function processRoutesWithCache(flat, ctx) {
 					layout: first.layout,
 					mock: first.mock,
 					pageSchema: first.pageSchema,
+					headMeta: first.headMeta,
 					i18nKeys: collectedKeys || [],
 					prerender: first.prerender,
 					localeVariants: Object.fromEntries(

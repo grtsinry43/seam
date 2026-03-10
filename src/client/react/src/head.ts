@@ -1,6 +1,6 @@
 /* src/client/react/src/head.ts */
 
-import type { HeadConfig } from './types.js'
+import type { HeadConfig, HeadFn, HeadMeta } from './types.js'
 
 const SLOT_PREFIX = '<!--seam:'
 const SLOT_SUFFIX = '-->'
@@ -51,4 +51,70 @@ export function headConfigToSlotHtml(config: HeadConfig): string {
 		html += '>'
 	}
 	return html
+}
+
+/** Identity key for meta dedup: name > property > httpEquiv */
+function metaKey(m: HeadMeta): string | undefined {
+	return m.name ?? m.property ?? m.httpEquiv
+}
+
+/** Merge two static HeadConfig objects. Override wins for title and conflicting meta. */
+function mergeStaticHeadConfigs(base: HeadConfig, override: HeadConfig): HeadConfig {
+	const result: HeadConfig = {}
+
+	// title: override wins
+	result.title = override.title ?? base.title
+
+	// meta: dedup by identity key, override wins on conflict
+	const baseMeta = base.meta ?? []
+	const overrideMeta = override.meta ?? []
+	if (baseMeta.length > 0 || overrideMeta.length > 0) {
+		const seen = new Map<string, HeadMeta>()
+		const anonymous: HeadMeta[] = []
+		for (const m of baseMeta) {
+			const k = metaKey(m)
+			if (k) seen.set(k, m)
+			else anonymous.push(m)
+		}
+		for (const m of overrideMeta) {
+			const k = metaKey(m)
+			if (k) seen.set(k, m)
+			else anonymous.push(m)
+		}
+		result.meta = [...seen.values(), ...anonymous]
+	}
+
+	// link: concatenate (base first, then override)
+	const baseLink = base.link ?? []
+	const overrideLink = override.link ?? []
+	if (baseLink.length > 0 || overrideLink.length > 0) {
+		result.link = [...baseLink, ...overrideLink]
+	}
+
+	return result
+}
+
+/** Resolve a HeadConfig or HeadFn to a static HeadConfig */
+function resolveHead(head: HeadConfig | HeadFn, data: Record<string, unknown>): HeadConfig {
+	return typeof head === 'function' ? head(data) : head
+}
+
+/**
+ * Merge two head configs (static or dynamic). Override wins for title and
+ * conflicting meta; links are concatenated.
+ */
+export function mergeHeadConfigs(
+	base: HeadConfig | HeadFn | undefined,
+	override: HeadConfig | HeadFn | undefined,
+): HeadConfig | HeadFn | undefined {
+	if (!base) return override
+	if (!override) return base
+
+	// If either side is a function, return a function that merges at call time
+	if (typeof base === 'function' || typeof override === 'function') {
+		return ((data: Record<string, unknown>) =>
+			mergeStaticHeadConfigs(resolveHead(base, data), resolveHead(override, data))) as HeadFn
+	}
+
+	return mergeStaticHeadConfigs(base, override)
 }

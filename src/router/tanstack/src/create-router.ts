@@ -15,7 +15,7 @@ import type {
 	HeadConfig,
 	HeadFn,
 } from '@canmi/seam-react'
-import { parseSeamData } from '@canmi/seam-react'
+import { parseSeamData, mergeHeadConfigs } from '@canmi/seam-react'
 import { SeamOutlet, createLayoutWrapper, createPageWrapper } from './seam-outlet.js'
 import { convertPath } from './convert-routes.js'
 import { createLoaderFromDefs, createPrerenderLoader } from './create-loader.js'
@@ -48,20 +48,42 @@ export function collectLeafPaths(defs: RouteDef[], parentPath = ''): string[] {
 	return paths
 }
 
-/** Collect head definitions from a route tree, keyed by full path */
+/** Collect head definitions from a route tree, keyed by full path.
+ *  Layout head is inherited by child routes and merged with child-level head. */
 export function collectHeadMap(
 	defs: RouteDef[],
 	parentPath = '',
+	inheritedHead?: HeadConfig | HeadFn,
 ): Map<string, HeadConfig | HeadFn> {
 	const map = new Map<string, HeadConfig | HeadFn>()
 	for (const d of defs) {
 		const isGrouping = d.children && !d.layout && !d.component
 		const full = d.path === '/' ? parentPath || '/' : `${parentPath}${d.path}`
-		if (d.head) map.set(full, d.head)
-		if (d.children) {
-			for (const [k, v] of collectHeadMap(d.children, isGrouping ? full : parentPath)) {
+
+		if (d.layout && d.children) {
+			// Layout node: merge inherited + layout head, propagate to children
+			const mergedHead = mergeHeadConfigs(inheritedHead, d.head)
+			// If layout also has a component (split page), store merged head at this path
+			if (d.component) {
+				const finalHead = mergeHeadConfigs(mergedHead, undefined)
+				if (finalHead) map.set(full, finalHead)
+			}
+			for (const [k, v] of collectHeadMap(d.children, parentPath, mergedHead)) {
 				map.set(k, v)
 			}
+		} else if (d.children) {
+			// Grouping node: pass through inherited head
+			for (const [k, v] of collectHeadMap(
+				d.children,
+				isGrouping ? full : parentPath,
+				inheritedHead,
+			)) {
+				map.set(k, v)
+			}
+		} else {
+			// Leaf: merge inherited head with leaf head
+			const finalHead = mergeHeadConfigs(inheritedHead, d.head)
+			if (finalHead) map.set(full, finalHead)
 		}
 	}
 	return map

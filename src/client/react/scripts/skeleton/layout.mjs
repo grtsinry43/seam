@@ -1,7 +1,7 @@
 /* src/client/react/scripts/skeleton/layout.mjs */
 
 import { createElement } from 'react'
-import { buildSentinelData } from '@canmi/seam-react'
+import { buildSentinelData, mergeHeadConfigs } from '@canmi/seam-react'
 import {
 	generateMockFromSchema,
 	flattenLoaderMock,
@@ -104,30 +104,34 @@ function joinPaths(parent, child) {
 /** Flatten routes, annotating each leaf with its parent layout id.
  *  Accumulates parent path segments so nested children get full paths
  *  (e.g. /blog + /:slug -> /blog/:slug). When a node has both layout
- *  and component, the component is emitted as a leaf route. */
-function flattenRoutes(routes, currentLayout, parentPath) {
+ *  and component, the component is emitted as a leaf route.
+ *  Layout head is propagated to leaf routes via inheritedHead. */
+function flattenRoutes(routes, currentLayout, parentPath, inheritedHead) {
 	const leaves = []
 	for (const route of routes) {
 		const fullPath = parentPath !== null ? joinPaths(parentPath, route.path) : route.path
 
 		if (route.layout && route.children) {
 			const layoutId = route._layoutId || toLayoutId(route.path)
+			const mergedHead = mergeHeadConfigs(inheritedHead, route.head)
 			// Layout boundary with both component and layout: emit the page as a leaf
 			if (route.component) {
 				const leaf = { ...route, path: fullPath }
 				delete leaf.children
 				delete leaf.layout
 				leaf._layoutId = layoutId
+				leaf.head = mergeHeadConfigs(mergedHead, leaf.head)
 				leaves.push(leaf)
 			}
-			leaves.push(...flattenRoutes(route.children, layoutId, fullPath))
+			leaves.push(...flattenRoutes(route.children, layoutId, fullPath, mergedHead))
 		} else if (route.children) {
 			// Container without layout: flatten children with accumulated path
-			leaves.push(...flattenRoutes(route.children, currentLayout, fullPath))
+			leaves.push(...flattenRoutes(route.children, currentLayout, fullPath, inheritedHead))
 		} else {
 			// Leaf route: assign full accumulated path
 			route.path = fullPath
 			if (currentLayout) route._layoutId = currentLayout
+			if (inheritedHead) route.head = mergeHeadConfigs(inheritedHead, route.head)
 			leaves.push(route)
 		}
 	}
