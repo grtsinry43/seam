@@ -226,7 +226,7 @@ function renderRouteNode(
 
 	// When a node has page + layout + children, separate the page into a
 	// child route so the skeleton system sees a clean layout boundary.
-	const splitPage = !!node.pageFile && !!node.layoutFile && node.children.length > 0
+	const splitPage = !!node.pageFile && !!node.layoutFile
 
 	if (node.pageFile && !splitPage) {
 		fields.push(`${indent}  component: ${toImportName('Page', identity)}`)

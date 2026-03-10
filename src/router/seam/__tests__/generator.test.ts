@@ -146,6 +146,73 @@ describe('generateRoutesFile: boundary components', () => {
 	})
 })
 
+describe('generateRoutesFile: page/layout splitting', () => {
+	it('splits page into child when layout exists (no other children)', () => {
+		mkFile('pages/page.tsx', 'export default function Home() {}')
+		mkFile('pages/layout.tsx', 'export default function RootLayout() {}')
+
+		const tree = scanPages({ pagesDir: path.join(tmpDir, 'pages') })
+		const output = generateRoutesFile(tree, {
+			outputPath: path.join(tmpDir, 'output', 'routes.ts'),
+		})
+
+		expect(output).toContain('layout: Layout_index')
+		expect(output).toContain('children: [')
+		expect(output).toContain('component: Page_index')
+		// component must not appear on the same line or adjacent to layout (it's nested in children)
+		const lines = output.split('\n').map((l) => l.trim())
+		const layoutLine = lines.findIndex((l) => l.startsWith('layout: Layout_index'))
+		const componentLine = lines.findIndex((l) => l.startsWith('component: Page_index'))
+		expect(componentLine).toBeGreaterThan(layoutLine + 1)
+	})
+
+	it('splits non-root page into child when layout exists', () => {
+		mkFile('pages/about/page.tsx', 'export default function About() {}')
+		mkFile('pages/about/layout.tsx', 'export default function AboutLayout() {}')
+
+		const tree = scanPages({ pagesDir: path.join(tmpDir, 'pages') })
+		const output = generateRoutesFile(tree, {
+			outputPath: path.join(tmpDir, 'output', 'routes.ts'),
+		})
+
+		expect(output).toContain('layout: Layout_about')
+		expect(output).toContain('children: [')
+		expect(output).toContain('component: Page_about')
+	})
+
+	it('moves data exports to child page entry when split', () => {
+		mkFile('pages/page.tsx', 'export default function Home() {}')
+		mkFile('pages/layout.tsx', 'export default function RootLayout() {}')
+		mkFile('pages/page.ts', 'export const loaders = {}')
+
+		const tree = scanPages({ pagesDir: path.join(tmpDir, 'pages') })
+		const output = generateRoutesFile(tree, {
+			outputPath: path.join(tmpDir, 'output', 'routes.ts'),
+		})
+
+		// Data export should be on the child page entry, not the layout entry
+		expect(output).toContain('loaders as Page_index_loaders')
+		expect(output).toContain('children: [')
+		expect(output).toContain('loaders: Page_index_loaders')
+	})
+
+	it('still splits correctly when page + layout + children all exist', () => {
+		mkFile('pages/page.tsx', 'export default function Home() {}')
+		mkFile('pages/layout.tsx', 'export default function RootLayout() {}')
+		mkFile('pages/about/page.tsx', 'export default function About() {}')
+
+		const tree = scanPages({ pagesDir: path.join(tmpDir, 'pages') })
+		const output = generateRoutesFile(tree, {
+			outputPath: path.join(tmpDir, 'output', 'routes.ts'),
+		})
+
+		expect(output).toContain('layout: Layout_index')
+		expect(output).toContain('children: [')
+		expect(output).toContain('component: Page_index')
+		expect(output).toContain('component: Page_about')
+	})
+})
+
 describe('generateRoutesFile: sorting', () => {
 	it('sorts children: static before param before catch-all', () => {
 		mkFile('pages/about/page.tsx', 'export default function About() {}')

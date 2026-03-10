@@ -68,8 +68,9 @@ describe('correct path: basic routes', () => {
 		mkFile('layout.tsx')
 
 		const output = runPipeline()
-		expect(output).toContain('component: Page_index')
 		expect(output).toContain('layout: Layout_index')
+		expect(output).toContain('children: [')
+		expect(output).toContain('component: Page_index')
 	})
 
 	it('nested static routes', () => {
@@ -82,6 +83,28 @@ describe('correct path: basic routes', () => {
 		expect(output).toContain('path: "/blog"')
 		expect(output).toContain('component: Page_about')
 		expect(output).toContain('component: Page_blog')
+	})
+
+	it('root page with layout and data file (no other pages)', () => {
+		mkFile('page.tsx')
+		mkFile('layout.tsx')
+		mkFile('page.ts', 'export const loaders = {}')
+
+		const output = runPipeline()
+		expect(output).toContain('layout: Layout_index')
+		expect(output).toContain('children: [')
+		expect(output).toContain('component: Page_index')
+		expect(output).toContain('loaders: Page_index_loaders')
+	})
+
+	it('nested page with layout only (no child routes)', () => {
+		mkFile('dashboard/page.tsx')
+		mkFile('dashboard/layout.tsx')
+
+		const output = runPipeline()
+		expect(output).toContain('layout: Layout_dashboard')
+		expect(output).toContain('children: [')
+		expect(output).toContain('component: Page_dashboard')
 	})
 
 	it('deeply nested routes', () => {
