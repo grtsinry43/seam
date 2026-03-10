@@ -11,7 +11,7 @@ export interface InternalProcedure {
 	inputSchema: Schema
 	outputSchema: Schema
 	contextKeys: string[]
-	handler: (params: { input: unknown; ctx: Record<string, unknown> }) => unknown
+	handler: (params: { input: unknown; ctx: Record<string, unknown>; state: unknown }) => unknown
 }
 
 export interface InternalSubscription {
@@ -21,6 +21,7 @@ export interface InternalSubscription {
 	handler: (params: {
 		input: unknown
 		ctx: Record<string, unknown>
+		state: unknown
 		lastEventId?: string
 	}) => AsyncIterable<unknown>
 }
@@ -29,7 +30,11 @@ export interface InternalStream {
 	inputSchema: Schema
 	chunkOutputSchema: Schema
 	contextKeys: string[]
-	handler: (params: { input: unknown; ctx: Record<string, unknown> }) => AsyncGenerator<unknown>
+	handler: (params: {
+		input: unknown
+		ctx: Record<string, unknown>
+		state: unknown
+	}) => AsyncGenerator<unknown>
 }
 
 export interface SeamFileHandle {
@@ -44,5 +49,6 @@ export interface InternalUpload {
 		input: unknown
 		file: SeamFileHandle
 		ctx: Record<string, unknown>
+		state: unknown
 	}) => unknown
 }

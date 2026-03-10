@@ -277,6 +277,7 @@ type Router struct {
 	publicDir      string
 	strategies     []ResolveStrategy
 	contextConfigs map[string]ContextConfig
+	appState       any
 	validationMode ValidationMode
 }
 
@@ -290,6 +291,12 @@ func (r *Router) Context(key string, config ContextConfig) *Router {
 		r.contextConfigs = make(map[string]ContextConfig)
 	}
 	r.contextConfigs[key] = config
+	return r
+}
+
+// State registers an opaque application state object for handler access.
+func (r *Router) State(state any) *Router {
+	r.appState = state
 	return r
 }
 
@@ -421,5 +428,20 @@ func (r *Router) Handler(opts ...HandlerOptions) http.Handler {
 			o.PongTimeout = defaultHandlerOptions.PongTimeout
 		}
 	}
-	return buildHandler(r.procedures, r.subscriptions, r.streams, r.uploads, r.channels, r.pages, r.rpcHashMap, r.i18nConfig, r.publicDir, r.strategies, r.contextConfigs, o, r.validationMode)
+	return buildHandler(
+		r.procedures,
+		r.subscriptions,
+		r.streams,
+		r.uploads,
+		r.channels,
+		r.pages,
+		r.rpcHashMap,
+		r.i18nConfig,
+		r.publicDir,
+		r.strategies,
+		r.contextConfigs,
+		r.appState,
+		o,
+		r.validationMode,
+	)
 }

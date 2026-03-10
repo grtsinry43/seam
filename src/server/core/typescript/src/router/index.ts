@@ -41,7 +41,7 @@ export interface TransportConfig {
 export type CacheConfig = false | { ttl: number }
 
 /** @deprecated Use QueryDef instead */
-export interface ProcedureDef<TIn = unknown, TOut = unknown> {
+export interface ProcedureDef<TIn = unknown, TOut = unknown, TState = undefined> {
 	kind?: 'query'
 	/** @deprecated Use `kind` instead */
 	type?: 'query'
@@ -52,12 +52,20 @@ export interface ProcedureDef<TIn = unknown, TOut = unknown> {
 	transport?: TransportConfig
 	suppress?: string[]
 	cache?: CacheConfig
-	handler: (params: { input: TIn; ctx: Record<string, unknown> }) => TOut | Promise<TOut>
+	handler: (params: {
+		input: TIn
+		ctx: Record<string, unknown>
+		state: TState
+	}) => TOut | Promise<TOut>
 }
 
-export type QueryDef<TIn = unknown, TOut = unknown> = ProcedureDef<TIn, TOut>
+export type QueryDef<TIn = unknown, TOut = unknown, TState = undefined> = ProcedureDef<
+	TIn,
+	TOut,
+	TState
+>
 
-export interface CommandDef<TIn = unknown, TOut = unknown> {
+export interface CommandDef<TIn = unknown, TOut = unknown, TState = undefined> {
 	kind?: 'command'
 	/** @deprecated Use `kind` instead */
 	type?: 'command'
@@ -68,10 +76,14 @@ export interface CommandDef<TIn = unknown, TOut = unknown> {
 	invalidates?: InvalidateTarget[]
 	transport?: TransportConfig
 	suppress?: string[]
-	handler: (params: { input: TIn; ctx: Record<string, unknown> }) => TOut | Promise<TOut>
+	handler: (params: {
+		input: TIn
+		ctx: Record<string, unknown>
+		state: TState
+	}) => TOut | Promise<TOut>
 }
 
-export interface SubscriptionDef<TIn = unknown, TOut = unknown> {
+export interface SubscriptionDef<TIn = unknown, TOut = unknown, TState = undefined> {
 	kind?: 'subscription'
 	/** @deprecated Use `kind` instead */
 	type?: 'subscription'
@@ -84,11 +96,12 @@ export interface SubscriptionDef<TIn = unknown, TOut = unknown> {
 	handler: (params: {
 		input: TIn
 		ctx: Record<string, unknown>
+		state: TState
 		lastEventId?: string
 	}) => AsyncIterable<TOut>
 }
 
-export interface StreamDef<TIn = unknown, TChunk = unknown> {
+export interface StreamDef<TIn = unknown, TChunk = unknown, TState = undefined> {
 	kind: 'stream'
 	input: SchemaNode<TIn>
 	output: SchemaNode<TChunk>
@@ -96,10 +109,14 @@ export interface StreamDef<TIn = unknown, TChunk = unknown> {
 	context?: string[]
 	transport?: TransportConfig
 	suppress?: string[]
-	handler: (params: { input: TIn; ctx: Record<string, unknown> }) => AsyncGenerator<TChunk>
+	handler: (params: {
+		input: TIn
+		ctx: Record<string, unknown>
+		state: TState
+	}) => AsyncGenerator<TChunk>
 }
 
-export interface UploadDef<TIn = unknown, TOut = unknown> {
+export interface UploadDef<TIn = unknown, TOut = unknown, TState = undefined> {
 	kind: 'upload'
 	input: SchemaNode<TIn>
 	output: SchemaNode<TOut>
@@ -111,25 +128,26 @@ export interface UploadDef<TIn = unknown, TOut = unknown> {
 		input: TIn
 		file: SeamFileHandle
 		ctx: Record<string, unknown>
+		state: TState
 	}) => TOut | Promise<TOut>
 }
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 export type DefinitionMap = Record<
 	string,
-	| QueryDef<any, any>
-	| CommandDef<any, any>
-	| SubscriptionDef<any, any>
-	| StreamDef<any, any>
-	| UploadDef<any, any>
+	| QueryDef<any, any, any>
+	| CommandDef<any, any, any>
+	| SubscriptionDef<any, any, any>
+	| StreamDef<any, any, any>
+	| UploadDef<any, any, any>
 >
 
 type NestedDefinitionValue =
-	| QueryDef<any, any>
-	| CommandDef<any, any>
-	| SubscriptionDef<any, any>
-	| StreamDef<any, any>
-	| UploadDef<any, any>
+	| QueryDef<any, any, any>
+	| CommandDef<any, any, any>
+	| SubscriptionDef<any, any, any>
+	| StreamDef<any, any, any>
+	| UploadDef<any, any, any>
 	| { [key: string]: NestedDefinitionValue }
 
 export type NestedDefinitionMap = Record<string, NestedDefinitionValue>
@@ -152,7 +170,7 @@ function flattenDefinitions(nested: NestedDefinitionMap, prefix = ''): Definitio
 	return flat
 }
 
-export interface RouterOptions {
+export interface RouterOptions<TState = undefined> {
 	pages?: Record<string, PageDef>
 	rpcHashMap?: RpcHashMap
 	i18n?: I18nConfig | null
@@ -161,6 +179,7 @@ export interface RouterOptions {
 	resolve?: ResolveStrategy[]
 	channels?: ChannelResult[]
 	context?: ContextConfig
+	state?: TState
 	transportDefaults?: Partial<Record<ProcedureKind, TransportConfig>>
 }
 
@@ -205,9 +224,9 @@ export interface Router<T extends DefinitionMap> {
 	readonly procedures: T
 }
 
-export function createRouter<T extends DefinitionMap>(
+export function createRouter<TState = undefined, T extends DefinitionMap = DefinitionMap>(
 	procedures: T | NestedDefinitionMap,
-	opts?: RouterOptions,
+	opts?: RouterOptions<TState>,
 ): Router<T> {
 	const flat = flattenDefinitions(procedures as NestedDefinitionMap) as T
 	const state = initRouterState(flat, opts)

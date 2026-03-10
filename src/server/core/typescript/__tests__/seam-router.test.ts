@@ -15,6 +15,9 @@ function setup() {
 				schema: authSchema,
 			},
 		},
+		state: {
+			prefix: 'state',
+		},
 	})
 }
 
@@ -92,6 +95,21 @@ describe('router()', () => {
 		expect(result.body).toEqual({ ok: true, data: { name: 'abc' } })
 	})
 
+	it('passes app state to handlers', async () => {
+		const { router, define } = setup()
+
+		const getItem = define.query({
+			input: t.object({ id: t.string() }),
+			output: t.object({ name: t.string() }),
+			handler: ({ input, state }) => ({ name: `${state.prefix}:${input.id}` }),
+		})
+
+		const r = router({ getItem })
+		const result = await r.handle('getItem', { id: 'abc' })
+		expect(result.status).toBe(200)
+		expect(result.body).toEqual({ ok: true, data: { name: 'state:abc' } })
+	})
+
 	it('carries context config — handler receives resolved ctx', async () => {
 		const { router, define } = setup()
 
@@ -152,6 +170,18 @@ describe('type-level checks', () => {
 			handler: ({ ctx }) => {
 				const uid: string = ctx.auth.userId
 				return { uid }
+			},
+		})
+	})
+
+	it('state.prefix has inferred type string', () => {
+		const { define } = setup()
+		define.query({
+			input: t.object({}),
+			output: t.object({ value: t.string() }),
+			handler: ({ state }) => {
+				const value: string = state.prefix
+				return { value }
 			},
 		})
 	})

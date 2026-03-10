@@ -18,7 +18,7 @@ func TestManifestSuppressPropagated(t *testing.T) {
 			Suppress: []string{"unused"},
 		}},
 		nil, nil, nil, nil, nil, nil, nil, "", nil, nil,
-		HandlerOptions{RPCTimeout: 30 * time.Second}, ValidationModeNever,
+		nil, HandlerOptions{RPCTimeout: 30 * time.Second}, ValidationModeNever,
 	)
 
 	req := httptest.NewRequest("GET", "/_seam/manifest.json", http.NoBody)
@@ -39,7 +39,7 @@ func TestManifestSuppressOmitted(t *testing.T) {
 	handler := buildHandler(
 		[]ProcedureDef{{Name: "clean", Handler: echoHandler()}},
 		nil, nil, nil, nil, nil, nil, nil, "", nil, nil,
-		HandlerOptions{RPCTimeout: 30 * time.Second}, ValidationModeNever,
+		nil, HandlerOptions{RPCTimeout: 30 * time.Second}, ValidationModeNever,
 	)
 
 	req := httptest.NewRequest("GET", "/_seam/manifest.json", http.NoBody)
@@ -63,7 +63,7 @@ func TestManifestCacheTTL(t *testing.T) {
 			Cache:   map[string]any{"ttl": 30},
 		}},
 		nil, nil, nil, nil, nil, nil, nil, "", nil, nil,
-		HandlerOptions{RPCTimeout: 30 * time.Second}, ValidationModeNever,
+		nil, HandlerOptions{RPCTimeout: 30 * time.Second}, ValidationModeNever,
 	)
 
 	req := httptest.NewRequest("GET", "/_seam/manifest.json", http.NoBody)
@@ -88,7 +88,7 @@ func TestManifestCacheFalse(t *testing.T) {
 			Cache:   false,
 		}},
 		nil, nil, nil, nil, nil, nil, nil, "", nil, nil,
-		HandlerOptions{RPCTimeout: 30 * time.Second}, ValidationModeNever,
+		nil, HandlerOptions{RPCTimeout: 30 * time.Second}, ValidationModeNever,
 	)
 
 	req := httptest.NewRequest("GET", "/_seam/manifest.json", http.NoBody)
@@ -108,7 +108,7 @@ func TestManifestCacheOmitted(t *testing.T) {
 	handler := buildHandler(
 		[]ProcedureDef{{Name: "default", Handler: echoHandler()}},
 		nil, nil, nil, nil, nil, nil, nil, "", nil, nil,
-		HandlerOptions{RPCTimeout: 30 * time.Second}, ValidationModeNever,
+		nil, HandlerOptions{RPCTimeout: 30 * time.Second}, ValidationModeNever,
 	)
 
 	req := httptest.NewRequest("GET", "/_seam/manifest.json", http.NoBody)

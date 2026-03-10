@@ -5,12 +5,26 @@ use std::pin::Pin;
 use std::sync::Arc;
 
 use futures_core::Stream;
+use futures_util::StreamExt;
+use serde::Serialize;
 
 use crate::errors::SeamError;
 
 pub type BoxFuture<T> = Pin<Box<dyn Future<Output = T> + Send>>;
 
 pub type BoxStream<T> = Pin<Box<dyn Stream<Item = T> + Send>>;
+
+pub fn map_stream_output<T>(
+	stream: BoxStream<Result<T, SeamError>>,
+) -> BoxStream<Result<serde_json::Value, SeamError>>
+where
+	T: Serialize + Send + 'static,
+{
+	Box::pin(stream.map(|item| {
+		item
+			.and_then(|value| serde_json::to_value(value).map_err(|e| SeamError::internal(e.to_string())))
+	}))
+}
 
 pub type HandlerFn = Arc<
 	dyn Fn(serde_json::Value, serde_json::Value) -> BoxFuture<Result<serde_json::Value, SeamError>>

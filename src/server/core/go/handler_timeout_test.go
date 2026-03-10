@@ -16,7 +16,7 @@ func TestRPCTimeout(t *testing.T) {
 	handler := buildHandler(
 		[]ProcedureDef{{Name: "slow", Handler: slowHandler(100 * time.Millisecond)}},
 		nil, nil, nil, nil, nil, nil, nil, "", nil, nil,
-		HandlerOptions{RPCTimeout: 10 * time.Millisecond}, ValidationModeNever,
+		nil, HandlerOptions{RPCTimeout: 10 * time.Millisecond}, ValidationModeNever,
 	)
 
 	req := httptest.NewRequest("POST", "/_seam/procedure/slow", strings.NewReader("{}"))
@@ -38,7 +38,7 @@ func TestRPCZeroTimeout(t *testing.T) {
 	handler := buildHandler(
 		[]ProcedureDef{{Name: "slow", Handler: slowHandler(50 * time.Millisecond)}},
 		nil, nil, nil, nil, nil, nil, nil, "", nil, nil,
-		HandlerOptions{RPCTimeout: 0}, ValidationModeNever,
+		nil, HandlerOptions{RPCTimeout: 0}, ValidationModeNever,
 	)
 
 	req := httptest.NewRequest("POST", "/_seam/procedure/slow", strings.NewReader("{}"))
@@ -64,7 +64,7 @@ func TestPageTimeout(t *testing.T) {
 			}},
 		}},
 		nil, nil, "", nil, nil,
-		HandlerOptions{PageTimeout: 10 * time.Millisecond}, ValidationModeNever,
+		nil, HandlerOptions{PageTimeout: 10 * time.Millisecond}, ValidationModeNever,
 	)
 
 	req := httptest.NewRequest("GET", "/_seam/page/test", http.NoBody)
@@ -93,7 +93,7 @@ func TestSSEIdleTimeout(t *testing.T) {
 		nil,
 		[]SubscriptionDef{{Name: "idle-test", Handler: subHandler}},
 		nil, nil, nil, nil, nil, nil, "", nil, nil,
-		HandlerOptions{SSEIdleTimeout: 50 * time.Millisecond, HeartbeatInterval: 200 * time.Millisecond}, ValidationModeNever,
+		nil, HandlerOptions{SSEIdleTimeout: 50 * time.Millisecond, HeartbeatInterval: 200 * time.Millisecond}, ValidationModeNever,
 	)
 
 	req := httptest.NewRequest("GET", "/_seam/procedure/idle-test", http.NoBody)
@@ -121,7 +121,7 @@ func TestSSEZeroIdleTimeout(t *testing.T) {
 		nil,
 		[]SubscriptionDef{{Name: "no-idle", Handler: subHandler}},
 		nil, nil, nil, nil, nil, nil, "", nil, nil,
-		HandlerOptions{SSEIdleTimeout: 0, HeartbeatInterval: 1 * time.Second}, ValidationModeNever,
+		nil, HandlerOptions{SSEIdleTimeout: 0, HeartbeatInterval: 1 * time.Second}, ValidationModeNever,
 	)
 
 	req := httptest.NewRequest("GET", "/_seam/procedure/no-idle", http.NoBody)

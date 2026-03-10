@@ -65,6 +65,7 @@ export function initRouterState(procedures: DefinitionMap, opts?: RouterOptions)
 		hasUrlPrefix,
 		channelsMeta,
 		hasCtx,
+		appState: opts?.state,
 		rpcHashMap: opts?.rpcHashMap,
 	}
 }
@@ -89,6 +90,7 @@ function buildRpcMethods(
 				state.shouldValidateInput,
 				state.shouldValidateOutput,
 				ctx,
+				state.appState,
 			)
 		},
 		handleBatch(calls, rawCtx) {
@@ -101,6 +103,7 @@ function buildRpcMethods(
 				state.shouldValidateInput,
 				state.shouldValidateOutput,
 				ctxResolver,
+				state.appState,
 			)
 		},
 		async handleUpload(name, body, file, rawCtx) {
@@ -114,6 +117,7 @@ function buildRpcMethods(
 				state.shouldValidateInput,
 				state.shouldValidateOutput,
 				ctx,
+				state.appState,
 			)
 		},
 	}
@@ -143,6 +147,7 @@ export function buildRouterMethods(
 				state.shouldValidateInput,
 				state.shouldValidateOutput,
 				ctx,
+				state.appState,
 				lastEventId,
 			)
 		},
@@ -155,6 +160,7 @@ export function buildRouterMethods(
 				state.shouldValidateInput,
 				state.shouldValidateOutput,
 				ctx,
+				state.appState,
 			)
 		},
 		getKind(name) {
@@ -171,6 +177,7 @@ export function buildRouterMethods(
 				headers,
 				rawCtx,
 				state.ctxConfig,
+				state.appState,
 				state.shouldValidateInput,
 			)
 		},

@@ -30,6 +30,9 @@ describe('router with context', () => {
 					schema: t.string(),
 				},
 			},
+			state: {
+				prefix: 'router',
+			},
 		},
 	)
 
@@ -49,6 +52,30 @@ describe('router with context', () => {
 		expect(result.body).toEqual({
 			ok: true,
 			data: { value: 'foo:Bearer tok' },
+		})
+	})
+
+	it('passes state to handlers', async () => {
+		const statefulRouter = createRouter(
+			{
+				getState: {
+					input: t.object({ suffix: t.string() }),
+					output: t.object({ value: t.string() }),
+					handler: ({ input, state }) => ({ value: `${state.prefix}:${input.suffix}` }),
+				},
+			},
+			{
+				state: {
+					prefix: 'router',
+				},
+			},
+		)
+
+		const result = await statefulRouter.handle('getState', { suffix: 'ok' })
+		expect(result.status).toBe(200)
+		expect(result.body).toEqual({
+			ok: true,
+			data: { value: 'router:ok' },
 		})
 	})
 
@@ -145,7 +172,7 @@ describe('page loader with context', () => {
 			getPublicData: {
 				input: t.object({}),
 				output: t.object({ count: t.int32() }),
-				handler: () => ({ count: 42 }),
+				handler: ({ state }) => ({ count: state.count }),
 			},
 		},
 		{
@@ -162,6 +189,9 @@ describe('page loader with context', () => {
 					extract: 'header:authorization',
 					schema: t.nullable(t.string()),
 				},
+			},
+			state: {
+				count: 42,
 			},
 		},
 	)
@@ -207,12 +237,15 @@ describe('batch with context', () => {
 			getB: {
 				input: t.object({}),
 				output: t.object({ n: t.int32() }),
-				handler: () => ({ n: 42 }),
+				handler: ({ state }) => ({ n: state.n }),
 			},
 		},
 		{
 			context: {
 				auth: { extract: 'header:authorization', schema: t.string() },
+			},
+			state: {
+				n: 42,
 			},
 		},
 	)
@@ -227,6 +260,61 @@ describe('batch with context', () => {
 		)
 		expect(result.results[0]).toEqual({ ok: true, data: { token: 'tok' } })
 		expect(result.results[1]).toEqual({ ok: true, data: { n: 42 } })
+	})
+})
+
+describe('subscription, stream, and upload with state', () => {
+	const router = createRouter(
+		{
+			onState: {
+				kind: 'subscription' as const,
+				input: t.object({}),
+				output: t.object({ value: t.string() }),
+				async *handler({ state }) {
+					yield { value: state.prefix }
+				},
+			},
+			streamState: {
+				kind: 'stream' as const,
+				input: t.object({}),
+				output: t.object({ value: t.string() }),
+				async *handler({ state }) {
+					yield { value: state.prefix }
+				},
+			},
+			uploadState: {
+				kind: 'upload' as const,
+				input: t.object({}),
+				output: t.object({ value: t.string() }),
+				handler: ({ state }) => ({ value: state.prefix }),
+			},
+		},
+		{
+			state: {
+				prefix: 'shared',
+			},
+		},
+	)
+
+	it('passes state to subscription handlers', async () => {
+		const iter = router.handleSubscription('onState', {})
+		const first = await iter[Symbol.asyncIterator]().next()
+		expect(first.value).toEqual({ value: 'shared' })
+	})
+
+	it('passes state to stream handlers', async () => {
+		const iter = router.handleStream('streamState', {})
+		const first = await iter.next()
+		expect(first.value).toEqual({ value: 'shared' })
+	})
+
+	it('passes state to upload handlers', async () => {
+		const file = {
+			stream: () => new ReadableStream<Uint8Array>(),
+		}
+		const result = await router.handleUpload('uploadState', {}, file)
+		expect(result.status).toBe(200)
+		expect(result.body).toEqual({ ok: true, data: { value: 'shared' } })
 	})
 })
 

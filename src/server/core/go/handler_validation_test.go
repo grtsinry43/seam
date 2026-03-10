@@ -64,7 +64,7 @@ func TestValidationBatchOneInvalid(t *testing.T) {
 			Handler:     echoHandler(),
 		}},
 		nil, nil, nil, nil, nil, hashMap, nil, "", nil, nil,
-		HandlerOptions{RPCTimeout: 30 * time.Second}, ValidationModeAlways,
+		nil, HandlerOptions{RPCTimeout: 30 * time.Second}, ValidationModeAlways,
 	)
 	req := httptest.NewRequest("POST", "/_seam/procedure/_batch", strings.NewReader(batchValidationBody()))
 	w := httptest.NewRecorder()
@@ -102,7 +102,7 @@ func TestValidationNeverSkips(t *testing.T) {
 			Handler:     echoHandler(),
 		}},
 		nil, nil, nil, nil, nil, nil, nil, "", nil, nil,
-		HandlerOptions{RPCTimeout: 30 * time.Second}, ValidationModeNever,
+		nil, HandlerOptions{RPCTimeout: 30 * time.Second}, ValidationModeNever,
 	)
 	req := httptest.NewRequest("POST", "/_seam/procedure/greet", strings.NewReader(`{"name": 42}`))
 	w := httptest.NewRecorder()

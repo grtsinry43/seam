@@ -110,6 +110,7 @@ export async function matchAndHandlePage(
 	headers?: PageRequestHeaders,
 	rawCtx?: RawContextMap,
 	ctxConfig?: ContextConfig,
+	appState?: unknown,
 	shouldValidateInput?: boolean,
 ): Promise<HandlePageResult | null> {
 	let pathLocale: string | null = null
@@ -178,6 +179,7 @@ export async function matchAndHandlePage(
 		i18nOpts,
 		searchParams,
 		ctxResolver,
+		appState,
 		shouldValidateInput,
 	)
 }

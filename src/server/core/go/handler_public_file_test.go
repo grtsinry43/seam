@@ -27,7 +27,7 @@ func TestPublicFileServing(t *testing.T) {
 	handler := buildHandler(
 		[]ProcedureDef{{Name: "test", Handler: echoHandler()}},
 		nil, nil, nil, nil, nil, nil, nil, dir, nil, nil,
-		HandlerOptions{RPCTimeout: 30 * time.Second}, ValidationModeNever,
+		nil, HandlerOptions{RPCTimeout: 30 * time.Second}, ValidationModeNever,
 	)
 
 	req := httptest.NewRequest("GET", "/favicon.svg", http.NoBody)
@@ -73,7 +73,7 @@ func TestPublicFilDisabled(t *testing.T) {
 	handler := buildHandler(
 		[]ProcedureDef{{Name: "test", Handler: echoHandler()}},
 		nil, nil, nil, nil, nil, nil, nil, "", nil, nil,
-		HandlerOptions{RPCTimeout: 30 * time.Second}, ValidationModeNever,
+		nil, HandlerOptions{RPCTimeout: 30 * time.Second}, ValidationModeNever,
 	)
 
 	req := httptest.NewRequest("GET", "/favicon.svg", http.NoBody)

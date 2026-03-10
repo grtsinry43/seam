@@ -37,7 +37,7 @@ func validationHandler() http.Handler {
 			Handler:     echoHandler(),
 		}},
 		nil, nil, nil, nil, nil, nil, nil, "", nil, nil,
-		HandlerOptions{RPCTimeout: 30 * time.Second}, ValidationModeAlways,
+		nil, HandlerOptions{RPCTimeout: 30 * time.Second}, ValidationModeAlways,
 	)
 }
 

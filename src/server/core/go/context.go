@@ -19,6 +19,10 @@ type contextKeyType struct{}
 
 var seamContextKey = contextKeyType{}
 
+type stateKeyType struct{}
+
+var seamStateKey = stateKeyType{}
+
 // ContextValue retrieves a typed context value from the Go context.
 // Returns the value and true if found and successfully unmarshaled,
 // or the zero value and false otherwise.
@@ -127,4 +131,23 @@ func injectContext(ctx context.Context, data map[string]any) context.Context {
 		return ctx
 	}
 	return context.WithValue(ctx, seamContextKey, data)
+}
+
+// StateValue retrieves the application state from the Go context.
+// The requested type must match the type originally registered with Router.State.
+func StateValue[T any](ctx context.Context) (T, bool) {
+	var zero T
+	val, ok := ctx.Value(seamStateKey).(T)
+	if !ok {
+		return zero, false
+	}
+	return val, true
+}
+
+// injectState adds application state to a Go context via context.WithValue.
+func injectState(ctx context.Context, state any) context.Context {
+	if state == nil {
+		return ctx
+	}
+	return context.WithValue(ctx, seamStateKey, state)
 }

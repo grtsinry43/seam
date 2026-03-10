@@ -66,6 +66,7 @@ func (s *appState) handleUpload(w http.ResponseWriter, r *http.Request, name str
 		filtered := resolveContextForProc(rawCtx, upload.ContextKeys)
 		ctx = injectContext(ctx, filtered)
 	}
+	ctx = injectState(ctx, s.appState)
 
 	result, err := upload.Handler(ctx, metadata, fileHandle)
 	if err != nil {

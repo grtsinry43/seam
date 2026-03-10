@@ -1,4 +1,4 @@
-error: procedure must have exactly one input parameter
+error: procedure must have an input parameter
  --> tests/fail/procedure_no_input.rs:6:1
   |
 6 | async fn bad() -> Result<String, seam_server::SeamError> {

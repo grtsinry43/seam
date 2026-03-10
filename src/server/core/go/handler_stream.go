@@ -46,6 +46,7 @@ func (s *appState) handleStream(w http.ResponseWriter, r *http.Request, name str
 		filtered := resolveContextForProc(rawCtx, stream.ContextKeys)
 		ctx = injectContext(ctx, filtered)
 	}
+	ctx = injectState(ctx, s.appState)
 
 	ch, err := stream.Handler(ctx, body)
 	if err != nil {

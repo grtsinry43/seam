@@ -45,6 +45,7 @@ async function executeLoaders(
 	procedures: Map<string, InternalProcedure>,
 	searchParams?: URLSearchParams,
 	ctxResolver?: (proc: InternalProcedure) => Record<string, unknown>,
+	appState?: unknown,
 	shouldValidateInput?: boolean,
 ): Promise<LoaderResults> {
 	const entries = Object.entries(loaders)
@@ -64,7 +65,7 @@ async function executeLoaders(
 					}
 				}
 				const ctx = ctxResolver ? ctxResolver(proc) : {}
-				const result = await proc.handler({ input, ctx })
+				const result = await proc.handler({ input, ctx, state: appState })
 				return { key, result, procedure, input }
 			} catch (err) {
 				const code = err instanceof SeamError ? err.code : 'INTERNAL_ERROR'
@@ -146,6 +147,7 @@ export async function handlePageRequest(
 	i18nOpts?: I18nOpts,
 	searchParams?: URLSearchParams,
 	ctxResolver?: (proc: InternalProcedure) => Record<string, unknown>,
+	appState?: unknown,
 	shouldValidateInput?: boolean,
 ): Promise<HandlePageResult> {
 	try {
@@ -162,6 +164,7 @@ export async function handlePageRequest(
 					procedures,
 					searchParams,
 					ctxResolver,
+					appState,
 					shouldValidateInput,
 				),
 			),
@@ -171,6 +174,7 @@ export async function handlePageRequest(
 				procedures,
 				searchParams,
 				ctxResolver,
+				appState,
 				shouldValidateInput,
 			),
 		])

@@ -111,6 +111,7 @@ func (s *appState) handleBatch(w http.ResponseWriter, r *http.Request) {
 				filtered := resolveContextForProc(rawCtx, proc.ContextKeys)
 				callCtx = injectContext(callCtx, filtered)
 			}
+			callCtx = injectState(callCtx, s.appState)
 
 			result, err := proc.Handler(callCtx, input)
 			if err != nil {
@@ -179,6 +180,7 @@ func (s *appState) handleSubscribe(w http.ResponseWriter, r *http.Request) {
 		filtered := resolveContextForProc(rawCtxSub, sub.ContextKeys)
 		subCtx = injectContext(subCtx, filtered)
 	}
+	subCtx = injectState(subCtx, s.appState)
 
 	ch, err := sub.Handler(subCtx, rawInput)
 	if err != nil {

@@ -102,6 +102,7 @@ func (s *appState) handleChannelWs(w http.ResponseWriter, r *http.Request) {
 		filtered := resolveContextForProc(rawCtx, sub.ContextKeys)
 		ctx = injectContext(ctx, filtered)
 	}
+	ctx = injectState(ctx, s.appState)
 
 	eventCh, err := sub.Handler(ctx, channelInput)
 	if err != nil {
@@ -313,6 +314,7 @@ func (s *appState) handleChannelWs(w http.ResponseWriter, r *http.Request) {
 				filtered := resolveContextForProc(rawCtx, proc.ContextKeys)
 				rpcCtx = injectContext(rpcCtx, filtered)
 			}
+			rpcCtx = injectState(rpcCtx, s.appState)
 			var rpcCancel context.CancelFunc
 			if s.opts.RPCTimeout > 0 {
 				rpcCtx, rpcCancel = context.WithTimeout(rpcCtx, s.opts.RPCTimeout)

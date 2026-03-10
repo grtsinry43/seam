@@ -24,6 +24,7 @@ type appState struct {
 	localeSet             map[string]bool // O(1) lookup for valid locales
 	strategies            []ResolveStrategy
 	contextConfigs        map[string]ContextConfig
+	appState              any
 	streams               map[string]*StreamDef
 	uploads               map[string]*UploadDef
 	kindMap               map[string]string // name -> "query"|"command"|"stream"|"upload"
@@ -35,13 +36,14 @@ type appState struct {
 	prerenderPages        map[string]*PageDef // route -> page (prerender only)
 }
 
-func buildHandler(procedures []ProcedureDef, subscriptions []SubscriptionDef, streams []StreamDef, uploads []UploadDef, channels []ChannelDef, pages []PageDef, rpcHashMap *RpcHashMap, i18nConfig *I18nConfig, publicDir string, strategies []ResolveStrategy, contextConfigs map[string]ContextConfig, opts HandlerOptions, validationMode ValidationMode) http.Handler {
+func buildHandler(procedures []ProcedureDef, subscriptions []SubscriptionDef, streams []StreamDef, uploads []UploadDef, channels []ChannelDef, pages []PageDef, rpcHashMap *RpcHashMap, i18nConfig *I18nConfig, publicDir string, strategies []ResolveStrategy, contextConfigs map[string]ContextConfig, registeredState any, opts HandlerOptions, validationMode ValidationMode) http.Handler {
 	state := &appState{
 		handlers:       make(map[string]*ProcedureDef),
 		subs:           make(map[string]*SubscriptionDef),
 		opts:           opts,
 		i18nConfig:     i18nConfig,
 		contextConfigs: contextConfigs,
+		appState:       registeredState,
 	}
 
 	if len(strategies) > 0 {
@@ -336,6 +338,7 @@ func (s *appState) handleRPC(w http.ResponseWriter, r *http.Request) {
 		filtered := resolveContextForProc(rawCtx, proc.ContextKeys)
 		ctx = injectContext(ctx, filtered)
 	}
+	ctx = injectState(ctx, s.appState)
 	if s.opts.RPCTimeout > 0 {
 		var cancel context.CancelFunc
 		ctx, cancel = context.WithTimeout(ctx, s.opts.RPCTimeout)

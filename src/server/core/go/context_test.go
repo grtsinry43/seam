@@ -47,6 +47,26 @@ func TestContextValueNoContext(t *testing.T) {
 	}
 }
 
+func TestStateValue(t *testing.T) {
+	type appState struct {
+		Prefix string
+	}
+
+	state := &appState{Prefix: "shared"}
+	ctx := injectState(context.Background(), state)
+	val, ok := StateValue[*appState](ctx)
+	if !ok || val != state {
+		t.Fatalf("expected shared app state pointer, got %#v (ok=%v)", val, ok)
+	}
+}
+
+func TestStateValueMissing(t *testing.T) {
+	_, ok := StateValue[*testAuthCtx](context.Background())
+	if ok {
+		t.Fatal("expected false when no seam state set")
+	}
+}
+
 type testAuthCtx struct {
 	Token  string `json:"token"`
 	UserID string `json:"userId"`
@@ -97,7 +117,7 @@ func TestRPCWithContextHeader(t *testing.T) {
 	handler := buildHandler(
 		[]ProcedureDef{proc},
 		nil, nil, nil, nil, nil, nil, nil, "", nil, ctxConfigs,
-		HandlerOptions{}, ValidationModeNever,
+		nil, HandlerOptions{}, ValidationModeNever,
 	)
 
 	req := httptest.NewRequest("POST", "/_seam/procedure/getSecret", strings.NewReader("{}"))
@@ -137,7 +157,7 @@ func TestRPCWithContextCookie(t *testing.T) {
 	handler := buildHandler(
 		[]ProcedureDef{proc},
 		nil, nil, nil, nil, nil, nil, nil, "", nil, ctxConfigs,
-		HandlerOptions{}, ValidationModeNever,
+		nil, HandlerOptions{}, ValidationModeNever,
 	)
 
 	req := httptest.NewRequest("POST", "/_seam/procedure/getSession", strings.NewReader("{}"))
@@ -177,7 +197,7 @@ func TestRPCWithContextQuery(t *testing.T) {
 	handler := buildHandler(
 		[]ProcedureDef{proc},
 		nil, nil, nil, nil, nil, nil, nil, "", nil, ctxConfigs,
-		HandlerOptions{}, ValidationModeNever,
+		nil, HandlerOptions{}, ValidationModeNever,
 	)
 
 	req := httptest.NewRequest("POST", "/_seam/procedure/getLang?lang=en", strings.NewReader("{}"))
@@ -213,7 +233,7 @@ func TestRPCMissingCookie(t *testing.T) {
 	handler := buildHandler(
 		[]ProcedureDef{proc},
 		nil, nil, nil, nil, nil, nil, nil, "", nil, ctxConfigs,
-		HandlerOptions{}, ValidationModeNever,
+		nil, HandlerOptions{}, ValidationModeNever,
 	)
 
 	req := httptest.NewRequest("POST", "/_seam/procedure/getSession", strings.NewReader("{}"))
@@ -250,7 +270,7 @@ func TestRPCMissingQuery(t *testing.T) {
 	handler := buildHandler(
 		[]ProcedureDef{proc},
 		nil, nil, nil, nil, nil, nil, nil, "", nil, ctxConfigs,
-		HandlerOptions{}, ValidationModeNever,
+		nil, HandlerOptions{}, ValidationModeNever,
 	)
 
 	req := httptest.NewRequest("POST", "/_seam/procedure/getLang", strings.NewReader("{}"))
@@ -287,7 +307,7 @@ func TestRPCMissingContextPassesNil(t *testing.T) {
 	handler := buildHandler(
 		[]ProcedureDef{proc},
 		nil, nil, nil, nil, nil, nil, nil, "", nil, ctxConfigs,
-		HandlerOptions{}, ValidationModeNever,
+		nil, HandlerOptions{}, ValidationModeNever,
 	)
 
 	req := httptest.NewRequest("POST", "/_seam/procedure/getSecret", strings.NewReader("{}"))

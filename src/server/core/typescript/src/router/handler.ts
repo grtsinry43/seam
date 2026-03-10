@@ -24,6 +24,7 @@ export async function handleRequest(
 	shouldValidateInput: boolean = true,
 	validateOutput?: boolean,
 	ctx?: Record<string, unknown>,
+	state?: unknown,
 ): Promise<HandleResult> {
 	const procedure = procedures.get(procedureName)
 	if (!procedure) {
@@ -51,7 +52,7 @@ export async function handleRequest(
 	}
 
 	try {
-		const result = await procedure.handler({ input: rawBody, ctx: ctx ?? {} })
+		const result = await procedure.handler({ input: rawBody, ctx: ctx ?? {}, state })
 
 		if (validateOutput) {
 			const outValidation = validateInput(procedure.outputSchema, result)
@@ -92,6 +93,7 @@ export async function handleBatchRequest(
 	shouldValidateInput: boolean = true,
 	validateOutput?: boolean,
 	ctxResolver?: (procedureName: string) => Record<string, unknown>,
+	state?: unknown,
 ): Promise<{ results: BatchResultItem[] }> {
 	const results = await Promise.all(
 		calls.map(async (call) => {
@@ -103,6 +105,7 @@ export async function handleBatchRequest(
 				shouldValidateInput,
 				validateOutput,
 				ctx,
+				state,
 			)
 			if (result.status === 200) {
 				const envelope = result.body as { ok: true; data: unknown }
@@ -125,6 +128,7 @@ export async function* handleSubscription(
 	shouldValidateInput: boolean = true,
 	validateOutput?: boolean,
 	ctx?: Record<string, unknown>,
+	state?: unknown,
 	lastEventId?: string,
 ): AsyncIterable<unknown> {
 	const sub = subscriptions.get(name)
@@ -146,7 +150,12 @@ export async function* handleSubscription(
 		}
 	}
 
-	for await (const value of sub.handler({ input: rawInput, ctx: ctx ?? {}, lastEventId })) {
+	for await (const value of sub.handler({
+		input: rawInput,
+		ctx: ctx ?? {},
+		state,
+		lastEventId,
+	})) {
 		if (validateOutput) {
 			const outValidation = validateInput(sub.outputSchema, value)
 			if (!outValidation.valid) {
@@ -166,6 +175,7 @@ export async function handleUploadRequest(
 	shouldValidateInput: boolean = true,
 	validateOutput?: boolean,
 	ctx?: Record<string, unknown>,
+	state?: unknown,
 ): Promise<HandleResult> {
 	const upload = uploads.get(procedureName)
 	if (!upload) {
@@ -193,7 +203,7 @@ export async function handleUploadRequest(
 	}
 
 	try {
-		const result = await upload.handler({ input: rawBody, file, ctx: ctx ?? {} })
+		const result = await upload.handler({ input: rawBody, file, ctx: ctx ?? {}, state })
 
 		if (validateOutput) {
 			const outValidation = validateInput(upload.outputSchema, result)
@@ -226,6 +236,7 @@ export async function* handleStream(
 	shouldValidateInput: boolean = true,
 	validateOutput?: boolean,
 	ctx?: Record<string, unknown>,
+	state?: unknown,
 ): AsyncGenerator<unknown> {
 	const stream = streams.get(name)
 	if (!stream) {
@@ -246,7 +257,7 @@ export async function* handleStream(
 		}
 	}
 
-	for await (const value of stream.handler({ input: rawInput, ctx: ctx ?? {} })) {
+	for await (const value of stream.handler({ input: rawInput, ctx: ctx ?? {}, state })) {
 		if (validateOutput) {
 			const outValidation = validateInput(stream.chunkOutputSchema, value)
 			if (!outValidation.valid) {

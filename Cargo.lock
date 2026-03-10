@@ -1740,6 +1740,8 @@ dependencies = [
 name = "seam-macros"
 version = "0.5.32"
 dependencies = [
+ "bytes",
+ "futures-util",
  "proc-macro2",
  "quote",
  "seam-server",
@@ -1756,6 +1758,7 @@ version = "0.5.32"
 dependencies = [
  "bytes",
  "futures-core",
+ "futures-util",
  "regex",
  "seam-engine",
  "seam-macros",
