@@ -251,7 +251,7 @@ type HandlerOptions struct {
 	RPCTimeout        time.Duration // per-RPC call timeout (default 30s)
 	PageTimeout       time.Duration // aggregate page-loader timeout (default 30s)
 	SSEIdleTimeout    time.Duration // idle timeout between SSE events (default 30s)
-	HeartbeatInterval time.Duration // SSE/WS heartbeat interval (default 21s)
+	HeartbeatInterval time.Duration // SSE/WS heartbeat interval (default 15s)
 	PongTimeout       time.Duration // pong deadline after ping (default 5s)
 }
 
@@ -259,7 +259,7 @@ var defaultHandlerOptions = HandlerOptions{
 	RPCTimeout:        30 * time.Second,
 	PageTimeout:       30 * time.Second,
 	SSEIdleTimeout:    30 * time.Second,
-	HeartbeatInterval: 21 * time.Second,
+	HeartbeatInterval: 15 * time.Second,
 	PongTimeout:       5 * time.Second,
 }
 

@@ -1,8 +1,13 @@
 /* src/server/core/typescript/__tests__/transport.test.ts */
 
-import { describe, test, expect } from 'vitest'
+import { describe, test, expect, vi, afterEach } from 'vitest'
 import { createRouter, t, createChannel } from '../src/index.js'
 import type { TransportConfig } from '../src/index.js'
+import { withSseLifecycle } from '../src/http-sse.js'
+
+afterEach(() => {
+	vi.useRealTimers()
+})
 
 describe('transport declaration', () => {
 	test('procedure transport appears in manifest', () => {
@@ -84,5 +89,25 @@ describe('transport declaration', () => {
 		})
 		const manifest = router.manifest()
 		expect(manifest.transportDefaults).toEqual({})
+	})
+
+	test('default SSE heartbeat fires at 15 seconds', async () => {
+		vi.useFakeTimers()
+
+		const iter = withSseLifecycle(
+			{
+				async *[Symbol.asyncIterator]() {
+					await new Promise(() => {})
+					yield ''
+				},
+			},
+			{ sseIdleTimeout: 0 },
+		)[Symbol.asyncIterator]()
+
+		const nextChunk = iter.next()
+		await vi.advanceTimersByTimeAsync(15_000)
+
+		await expect(nextChunk).resolves.toEqual({ done: false, value: ': heartbeat\n\n' })
+		await iter.return?.(undefined)
 	})
 })

@@ -26,7 +26,7 @@ interface UplinkMessage {
 	input?: unknown
 }
 
-const DEFAULT_HEARTBEAT_MS = 21_000
+const DEFAULT_HEARTBEAT_MS = 15_000
 const DEFAULT_PONG_TIMEOUT_MS = 5_000
 
 function sendError(ws: WsSink, id: string | null, code: string, message: string): void {

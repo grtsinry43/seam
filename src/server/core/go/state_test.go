@@ -11,7 +11,14 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 )
+
+func TestHandlerUses15SecondHeartbeatByDefault(t *testing.T) {
+	if defaultHandlerOptions.HeartbeatInterval != 15*time.Second {
+		t.Fatalf("expected default heartbeat interval to be 15s, got %s", defaultHandlerOptions.HeartbeatInterval)
+	}
+}
 
 type testAppState struct {
 	Prefix string

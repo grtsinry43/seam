@@ -70,7 +70,7 @@ src/
 - `fromCallback` bridges callback-style event emitters to `AsyncGenerator` for subscription handlers
 - Stream vs subscription SSE: subscriptions emit `id:` + `data:` events with incrementing IDs; streams likewise emit `id:` + `data:` events
 - Subscription handler signature: `handler({ input, ctx, lastEventId })` — `lastEventId` is `string | undefined`, propagated from `Last-Event-ID` header for resumption
-- SSE lifecycle: `withSseLifecycle` wraps subscription/stream SSE with heartbeat and idle timeout; `SseOptions` interface (`heartbeatInterval` default 21s, `sseIdleTimeout` default 30s, 0 disables)
+- SSE lifecycle: `withSseLifecycle` wraps subscription/stream SSE with heartbeat and idle timeout; `SseOptions` interface (`heartbeatInterval` default 15s, `sseIdleTimeout` default 30s, 0 disables)
 - rpcHashMap propagation: router stores as public property; `createHttpHandler` falls back `opts.rpcHashMap ?? router.rpcHashMap`
 - loader_metadata injection: page handler builds `__loaders` metadata from loader configs (`{procedure, input}` per data key) for client-side QueryClient hydration; `loader_metadata` includes optional `error?: true` flag for failed loaders
 - Per-loader error boundary: each loader runs in its own try-catch; failed loaders produce `LoaderError` marker in data, page renders partial data at 200 instead of failing entirely at 500

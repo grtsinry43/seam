@@ -11,7 +11,7 @@ const SSE_HEADER = {
 	Connection: 'keep-alive',
 }
 
-const DEFAULT_HEARTBEAT_MS = 21_000
+const DEFAULT_HEARTBEAT_MS = 15_000
 const DEFAULT_SSE_IDLE_MS = 30_000
 
 export function getSseHeaders(): Record<string, string> {
