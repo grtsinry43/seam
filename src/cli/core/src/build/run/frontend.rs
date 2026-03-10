@@ -6,7 +6,7 @@ use std::time::Instant;
 use anyhow::Result;
 
 use super::super::config::BuildConfig;
-use super::super::route::{BundleContext, RenderContext, print_asset_files};
+use super::super::route::{BundleContext, RenderContext, package_public_files, print_asset_files};
 use super::super::types::read_bundle_manifest_extended;
 use super::helpers;
 use super::steps;
@@ -101,6 +101,9 @@ pub(super) fn run_frontend_build(build_config: &BuildConfig, base_dir: &Path) ->
 		},
 		&mut tracker,
 	)?;
+
+	// Package public/ files to output
+	let _public_count = package_public_files(base_dir, &out_dir)?;
 
 	// -- Pre-rendering static pages (conditional) --
 	let ssg_result = if has_ssg && steps::has_prerender_routes(&skeleton_output, build_config.output)

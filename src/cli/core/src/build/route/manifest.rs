@@ -396,6 +396,19 @@ pub(crate) fn run_typecheck(base_dir: &Path, command: &str) -> Result<()> {
 	Ok(())
 }
 
+/// Copy files from `{base_dir}/public/` to `{out_dir}/public-root/`.
+/// Returns 0 silently when no `public/` directory exists.
+pub(crate) fn package_public_files(base_dir: &Path, out_dir: &Path) -> Result<usize> {
+	let src = base_dir.join("public");
+	if !src.is_dir() {
+		return Ok(0);
+	}
+	let dst = out_dir.join("public-root");
+	let mut count = 0usize;
+	copy_dir_recursive(&src, &src, &dst, &mut count)?;
+	Ok(count)
+}
+
 /// Copy all bundler output from `{base_dir}/{dist_dir}/` to `{out_dir}/public/`.
 /// Walks the directory recursively, skipping `.vite/` (internal cache).
 /// Returns the number of files copied.

@@ -9,8 +9,8 @@ use super::super::config::BuildConfig;
 use super::super::route::generate_types;
 use super::super::route::{
 	BundleContext, RenderContext, build_reference_graph, generate_route_procedures_ts,
-	package_static_assets, print_asset_files, print_procedure_breakdown, run_typecheck,
-	validate_handoff_consistency, validate_invalidates, validate_procedure_references,
+	package_public_files, package_static_assets, print_asset_files, print_procedure_breakdown,
+	run_typecheck, validate_handoff_consistency, validate_invalidates, validate_procedure_references,
 	warn_unused_queries,
 };
 use super::super::types::{AssetFiles, read_bundle_manifest_extended};
@@ -207,7 +207,13 @@ pub(super) fn run_fullstack_build(
 	// -- Packaging output --
 	let t = tracker.begin();
 	let asset_count = package_static_assets(base_dir, &out_dir, build_config.dist_dir())?;
-	tracker.end_with(t, &format!("{asset_count} files"));
+	let public_count = package_public_files(base_dir, &out_dir)?;
+	let pack_summary = if public_count > 0 {
+		format!("{asset_count} assets, {public_count} public")
+	} else {
+		format!("{asset_count} files")
+	};
+	tracker.end_with(t, &pack_summary);
 
 	// -- Pre-rendering static pages (conditional) --
 	let ssg_result = if has_ssg && steps::has_prerender_routes(&skeleton_output, build_config.output)
@@ -251,6 +257,7 @@ pub(super) fn run_fullstack_build(
 
 // -- Dev build --
 
+#[allow(clippy::too_many_lines)]
 pub fn run_dev_build(
 	config: &SeamConfig,
 	build_config: &BuildConfig,
@@ -352,16 +359,32 @@ pub fn run_dev_build(
 	)?;
 
 	// -- Packaging output (skipped in Vite mode) --
-	let asset_count = if !is_vite {
+	let (asset_count, public_count) = if !is_vite {
 		let t = tracker.begin();
 		let count = package_static_assets(base_dir, &out_dir, build_config.dist_dir())?;
-		tracker.end_with(t, &format!("{count} files"));
-		count
+		let pub_count = package_public_files(base_dir, &out_dir)?;
+		let pack_summary = if pub_count > 0 {
+			format!("{count} assets, {pub_count} public")
+		} else {
+			format!("{count} files")
+		};
+		tracker.end_with(t, &pack_summary);
+		(count, pub_count)
 	} else {
-		0
+		// In Vite mode, still package public files
+		let pub_count = package_public_files(base_dir, &out_dir)?;
+		(0, pub_count)
 	};
 
-	let extra = if is_vite { "vite mode".to_string() } else { format!("{asset_count} assets") };
+	let extra = if is_vite {
+		if public_count > 0 {
+			format!("vite mode \u{00b7} {public_count} public")
+		} else {
+			"vite mode".to_string()
+		}
+	} else {
+		format!("{asset_count} assets")
+	};
 	print_build_summary(
 		started,
 		manifest.procedures.len(),

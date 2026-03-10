@@ -60,6 +60,7 @@ function seamConfigPlugin(): Plugin {
 
 			return {
 				appType: 'custom',
+				publicDir: false,
 				server: { watch: { ignored: ['**/.seam/**'] } },
 				build: {
 					outDir: distDir,
