@@ -1,12 +1,43 @@
 #!/usr/bin/env bash
-# Publish all TS packages to yalc local store.
+# scripts/yalc-publish.sh
+# Publish all TS packages plus the local CLI wrapper to yalc.
 # Usage: bash scripts/yalc-publish.sh [--push]
 set -euo pipefail
 
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 PUSH=false
 [[ "${1:-}" == "--push" ]] && PUSH=true
 
+if [[ -n "${CI:-}" ]]; then
+  printf '==> skip yalc in CI\n'
+  exit 0
+fi
+
+host_cli_wrapper() {
+  case "$(uname -s)-$(uname -m)" in
+    Darwin-arm64) echo "aarch64-apple-darwin:src/cli/wrapper/darwin-arm64" ;;
+    Darwin-x86_64) echo "x86_64-apple-darwin:src/cli/wrapper/darwin-x64" ;;
+    Linux-aarch64) echo "aarch64-unknown-linux-musl:src/cli/wrapper/linux-arm64" ;;
+    Linux-x86_64) echo "x86_64-unknown-linux-musl:src/cli/wrapper/linux-x64" ;;
+    *)
+      echo "Unsupported host platform: $(uname -s)-$(uname -m)" >&2
+      exit 1
+      ;;
+  esac
+}
+
+HOST_CLI_TARGET="${HOST_CLI_TARGET:-}"
+HOST_CLI_WRAPPER="${HOST_CLI_WRAPPER:-}"
+
+if [[ -z "$HOST_CLI_TARGET" || -z "$HOST_CLI_WRAPPER" ]]; then
+  IFS=: read -r HOST_CLI_TARGET HOST_CLI_WRAPPER <<<"$(host_cli_wrapper)"
+fi
+
+printf '==> build local CLI wrapper (%s -> %s)\n' "$HOST_CLI_TARGET" "$HOST_CLI_WRAPPER"
+bash "$ROOT/scripts/build-cli.sh" --target "$HOST_CLI_TARGET"
+
 PACKAGES=(
+  "$HOST_CLI_WRAPPER"
   src/cli/seam
   src/server/engine/js
   src/client/vanilla

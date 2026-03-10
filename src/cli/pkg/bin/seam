@@ -12,9 +12,10 @@ const result = spawnSync(binary, process.argv.slice(2), {
 
 if (result.error) {
   if (result.error.code === "ENOENT") {
+    const platform = `${process.platform}-${process.arch}`;
     console.error(
-      `seam: binary not found for ${process.platform}-${process.arch}.\n` +
-        "Install via cargo: cargo install seam-cli",
+      `seam: binary not found for ${platform}.\n` +
+        "Reinstall @canmi/seam-cli so the matching optional binary package is present.",
     );
   } else {
     console.error("Failed to execute seam CLI:", result.error);

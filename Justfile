@@ -5,6 +5,7 @@ set dotenv-load := true
 set shell := ["bash", "-euo", "pipefail", "-c"]
 
 # Package manager
+
 pm := "bun"
 
 # List all recipes
@@ -17,18 +18,18 @@ pre-commit: fmt lint
 # Run all formatters
 fmt:
     chore .
-    {{pm}} run fmt:ts
-    {{pm}} run fmt:md
+    {{ pm }} run fmt:ts
+    {{ pm }} run fmt:md
     cargo fmt --all
     gofmt -w .
 
 # Format TS only (oxfmt)
 fmt-ts:
-    {{pm}} run fmt:ts
+    {{ pm }} run fmt:ts
 
 # Format markdown (dprint)
 fmt-md:
-    {{pm}} run fmt:md
+    {{ pm }} run fmt:md
 
 # Format Rust
 fmt-rust:
@@ -44,8 +45,8 @@ fmt-path:
 
 # Check formatting without writing
 fmt-check:
-    {{pm}} run fmt:ts:check
-    {{pm}} run fmt:md:check
+    {{ pm }} run fmt:ts:check
+    {{ pm }} run fmt:md:check
     cargo fmt --all -- --check
     test -z "$(gofmt -l .)"
 
@@ -54,12 +55,12 @@ lint: lint-ts lint-clippy lint-go lint-length
 
 # Lint TS (oxlint + eslint)
 lint-ts:
-    {{pm}} run lint:ox
-    {{pm}} run lint:eslint
+    {{ pm }} run lint:ox
+    {{ pm }} run lint:eslint
 
 # Lint TS — oxlint only (no build artifacts needed)
 lint-ox:
-    {{pm}} run lint:ox
+    {{ pm }} run lint:ox
 
 # Lint Rust (clippy)
 lint-clippy:
@@ -88,7 +89,7 @@ lint-suppressions:
 
 # Check unlisted dependencies (knip)
 lint-deps:
-    {{pm}} run lint:deps
+    {{ pm }} run lint:deps
 
 # Check markdown links
 lint-links:
@@ -99,61 +100,55 @@ lint-check: lint-ox lint-go lint-deps lint-links
 
 # Aggregate lint for CI build job (requires TS build artifacts)
 lint-eslint:
-    {{pm}} run lint:eslint
+    {{ pm }} run lint:eslint
 
 # Auto-fix lint issues
 lint-fix:
-    {{pm}} run lint:ox:fix
-    {{pm}} run lint:eslint:fix
+    {{ pm }} run lint:ox:fix
+    {{ pm }} run lint:eslint:fix
 
 # Build TS + Rust
 build: build-ts build-rs
 
 # Build TS phase 1 (leaf packages, no cross-deps)
 build-ts-p1:
-    {{pm}} run --filter '@canmi/seam-injector' build
-    {{pm}} run --filter '@canmi/seam-injector-native' build
-    {{pm}} run --filter '@canmi/seam-engine' build
-    {{pm}} run --filter '@canmi/seam-client' build
-    {{pm}} run --filter '@canmi/seam-vite' build
-    {{pm}} run --filter '@canmi/seam-i18n' build
-    {{pm}} run --filter '@canmi/seam-router' build
-    {{pm}} run --filter '@canmi/seam-query' build
-    {{pm}} run --filter '@canmi/eslint-plugin-seam' build
+    {{ pm }} run --filter '@canmi/seam-injector' build
+    {{ pm }} run --filter '@canmi/seam-injector-native' build
+    {{ pm }} run --filter '@canmi/seam-engine' build
+    {{ pm }} run --filter '@canmi/seam-client' build
+    {{ pm }} run --filter '@canmi/seam-vite' build
+    {{ pm }} run --filter '@canmi/seam-i18n' build
+    {{ pm }} run --filter '@canmi/seam-router' build
+    {{ pm }} run --filter '@canmi/seam-query' build
+    {{ pm }} run --filter '@canmi/eslint-plugin-seam' build
 
 # Build TS phase 2 (depends on p1)
 build-ts-p2:
-    {{pm}} run --filter '@canmi/seam-server' build
-    {{pm}} run --filter '@canmi/seam-react' build
-    {{pm}} run --filter '@canmi/seam-query-react' build
+    {{ pm }} run --filter '@canmi/seam-server' build
+    {{ pm }} run --filter '@canmi/seam-react' build
+    {{ pm }} run --filter '@canmi/seam-query-react' build
 
 # Build TS phase 3 (depends on p2)
 build-ts-p3:
-    {{pm}} run --filter '@canmi/seam-adapter-hono' build
-    {{pm}} run --filter '@canmi/seam-adapter-bun' build
-    {{pm}} run --filter '@canmi/seam-adapter-node' build
-    {{pm}} run --filter '@canmi/seam-tanstack-router' build
+    {{ pm }} run --filter '@canmi/seam-adapter-hono' build
+    {{ pm }} run --filter '@canmi/seam-adapter-bun' build
+    {{ pm }} run --filter '@canmi/seam-adapter-node' build
+    {{ pm }} run --filter '@canmi/seam-tanstack-router' build
 
-# Build all TS packages (3-phase dependency order), then push to yalc if available
+# Build all TS packages (3-phase dependency order), then push to yalc locally if available
 build-ts: build-ts-p1 build-ts-p2 build-ts-p3
-    @command -v yalc >/dev/null 2>&1 && bash scripts/yalc-publish.sh --push || true
+    @if [[ -z "${CI:-}" ]] && command -v yalc >/dev/null 2>&1; then bash scripts/yalc-publish.sh --push; fi
 
 # Build Rust workspace
 build-rs:
     cargo build --workspace
 
-# Build CLI binary (release); install locally unless running in CI
+# Build CLI binary (release)
 build-cli:
-    #!/usr/bin/env bash
     cargo build -p seam-cli --release
-    if [[ -z "${CI:-}" ]]; then
-      cargo install --path src/cli/core
-    fi
 
-# Build CLI + force install to cargo bin
-build-cli-install:
-    cargo build -p seam-cli --release
-    cargo install --path src/cli/core
+# Legacy alias; local Cargo installation has been removed.
+build-cli-install: build-cli
 
 # Build WASM packages (injector + engine)
 build-wasm:
@@ -162,25 +157,7 @@ build-wasm:
 
 # Build fullstack fixtures for integration/e2e tests
 build-fixtures:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    SEAM="$(pwd)/target/release/seam"
-    printf '\n==> Build fullstack example\n'
-    (cd examples/github-dashboard/seam-app && "$SEAM" build)
-    printf '\n==> Build E2E fixture\n'
-    (cd tests/e2e/fixture && "$SEAM" build)
-    printf '\n==> Build i18n demo\n'
-    (cd examples/i18n-demo/seam-app && "$SEAM" build)
-    cargo build -p i18n-demo-axum --release
-    printf '\n==> Build fs-router demo\n'
-    (cd examples/fs-router-demo && "$SEAM" build)
-    printf '\n==> Build feature demos\n'
-    for demo in stream-upload context-auth query-mutation handoff-narrowing channel-subscription; do
-      (cd "examples/features/$demo" && "$SEAM" build)
-    done
-    printf '\n==> Build workspace backends\n'
-    cargo build -p github-dashboard-axum --release
-    (cd examples/github-dashboard/backends/go-gin && go build -o server .)
+    bash scripts/build-fixtures.sh
 
 # Run all tests (unit + integration + e2e)
 test: test-unit test-integration test-e2e
@@ -194,24 +171,24 @@ test-rs:
 
 # TS unit tests (vitest across all packages)
 test-ts:
-    {{pm}} run --filter '@canmi/seam' test
-    {{pm}} run --filter '@canmi/seam-injector' test
-    {{pm}} run --filter '@canmi/seam-server' test
-    {{pm}} run --filter '@canmi/seam-injector-native' test
-    {{pm}} run --filter '@canmi/seam-engine' test
-    {{pm}} run --filter '@canmi/seam-adapter-hono' test
-    {{pm}} run --filter '@canmi/seam-adapter-bun' test
-    {{pm}} run --filter '@canmi/seam-adapter-node' test
-    {{pm}} run --filter '@canmi/seam-client' test
-    {{pm}} run --filter '@canmi/seam-react' test
-    {{pm}} run --filter '@canmi/seam-tanstack-router' test
-    {{pm}} run --filter '@canmi/seam-router' test
-    {{pm}} run --filter '@canmi/eslint-plugin-seam' test
-    {{pm}} run --filter '@canmi/seam-i18n' test
-    {{pm}} run --filter '@canmi/seam-vite' test
-    {{pm}} run --filter '@canmi/seam-cli' test
-    {{pm}} run --filter '@canmi/seam-query' test
-    {{pm}} run --filter '@canmi/seam-query-react' test
+    {{ pm }} run --filter '@canmi/seam' test
+    {{ pm }} run --filter '@canmi/seam-injector' test
+    {{ pm }} run --filter '@canmi/seam-server' test
+    {{ pm }} run --filter '@canmi/seam-injector-native' test
+    {{ pm }} run --filter '@canmi/seam-engine' test
+    {{ pm }} run --filter '@canmi/seam-adapter-hono' test
+    {{ pm }} run --filter '@canmi/seam-adapter-bun' test
+    {{ pm }} run --filter '@canmi/seam-adapter-node' test
+    {{ pm }} run --filter '@canmi/seam-client' test
+    {{ pm }} run --filter '@canmi/seam-react' test
+    {{ pm }} run --filter '@canmi/seam-tanstack-router' test
+    {{ pm }} run --filter '@canmi/seam-router' test
+    {{ pm }} run --filter '@canmi/eslint-plugin-seam' test
+    {{ pm }} run --filter '@canmi/seam-i18n' test
+    {{ pm }} run --filter '@canmi/seam-vite' test
+    {{ pm }} run --filter '@canmi/seam-cli' test
+    {{ pm }} run --filter '@canmi/seam-query' test
+    {{ pm }} run --filter '@canmi/seam-query-react' test
 
 # Go unit tests
 test-go:
@@ -219,63 +196,15 @@ test-go:
 
 # Go integration tests (standalone + fullstack + i18n + fs-router + features + workspace)
 test-integration:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    (cd tests/integration && go test -v -count=1)
-    (cd tests/fullstack && go test -v -count=1)
-    (cd tests/i18n && go test -v -count=1)
-    (cd tests/fs-router && go test -v -count=1 ./...)
-    printf '\n==> Feature demo tests\n'
-    for demo in stream-upload context-auth query-mutation handoff-narrowing channel-subscription; do
-      (cd "tests/features/$demo" && go test -v -count=1)
-    done
-    (cd tests/workspace-integration && go test -v -count=1 -timeout 120s)
-    (cd tests/markdown-demo && go test -v -count=1)
+    bash scripts/test-integration.sh
 
 # Playwright E2E tests
 test-e2e:
-    cd tests/e2e && {{pm}}x playwright test
+    cd tests/e2e && {{ pm }}x playwright test
 
 # TypeScript type checking
 typecheck:
-    #!/usr/bin/env bash
-    set -uo pipefail
-    packages=(
-      src/server/engine/js
-      src/server/injector/js
-      src/server/injector/native
-      src/server/core/typescript
-      src/server/adapter/hono
-      src/server/adapter/bun
-      src/server/adapter/node
-      src/client/vanilla
-      src/client/react
-      src/router/tanstack
-      src/router/seam
-      src/cli/vite
-      src/eslint
-      src/i18n
-      src/query/seam
-      src/query/react
-    )
-    failed=()
-    printf '\n==> Type check (tsc --noEmit)\n'
-    for pkg in "${packages[@]}"; do
-      printf '  %s ... ' "$pkg"
-      if ({{pm}}x tsc --noEmit -p "$pkg/tsconfig.json") 2>&1; then
-        printf 'ok\n'
-      else
-        printf 'FAIL\n'; failed+=("$pkg")
-      fi
-    done
-    if [[ ${#failed[@]} -gt 0 ]]; then
-      printf '\n==> Type check FAILED in:\n'
-      for pkg in "${failed[@]}"; do
-        printf '  - %s\n' "$pkg"
-      done
-      exit 1
-    fi
-    printf '==> Type check passed.\n'
+    bash scripts/typecheck-ts.sh
 
 # Full verification pipeline (fmt + lint + build + all tests)
 verify:
@@ -326,10 +255,10 @@ push:
       echo "No new tags to push."
     fi
 
-# Install dependencies + local CLI binary
+# Install dependencies + local build artifacts
 inst:
-    {{pm}} install
-    cargo install --path src/cli/core
+    {{ pm }} install
+    cargo build -p seam-cli --release
 
 # Remove all build artifacts, caches, and dependencies
 clean: clean-rust clean-ts clean-wasm clean-seam clean-go clean-test clean-deps
