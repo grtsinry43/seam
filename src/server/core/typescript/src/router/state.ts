@@ -27,7 +27,10 @@ import type { BuildOutput } from '../page/build-loader.js'
 import type { DefinitionMap, RouterOptions, Router } from './index.js'
 
 /** Build all shared state that createRouter methods close over */
-export function initRouterState(procedures: DefinitionMap, opts?: RouterOptions) {
+export function initRouterState<TState = undefined>(
+	procedures: DefinitionMap,
+	opts?: RouterOptions<TState>,
+) {
 	const ctxConfig = opts?.context ?? {}
 	const { procedureMap, subscriptionMap, streamMap, uploadMap, kindMap } = categorizeProcedures(
 		procedures,
@@ -71,8 +74,8 @@ export function initRouterState(procedures: DefinitionMap, opts?: RouterOptions)
 }
 
 /** Build request-response methods: handle, handleBatch, handleUpload */
-function buildRpcMethods(
-	state: ReturnType<typeof initRouterState>,
+function buildRpcMethods<TState = undefined>(
+	state: ReturnType<typeof initRouterState<TState>>,
 ): Pick<Router<DefinitionMap>, 'handle' | 'handleBatch' | 'handleUpload'> {
 	return {
 		async handle(procedureName, body, rawCtx) {
@@ -124,10 +127,10 @@ function buildRpcMethods(
 }
 
 /** Build all Router method implementations from shared state */
-export function buildRouterMethods(
-	state: ReturnType<typeof initRouterState>,
+export function buildRouterMethods<TState = undefined>(
+	state: ReturnType<typeof initRouterState<TState>>,
 	procedures: DefinitionMap,
-	opts?: RouterOptions,
+	opts?: RouterOptions<TState>,
 ): Omit<Router<DefinitionMap>, 'procedures' | 'rpcHashMap' | 'hasPages'> {
 	return {
 		ctxConfig: state.ctxConfig,
