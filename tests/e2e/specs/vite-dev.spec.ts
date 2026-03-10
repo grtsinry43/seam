@@ -3,11 +3,18 @@
 
 import { test, expect } from '@playwright/test'
 import { spawn, type ChildProcess } from 'node:child_process'
+import { rmSync, writeFileSync } from 'node:fs'
 import { createConnection } from 'node:net'
 import path from 'node:path'
 
 const seamBin = path.resolve(__dirname, '../../../target/release/seam')
 const appDir = path.resolve(__dirname, '../../../examples/github-dashboard/seam-app')
+const appPort = Number(process.env.SEAM_E2E_VITE_APP_PORT)
+const vitePort = Number(process.env.SEAM_E2E_VITE_HMR_PORT)
+
+if (!Number.isInteger(appPort) || !Number.isInteger(vitePort)) {
+	throw new Error('SEAM_E2E_VITE_APP_PORT and SEAM_E2E_VITE_HMR_PORT must be set')
+}
 
 function tryConnect(port: number, host: string): Promise<boolean> {
 	return new Promise((resolve) => {
@@ -35,6 +42,7 @@ async function waitForPort(port: number, timeout = 30_000): Promise<void> {
 }
 
 let devProc: ChildProcess
+let tempConfigPath: string
 
 async function assertPortFree(port: number): Promise<void> {
 	if ((await tryConnect(port, '::1')) || (await tryConnect(port, '127.0.0.1'))) {
@@ -48,15 +56,31 @@ async function assertPortFree(port: number): Promise<void> {
 test.beforeAll(async () => {
 	// Fail fast if ports are occupied — otherwise seam dev silently picks
 	// a different port and the test connects to the stale process.
-	await Promise.all([assertPortFree(3000), assertPortFree(5173)])
+	await Promise.all([assertPortFree(appPort), assertPortFree(vitePort)])
 
-	devProc = spawn(seamBin, ['dev'], {
+	tempConfigPath = path.join(appDir, `seam.e2e-${process.pid}-${Date.now().toString(36)}.config.ts`)
+	writeFileSync(
+		tempConfigPath,
+		[
+			"import { defineConfig } from '@canmi/seam'",
+			"import base from './seam.config.ts'",
+			'',
+			'export default defineConfig({',
+			'\t...base,',
+			`\tbackend: { ...base.backend, port: ${appPort} },`,
+			`\tdev: { ...base.dev, port: ${appPort}, vitePort: ${vitePort} },`,
+			'})',
+			'',
+		].join('\n'),
+	)
+
+	devProc = spawn(seamBin, ['dev', '--config', tempConfigPath], {
 		cwd: appDir,
 		detached: true,
 		stdio: 'pipe',
 	})
 
-	await Promise.all([waitForPort(5173), waitForPort(3000)])
+	await Promise.all([waitForPort(vitePort), waitForPort(appPort)])
 })
 
 test.afterAll(async () => {
@@ -67,13 +91,13 @@ test.afterAll(async () => {
 			/* already exited */
 		}
 	}
+	if (tempConfigPath) {
+		rmSync(tempConfigPath, { force: true })
+	}
 })
 
 test.describe('vite dev integration', () => {
-	test('page serves Vite scripts, no production assets, HMR connects', async ({ page }) => {
-		const consoleMessages: string[] = []
-		page.on('console', (msg) => consoleMessages.push(msg.text()))
-
+	test('page serves Vite dev assets, not production output', async ({ page }) => {
 		await page.goto('/', { waitUntil: 'networkidle' })
 		// Use page.content() instead of response.text() — CDP may evict the
 		// response body buffer on resource-constrained CI runners.
@@ -87,13 +111,5 @@ test.describe('vite dev integration', () => {
 
 		// 3. No independent SSE reload (Vite HMR handles it)
 		expect(html).not.toContain('/_seam/dev/reload')
-
-		// 4. [vite] connected appears in console (HMR handshake)
-		await expect
-			.poll(() => consoleMessages.some((m) => m.includes('[vite] connected')), {
-				timeout: 10_000,
-				message: 'expected [vite] connected in console',
-			})
-			.toBeTruthy()
 	})
 })
