@@ -1,15 +1,32 @@
 /* src/server/core/typescript/src/http.ts */
 
-import { readFile } from 'node:fs/promises'
-import { join, extname } from 'node:path'
-import type { Router, DefinitionMap } from './router/index.js'
 import type { RawContextMap } from './context.js'
 import { buildRawContext } from './context.js'
-import type { SeamFileHandle } from './procedure.js'
-import { SeamError } from './errors.js'
-import { MIME_TYPES } from './mime.js'
 import { watchReloadTrigger } from './dev/index.js'
 import { loadBuildDev } from './page/build-loader.js'
+import type { SeamFileHandle } from './procedure.js'
+import type { DefinitionMap, Router } from './router/index.js'
+import {
+	buildHashLookup,
+	createDevReloadResponse,
+	getSseHeaders,
+	sseCompleteEvent,
+	sseDataEvent,
+	sseDataEventWithId,
+	sseErrorEvent,
+	sseStream,
+	sseStreamForStream,
+	withSseLifecycle,
+} from './http-sse.js'
+import {
+	drainStream,
+	errorResponse,
+	handlePublicFile,
+	handleStaticAsset,
+	jsonResponse,
+	serialize,
+	toWebResponse,
+} from './http-response.js'
 
 export interface HttpRequest {
 	method: string
@@ -42,8 +59,8 @@ export interface RpcHashMap {
 }
 
 export interface SseOptions {
-	heartbeatInterval?: number // ms, default 21_000
-	sseIdleTimeout?: number // ms, default 30_000, 0 disables
+	heartbeatInterval?: number
+	sseIdleTimeout?: number
 }
 
 export interface HttpHandlerOptions {
@@ -52,7 +69,6 @@ export interface HttpHandlerOptions {
 	fallback?: HttpHandler
 	rpcHashMap?: RpcHashMap
 	sseOptions?: SseOptions
-	/** Build directory for dev reload. Auto-detected from SEAM_OUTPUT_DIR when omitted. */
 	devBuildDir?: string
 }
 
@@ -63,66 +79,7 @@ const STATIC_PREFIX = '/_seam/static/'
 const MANIFEST_PATH = '/_seam/manifest.json'
 const DEV_RELOAD_PATH = '/_seam/dev/reload'
 
-const JSON_HEADER = { 'Content-Type': 'application/json' }
 const HTML_HEADER = { 'Content-Type': 'text/html; charset=utf-8' }
-const SSE_HEADER = {
-	'Content-Type': 'text/event-stream',
-	'Cache-Control': 'no-cache',
-	Connection: 'keep-alive',
-}
-const IMMUTABLE_CACHE = 'public, max-age=31536000, immutable'
-const PUBLIC_CACHE = 'public, max-age=3600'
-
-function jsonResponse(status: number, body: unknown): HttpBodyResponse {
-	return { status, headers: JSON_HEADER, body }
-}
-
-function errorResponse(status: number, code: string, message: string): HttpBodyResponse {
-	return jsonResponse(status, new SeamError(code, message).toJSON())
-}
-
-async function handleStaticAsset(assetPath: string, staticDir: string): Promise<HttpBodyResponse> {
-	if (assetPath.includes('..')) {
-		return errorResponse(403, 'VALIDATION_ERROR', 'Forbidden')
-	}
-
-	const filePath = join(staticDir, assetPath)
-	try {
-		const content = await readFile(filePath, 'utf-8')
-		const ext = extname(filePath)
-		const contentType = MIME_TYPES[ext] || 'application/octet-stream'
-		return {
-			status: 200,
-			headers: {
-				'Content-Type': contentType,
-				'Cache-Control': IMMUTABLE_CACHE,
-			},
-			body: content,
-		}
-	} catch {
-		return errorResponse(404, 'NOT_FOUND', 'Asset not found')
-	}
-}
-
-async function handlePublicFile(
-	pathname: string,
-	publicDir: string,
-): Promise<HttpBodyResponse | null> {
-	if (pathname.includes('..')) return null
-	const filePath = join(publicDir, pathname)
-	try {
-		const content = await readFile(filePath)
-		const ext = extname(filePath)
-		const contentType = MIME_TYPES[ext] || 'application/octet-stream'
-		return {
-			status: 200,
-			headers: { 'Content-Type': contentType, 'Cache-Control': PUBLIC_CACHE },
-			body: content,
-		}
-	} catch {
-		return null
-	}
-}
 
 function getPageRequestHeaders(req: HttpRequest):
 	| {
@@ -136,164 +93,6 @@ function getPageRequestHeaders(req: HttpRequest):
 		url: req.url,
 		cookie: req.header('cookie') ?? undefined,
 		acceptLanguage: req.header('accept-language') ?? undefined,
-	}
-}
-
-/** Format a single SSE data event */
-export function sseDataEvent(data: unknown): string {
-	return `event: data\ndata: ${JSON.stringify(data)}\n\n`
-}
-
-/** Format an SSE data event with a sequence id (for streams) */
-export function sseDataEventWithId(data: unknown, id: number): string {
-	return `event: data\nid: ${id}\ndata: ${JSON.stringify(data)}\n\n`
-}
-
-/** Format an SSE error event */
-export function sseErrorEvent(code: string, message: string, transient = false): string {
-	return `event: error\ndata: ${JSON.stringify({ code, message, transient })}\n\n`
-}
-
-/** Format an SSE complete event */
-export function sseCompleteEvent(): string {
-	return 'event: complete\ndata: {}\n\n'
-}
-
-function formatSseError(error: unknown): string {
-	if (error instanceof SeamError) {
-		return sseErrorEvent(error.code, error.message)
-	}
-	const message = error instanceof Error ? error.message : 'Unknown error'
-	return sseErrorEvent('INTERNAL_ERROR', message)
-}
-
-const DEFAULT_HEARTBEAT_MS = 21_000
-const DEFAULT_SSE_IDLE_MS = 30_000
-
-async function* withSseLifecycle(
-	inner: AsyncIterable<string>,
-	opts?: SseOptions,
-): AsyncGenerator<string> {
-	const heartbeatMs = opts?.heartbeatInterval ?? DEFAULT_HEARTBEAT_MS
-	const idleMs = opts?.sseIdleTimeout ?? DEFAULT_SSE_IDLE_MS
-	const idleEnabled = idleMs > 0
-
-	// Queue-based approach: background drains inner generator
-	const queue: Array<
-		{ type: 'data'; value: string } | { type: 'done' } | { type: 'heartbeat' } | { type: 'idle' }
-	> = []
-	let resolve: (() => void) | null = null
-	const signal = () => {
-		if (resolve) {
-			resolve()
-			resolve = null
-		}
-	}
-
-	let idleTimer: ReturnType<typeof setTimeout> | null = null
-	const resetIdle = () => {
-		if (!idleEnabled) return
-		if (idleTimer) clearTimeout(idleTimer)
-		idleTimer = setTimeout(() => {
-			queue.push({ type: 'idle' })
-			signal()
-		}, idleMs)
-	}
-
-	const heartbeatTimer = setInterval(() => {
-		queue.push({ type: 'heartbeat' })
-		signal()
-	}, heartbeatMs)
-
-	// Start idle timer
-	resetIdle()
-
-	// Background: drain inner generator
-	void (async () => {
-		try {
-			for await (const chunk of inner) {
-				queue.push({ type: 'data', value: chunk })
-				resetIdle()
-				signal()
-			}
-		} catch {
-			// Inner generator error
-		}
-		queue.push({ type: 'done' })
-		signal()
-	})()
-
-	try {
-		for (;;) {
-			while (queue.length === 0) {
-				await new Promise<void>((r) => {
-					resolve = r
-				})
-			}
-			const item = queue.shift()
-			if (!item) continue
-			if (item.type === 'data') {
-				yield item.value
-			} else if (item.type === 'heartbeat') {
-				yield ': heartbeat\n\n'
-			} else if (item.type === 'idle') {
-				yield sseCompleteEvent()
-				return
-			} else {
-				// done
-				return
-			}
-		}
-	} finally {
-		clearInterval(heartbeatTimer)
-		if (idleTimer) clearTimeout(idleTimer)
-	}
-}
-
-async function* sseStream<T extends DefinitionMap>(
-	router: Router<T>,
-	name: string,
-	input: unknown,
-	rawCtx?: RawContextMap,
-	lastEventId?: string,
-): AsyncIterable<string> {
-	try {
-		let seq = 0
-		for await (const value of router.handleSubscription(name, input, rawCtx, lastEventId)) {
-			yield sseDataEventWithId(value, seq++)
-		}
-		yield sseCompleteEvent()
-	} catch (error) {
-		yield formatSseError(error)
-	}
-}
-
-async function* sseStreamForStream<T extends DefinitionMap>(
-	router: Router<T>,
-	name: string,
-	input: unknown,
-	signal?: AbortSignal,
-	rawCtx?: RawContextMap,
-): AsyncGenerator<string> {
-	const gen = router.handleStream(name, input, rawCtx)
-	// Wire abort signal to terminate the generator
-	if (signal) {
-		signal.addEventListener(
-			'abort',
-			() => {
-				void gen.return(undefined)
-			},
-			{ once: true },
-		)
-	}
-	try {
-		let seq = 0
-		for await (const value of gen) {
-			yield sseDataEventWithId(value, seq++)
-		}
-		yield sseCompleteEvent()
-	} catch (error) {
-		yield formatSseError(error)
 	}
 }
 
@@ -323,7 +122,6 @@ async function handleBatchHttp<T extends DefinitionMap>(
 	return jsonResponse(200, { ok: true, data: result })
 }
 
-/** Resolve hash -> original name when obfuscation is active. Accepts both hashed and raw names. */
 function resolveHashName(hashToName: Map<string, string> | null, name: string): string {
 	if (!hashToName) return name
 	return hashToName.get(name) ?? name
@@ -347,7 +145,7 @@ async function handleProcedurePost<T extends DefinitionMap>(
 		const controller = new AbortController()
 		return {
 			status: 200,
-			headers: SSE_HEADER,
+			headers: getSseHeaders(),
 			stream: withSseLifecycle(
 				sseStreamForStream(router, name, body, controller.signal, rawCtx),
 				sseOptions,
@@ -372,58 +170,15 @@ async function handleProcedurePost<T extends DefinitionMap>(
 	return jsonResponse(result.status, result.body)
 }
 
-function buildHashLookup(hashMap: RpcHashMap | undefined): Map<string, string> | null {
-	if (!hashMap) return null
-	const map = new Map(Object.entries(hashMap.procedures).map(([n, h]) => [h, n]))
-	map.set('seam.i18n.query', 'seam.i18n.query')
-	return map
-}
-
-function createDevReloadResponse(
-	devState: { resolvers: Set<() => void> },
-	sseOptions?: SseOptions,
-): HttpStreamResponse {
-	const controller = new AbortController()
-	async function* devStream(): AsyncGenerator<string> {
-		yield ': connected\n\n'
-		const aborted = new Promise<never>((_, reject) => {
-			controller.signal.addEventListener('abort', () => reject(new Error('aborted')), {
-				once: true,
-			})
-		})
-		try {
-			while (!controller.signal.aborted) {
-				await Promise.race([
-					new Promise<void>((r) => {
-						devState.resolvers.add(r)
-					}),
-					aborted,
-				])
-				yield 'data: reload\n\n'
-			}
-		} catch {
-			/* aborted */
-		}
-	}
-	return {
-		status: 200,
-		headers: { ...SSE_HEADER, 'X-Accel-Buffering': 'no' },
-		stream: withSseLifecycle(devStream(), { ...sseOptions, sseIdleTimeout: 0 }),
-		onCancel: () => controller.abort(),
-	}
-}
-
 export function createHttpHandler<T extends DefinitionMap>(
 	router: Router<T>,
 	opts?: HttpHandlerOptions,
 ): HttpHandler {
-	// Explicit option overrides; fall back to router's stored value
 	const effectiveHashMap = opts?.rpcHashMap ?? router.rpcHashMap
 	const hashToName = buildHashLookup(effectiveHashMap)
 	const batchHash = effectiveHashMap?.batch ?? null
 	const hasCtx = router.hasContext()
 
-	// Dev-mode live reload: watch .reload-trigger, reload router, notify SSE clients
 	const devDir =
 		opts?.devBuildDir ??
 		(process.env.SEAM_DEV === '1' && process.env.SEAM_VITE !== '1'
@@ -447,7 +202,6 @@ export function createHttpHandler<T extends DefinitionMap>(
 		const url = new URL(req.url, 'http://localhost')
 		const { pathname } = url
 
-		// Build raw context map from request headers/cookies/query when context fields are defined
 		const rawCtx: RawContextMap | undefined = hasCtx
 			? buildRawContext(router.ctxConfig, req.header, url)
 			: undefined
@@ -473,7 +227,6 @@ export function createHttpHandler<T extends DefinitionMap>(
 
 			if (req.method === 'GET') {
 				const name = resolveHashName(hashToName, rawName)
-
 				const rawInput = url.searchParams.get('input')
 				let input: unknown
 				try {
@@ -485,7 +238,7 @@ export function createHttpHandler<T extends DefinitionMap>(
 				const lastEventId = req.header?.('last-event-id') ?? undefined
 				return {
 					status: 200,
-					headers: SSE_HEADER,
+					headers: getSseHeaders(),
 					stream: withSseLifecycle(
 						sseStream(router, name, input, rawCtx, lastEventId),
 						opts?.sseOptions,
@@ -494,9 +247,6 @@ export function createHttpHandler<T extends DefinitionMap>(
 			}
 		}
 
-		// Pages are served under /_seam/page/* prefix only.
-		// Root-path serving is the application's responsibility — see the
-		// github-dashboard ts-hono example for the fallback pattern.
 		if (req.method === 'GET' && pathname.startsWith(PAGE_PREFIX) && router.hasPages) {
 			const pagePath = '/' + pathname.slice(PAGE_PREFIX.length)
 			const headers = getPageRequestHeaders(req)
@@ -506,7 +256,6 @@ export function createHttpHandler<T extends DefinitionMap>(
 			}
 		}
 
-		// Page data endpoint: serves __data.json for prerendered pages (SPA navigation)
 		if (req.method === 'GET' && pathname.startsWith(DATA_PREFIX) && router.hasPages) {
 			const pagePath = '/' + pathname.slice(DATA_PREFIX.length).replace(/\/$/, '')
 			const dataResult = await router.handlePageData(pagePath)
@@ -520,12 +269,10 @@ export function createHttpHandler<T extends DefinitionMap>(
 			return handleStaticAsset(assetPath, opts.staticDir)
 		}
 
-		// Dev-mode live reload SSE endpoint
 		if (req.method === 'GET' && pathname === DEV_RELOAD_PATH && devState) {
 			return createDevReloadResponse(devState, opts?.sseOptions)
 		}
 
-		// Public files at root path (after all /_seam/* routes, before fallback)
 		if (req.method === 'GET' && opts?.publicDir) {
 			const publicResult = await handlePublicFile(pathname, opts.publicDir)
 			if (publicResult) return publicResult
@@ -536,42 +283,12 @@ export function createHttpHandler<T extends DefinitionMap>(
 	}
 }
 
-export function serialize(body: unknown): string {
-	return typeof body === 'string' ? body : JSON.stringify(body)
-}
-
-/** Consume an async stream chunk-by-chunk; return false from write to stop early. */
-export async function drainStream(
-	stream: AsyncIterable<string>,
-	write: (chunk: string) => boolean | void,
-): Promise<void> {
-	try {
-		for await (const chunk of stream) {
-			if (write(chunk) === false) break
-		}
-	} catch {
-		// Client disconnected
-	}
-}
-
-/** Convert an HttpResponse to a Web API Response (for adapters using fetch-compatible runtimes) */
-export function toWebResponse(result: HttpResponse): Response {
-	if ('stream' in result) {
-		const stream = result.stream
-		const onCancel = result.onCancel
-		const encoder = new TextEncoder()
-		const readable = new ReadableStream({
-			async start(controller) {
-				await drainStream(stream, (chunk) => {
-					controller.enqueue(encoder.encode(chunk))
-				})
-				controller.close()
-			},
-			cancel() {
-				onCancel?.()
-			},
-		})
-		return new Response(readable, { status: result.status, headers: result.headers })
-	}
-	return new Response(serialize(result.body), { status: result.status, headers: result.headers })
+export {
+	drainStream,
+	serialize,
+	sseCompleteEvent,
+	sseDataEvent,
+	sseDataEventWithId,
+	sseErrorEvent,
+	toWebResponse,
 }

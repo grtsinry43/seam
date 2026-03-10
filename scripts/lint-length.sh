@@ -10,6 +10,11 @@ count=0
 skip_ext='png|jpg|jpeg|gif|ico|svg|webp|woff|woff2|ttf|eot|otf|wasm|lock|map|min\.js|min\.css'
 
 while IFS= read -r file; do
+  # Skip deleted tracked paths; include new untracked files in the working tree.
+  if [[ ! -e "$file" ]]; then
+    continue
+  fi
+
   # skip binary/image extensions
   if [[ "$file" =~ \.($skip_ext)$ ]]; then
     continue
@@ -33,7 +38,7 @@ while IFS= read -r file; do
     printf 'warning: %s (%d lines)\n' "$file" "$lines"
     ((count++)) || true
   fi
-done < <(git ls-files)
+done < <(git ls-files --cached --others --exclude-standard | awk '!seen[$0]++')
 
 if (( count > 0 )); then
   printf 'Found %d file(s) exceeding %d lines.\n' "$count" "$LIMIT"
