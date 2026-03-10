@@ -38,6 +38,12 @@ if (isDev && !isVite) {
 	)
 
 	watchReloadTrigger(BUILD_DIR, () => {
+		try {
+			const freshBuild = loadBuildDev(BUILD_DIR)
+			router.reload(freshBuild)
+		} catch {
+			// Manifest might be mid-write; skip this reload cycle
+		}
 		for (const c of devClients) {
 			try {
 				c.send('reload')

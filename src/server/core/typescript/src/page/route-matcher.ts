@@ -57,6 +57,14 @@ export class RouteMatcher<T> {
 		this.routes.push({ pattern, compiled: compileRoute(pattern), value })
 	}
 
+	clear(): void {
+		this.routes = []
+	}
+
+	get size(): number {
+		return this.routes.length
+	}
+
 	match(path: string): { value: T; params: Record<string, string>; pattern: string } | null {
 		const parts = path.split('/').filter(Boolean)
 		for (const route of this.routes) {

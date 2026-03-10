@@ -72,6 +72,31 @@ describe('RouteMatcher: static and param routes', () => {
 	})
 })
 
+describe('RouteMatcher: clear and size', () => {
+	it('clears all routes so match returns null', () => {
+		const m = new RouteMatcher<string>()
+		m.add('/about', 'about-page')
+		m.add('/user/:id', 'user-page')
+		expect(m.size).toBe(2)
+
+		m.clear()
+		expect(m.size).toBe(0)
+		expect(m.match('/about')).toBeNull()
+		expect(m.match('/user/1')).toBeNull()
+	})
+
+	it('allows re-adding routes after clear', () => {
+		const m = new RouteMatcher<string>()
+		m.add('/old', 'old-page')
+		m.clear()
+		m.add('/new', 'new-page')
+
+		expect(m.match('/old')).toBeNull()
+		expect(m.match('/new')?.value).toBe('new-page')
+		expect(m.size).toBe(1)
+	})
+})
+
 describe('RouteMatcher: catch-all routes', () => {
 	it('matches catch-all with one segment', () => {
 		const m = new RouteMatcher<string>()

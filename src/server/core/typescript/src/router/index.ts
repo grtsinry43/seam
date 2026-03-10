@@ -11,6 +11,7 @@ import type { ChannelResult } from '../channel.js'
 import type { ContextConfig, RawContextMap } from '../context.js'
 import type { ResolveStrategy } from '../resolve.js'
 import type { BatchCall, BatchResultItem } from './handler.js'
+import type { BuildOutput } from '../page/build-loader.js'
 import { initRouterState, buildRouterMethods } from './state.js'
 
 export type ProcedureKind = 'query' | 'command' | 'subscription' | 'stream' | 'upload'
@@ -198,6 +199,8 @@ export interface Router<T extends DefinitionMap> {
 	readonly ctxConfig: ContextConfig
 	readonly hasPages: boolean
 	readonly rpcHashMap: RpcHashMap | undefined
+	/** Atomically replace pages, i18n, and rpcHashMap from a fresh build (dev-mode hot-reload) */
+	reload(build: BuildOutput): void
 	/** Exposed for adapter access to the definitions */
 	readonly procedures: T
 }
@@ -208,9 +211,17 @@ export function createRouter<T extends DefinitionMap>(
 ): Router<T> {
 	const flat = flattenDefinitions(procedures as NestedDefinitionMap) as T
 	const state = initRouterState(flat, opts)
-	return {
-		procedures: flat,
-		rpcHashMap: opts?.rpcHashMap,
-		...buildRouterMethods(state, flat, opts),
-	}
+	const methods = buildRouterMethods(state, flat, opts)
+	const router = { procedures: flat, ...methods } as Router<T>
+	Object.defineProperty(router, 'hasPages', {
+		get: () => state.pageMatcher.size > 0,
+		enumerable: true,
+		configurable: true,
+	})
+	Object.defineProperty(router, 'rpcHashMap', {
+		get: () => state.rpcHashMap,
+		enumerable: true,
+		configurable: true,
+	})
+	return router
 }

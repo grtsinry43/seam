@@ -23,6 +23,7 @@ import {
 	resolveCtxSafe,
 	matchAndHandlePage,
 } from './helpers.js'
+import type { BuildOutput } from '../page/build-loader.js'
 import type { DefinitionMap, RouterOptions, Router } from './index.js'
 
 /** Build all shared state that createRouter methods close over */
@@ -64,6 +65,7 @@ export function initRouterState(procedures: DefinitionMap, opts?: RouterOptions)
 		hasUrlPrefix,
 		channelsMeta,
 		hasCtx,
+		rpcHashMap: opts?.rpcHashMap,
 	}
 }
 
@@ -122,9 +124,8 @@ export function buildRouterMethods(
 	state: ReturnType<typeof initRouterState>,
 	procedures: DefinitionMap,
 	opts?: RouterOptions,
-): Omit<Router<DefinitionMap>, 'procedures' | 'rpcHashMap'> {
+): Omit<Router<DefinitionMap>, 'procedures' | 'rpcHashMap' | 'hasPages'> {
 	return {
-		hasPages: !!state.pages && Object.keys(state.pages).length > 0,
 		ctxConfig: state.ctxConfig,
 		hasContext() {
 			return state.hasCtx
@@ -172,6 +173,16 @@ export function buildRouterMethods(
 				state.ctxConfig,
 				state.shouldValidateInput,
 			)
+		},
+		reload(build: BuildOutput) {
+			state.pageMatcher.clear()
+			for (const [pattern, page] of Object.entries(build.pages)) {
+				state.pageMatcher.add(pattern, page)
+			}
+			state.pages = build.pages
+			state.i18nConfig = build.i18n ?? null
+			if (state.i18nConfig) registerI18nQuery(state.procedureMap, state.i18nConfig)
+			state.rpcHashMap = build.rpcHashMap
 		},
 		handlePageData(path) {
 			const match = state.pageMatcher?.match(path)

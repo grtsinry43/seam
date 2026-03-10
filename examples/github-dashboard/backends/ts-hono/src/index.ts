@@ -4,7 +4,6 @@ import { resolve } from 'node:path'
 import { Hono } from 'hono'
 import { createBunWebSocket } from 'hono/bun'
 import { loadBuild, loadBuildDev, watchReloadTrigger } from '@canmi/seam-server'
-import type { BuildOutput } from '@canmi/seam-server'
 import { seam } from '@canmi/seam-adapter-hono'
 import { buildRouter } from './router.js'
 
@@ -45,6 +44,12 @@ if (isDev && !isVite) {
 	)
 
 	watchReloadTrigger(BUILD_DIR, () => {
+		try {
+			const freshBuild = loadBuildDev(BUILD_DIR)
+			router.reload(freshBuild)
+		} catch {
+			// Manifest might be mid-write; skip this reload cycle
+		}
 		for (const c of devClients) {
 			try {
 				c.send('reload')
