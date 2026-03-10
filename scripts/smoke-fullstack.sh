@@ -9,7 +9,6 @@ source "$DIR/ci/_lib.sh"
 require_cmd cargo "https://rustup.rs"
 require_cmd bun   "https://bun.sh"
 require_cmd go    "https://go.dev/dl"
-require_cmd swift "https://swift.org/install"
 
 just build-cli-install
 just build-fixtures

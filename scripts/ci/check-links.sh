@@ -79,7 +79,6 @@ done < <(
     -not -path '*/.git/*' \
     -not -path '*/pkg/*' \
     -not -path '*/.seam/*' \
-    -not -path '*/.build/*' \
   | sort
 )
 

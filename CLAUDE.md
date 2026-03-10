@@ -89,17 +89,6 @@
 - TS dedup: add shared functions to `@canmi/seam-server`, update adapters to import; node adapter keeps its own `sendResponse` (Node streams differ from Web Response)
 - After TS changes: `just build-ts && just test-ts`
 
-## Swift Packages
-
-- 3 SPM packages: `src/server/core/seam-swift`, `src/server/engine/swift`, `src/server/adapter/seam-hummingbird`
-- Swift 6.0+, using Swift Testing (not XCTest)
-- File/directory naming: PascalCase (Swift ecosystem convention, exception to project default kebab-case)
-- Code naming: Swift standard — types PascalCase, functions/variables camelCase
-- `swift format` for formatting (configured via `.swift-format`)
-- `swiftlint` for linting (configured via `.swiftlint.yml`)
-- For Swift-only changes: `just fmt-swift && just lint-swift` before commit, also run `just test-swift`
-- Local path dependencies between SPM packages (similar to Go `replace` directives)
-
 ## Agent Team Strategy
 
 - Use Agent Team (TeamCreate) when a plan has 2+ independent sub-tasks that touch different files
@@ -131,7 +120,6 @@
 | `just test-unit`        | All unit tests (Rust + TS)                                                              |
 | `just test-integration` | Go integration tests (standalone + fullstack + i18n + fs-router + features + workspace) |
 | `just test-e2e`         | Playwright E2E tests                                                                    |
-| `just test-swift`       | Swift unit tests (swift test across all Swift packages)                                 |
 | `just test`             | All layers (unit + integration + e2e), fail-fast                                        |
 | `just typecheck`        | TypeScript type checking across all TS packages                                         |
 | `just verify`           | Full pipeline: fmt + lint + build + all tests                                           |
