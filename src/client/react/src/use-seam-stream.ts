@@ -13,6 +13,12 @@ export interface UseSeamStreamResult<T> {
 	cancel: () => void
 }
 
+function trimTrailingSlashes(value: string): string {
+	let end = value.length
+	while (end > 0 && value.charCodeAt(end - 1) === 47) end--
+	return value.slice(0, end)
+}
+
 export function useSeamStream<T>(
 	baseUrl: string,
 	procedure: string,
@@ -39,7 +45,7 @@ export function useSeamStream<T>(
 		const controller = new AbortController()
 		controllerRef.current = controller
 
-		const cleanBase = baseUrl.replace(/\/+$/, '')
+		const cleanBase = trimTrailingSlashes(baseUrl)
 		const url = `${cleanBase}/_seam/procedure/${procedure}`
 
 		fetch(url, {

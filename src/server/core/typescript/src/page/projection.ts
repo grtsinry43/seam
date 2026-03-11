@@ -6,19 +6,25 @@ export type ProjectionMap = Record<string, string[]>
 
 const UNSAFE_PATH_SEGMENTS = new Set(['__proto__', 'prototype', 'constructor'])
 
+function isUnsafePathSegment(part: string): boolean {
+	return UNSAFE_PATH_SEGMENTS.has(part)
+}
+
 /** Set a nested field by dot-separated path, creating intermediate objects as needed. */
 function setNestedField(target: Record<string, unknown>, path: string, value: unknown): void {
 	const parts = path.split('.')
-	if (parts.some((part) => UNSAFE_PATH_SEGMENTS.has(part))) return
 	let current: Record<string, unknown> = target
 	for (let i = 0; i < parts.length - 1; i++) {
 		const key = parts[i] as string
+		if (isUnsafePathSegment(key)) return
 		if (!(key in current) || typeof current[key] !== 'object' || current[key] === null) {
 			current[key] = {}
 		}
 		current = current[key] as Record<string, unknown>
 	}
-	current[parts[parts.length - 1] as string] = value
+	const lastPart = parts[parts.length - 1] as string
+	if (isUnsafePathSegment(lastPart)) return
+	current[lastPart] = value
 }
 
 /** Get a nested field by dot-separated path. */

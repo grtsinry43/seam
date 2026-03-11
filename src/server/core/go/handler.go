@@ -391,7 +391,10 @@ func (s *appState) handlePageData(w http.ResponseWriter, r *http.Request) {
 		if subPath == "/" {
 			subPath = ""
 		}
-		dataPath := filepath.Join(page.StaticDir, subPath, "__data.json")
+		dataPath, ok := resolveStaticFilePath(page.StaticDir, subPath, "__data.json")
+		if !ok {
+			continue
+		}
 		data, err := os.ReadFile(dataPath)
 		if err != nil {
 			continue

@@ -14,6 +14,10 @@ export { inject, buildSentinelData }
 
 const UNSAFE_PATH_SEGMENTS = new Set(['__proto__', 'prototype', 'constructor'])
 
+function isUnsafePathSegment(part: string): boolean {
+	return UNSAFE_PATH_SEGMENTS.has(part)
+}
+
 // -- Slot replacement (mirrors Rust sentinel_to_slots) --
 // Non-sentinel attributes (e.g. id="_R_1_" from React's useId) pass through
 // verbatim as static template literals. The ID format is React-version dependent
@@ -234,16 +238,17 @@ export function assertPipelineFidelity(config: FidelityTestConfig): void {
 
 function setNestedValue(obj: Record<string, unknown>, path: string, value: unknown): void {
 	const parts = path.split('.')
-	if (parts.some((part) => UNSAFE_PATH_SEGMENTS.has(part))) return
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	let current: any = obj
 	for (let i = 0; i < parts.length - 1; i++) {
-		if (parts[i] === '$') {
+		const part = parts[i] as string
+		if (part === '$') {
 			// $ refers to first element of the parent array (sentinel arrays have length 1)
 			if (!Array.isArray(current) || current.length === 0) return
 			current = current[0]
 		} else {
-			current = current[parts[i]]
+			if (isUnsafePathSegment(part)) return
+			current = current[part]
 		}
 		if (current === null || current === undefined) return
 	}
@@ -251,6 +256,7 @@ function setNestedValue(obj: Record<string, unknown>, path: string, value: unkno
 	if (lastPart === '$') {
 		if (Array.isArray(current)) current[0] = value
 	} else {
+		if (isUnsafePathSegment(lastPart)) return
 		current[lastPart] = value
 	}
 }

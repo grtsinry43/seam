@@ -36,11 +36,13 @@ func (s *appState) servePage(w http.ResponseWriter, r *http.Request, page *PageD
 		if subPath == "/" {
 			subPath = ""
 		}
-		htmlPath := filepath.Join(page.StaticDir, subPath, "index.html")
-		if data, err := os.ReadFile(htmlPath); err == nil {
-			w.Header().Set("Content-Type", "text/html; charset=utf-8")
-			_, _ = w.Write(data)
-			return
+		htmlPath, ok := resolveStaticFilePath(page.StaticDir, subPath, "index.html")
+		if ok {
+			if data, err := os.ReadFile(htmlPath); err == nil {
+				w.Header().Set("Content-Type", "text/html; charset=utf-8")
+				_, _ = w.Write(data)
+				return
+			}
 		}
 		// Fall through to dynamic rendering (graceful degradation)
 	}
@@ -247,7 +249,10 @@ func lookupI18nMessages(cfg *I18nConfig, routeHash, locale string) json.RawMessa
 		return json.RawMessage("{}")
 	}
 	if cfg.Mode == "paged" && cfg.DistDir != "" {
-		path := filepath.Join(cfg.DistDir, "i18n", routeHash, locale+".json")
+		path, ok := resolveI18nMessagesPath(cfg, routeHash, locale)
+		if !ok {
+			return json.RawMessage("{}")
+		}
 		data, err := os.ReadFile(path)
 		if err != nil {
 			return json.RawMessage("{}")
@@ -270,6 +275,26 @@ func isKnownLocale(cfg *I18nConfig, locale string) bool {
 		}
 	}
 	return false
+}
+
+func resolveI18nMessagesPath(cfg *I18nConfig, routeHash, locale string) (string, bool) {
+	baseDir := filepath.Join(cfg.DistDir, "i18n")
+	path := filepath.Join(baseDir, routeHash, locale+".json")
+	rel, err := filepath.Rel(baseDir, path)
+	if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+		return "", false
+	}
+	return path, true
+}
+
+func resolveStaticFilePath(baseDir, subPath, fileName string) (string, bool) {
+	cleanSubPath := strings.TrimPrefix(subPath, "/")
+	path := filepath.Join(baseDir, cleanSubPath, fileName)
+	rel, err := filepath.Rel(baseDir, path)
+	if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+		return "", false
+	}
+	return path, true
 }
 
 func isKnownRouteHash(cfg *I18nConfig, routeHash string) bool {

@@ -17,6 +17,12 @@ export interface UseSeamSubscriptionOptions {
 	reconnect?: Partial<ReconnectConfig>
 }
 
+function trimTrailingSlashes(value: string): string {
+	let end = value.length
+	while (end > 0 && value.charCodeAt(end - 1) === 47) end--
+	return value.slice(0, end)
+}
+
 export function useSeamSubscription<T>(
 	baseUrl: string,
 	procedure: string,
@@ -42,7 +48,7 @@ export function useSeamSubscription<T>(
 		setStatus('connecting')
 		setRetryCount(0)
 
-		const cleanBase = baseUrl.replace(/\/+$/, '')
+		const cleanBase = trimTrailingSlashes(baseUrl)
 		const rc = new ReconnectController(reconnectRef.current)
 		let abortController: AbortController | null = null
 		let lastEventId: string | undefined
