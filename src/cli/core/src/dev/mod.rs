@@ -28,8 +28,8 @@ pub async fn run_dev(config: &SeamConfig, base_dir: &Path) -> Result<()> {
 		return run_dev_fullstack(config, base_dir).await;
 	}
 
-	let backend_cmd = config.backend.dev_command.as_deref();
-	let frontend_cmd = config.frontend.dev_command.as_deref();
+	let backend_cmd = config.backend.dev_command.as_ref();
+	let frontend_cmd = config.frontend.dev_command.as_ref();
 	let has_entry = config.frontend.entry.is_some();
 
 	// Determine frontend mode: external command, embedded dev server, or none
@@ -42,7 +42,12 @@ pub async fn run_dev(config: &SeamConfig, base_dir: &Path) -> Result<()> {
 		);
 	}
 
-	print_dev_banner(config, backend_cmd, frontend_cmd, use_embedded);
+	print_dev_banner(
+		config,
+		backend_cmd.map(crate::config::CommandConfig::command),
+		frontend_cmd.map(crate::config::CommandConfig::command),
+		use_embedded,
+	);
 
 	if use_embedded {
 		build_frontend(config, base_dir)?;
@@ -52,13 +57,15 @@ pub async fn run_dev(config: &SeamConfig, base_dir: &Path) -> Result<()> {
 
 	if let Some(cmd) = backend_cmd {
 		let port_str = config.backend.port.to_string();
-		let mut proc = spawn_child("backend", cmd, base_dir, &[("PORT", &port_str)])?;
+		let cwd = cmd.resolve_cwd(base_dir);
+		let mut proc = spawn_child("backend", cmd.command(), &cwd, &[("PORT", &port_str)])?;
 		pipe_output(&mut proc).await;
 		children.push(proc);
 	}
 
 	if let Some(cmd) = frontend_cmd {
-		let mut proc = spawn_child("frontend", cmd, base_dir, &[])?;
+		let cwd = cmd.resolve_cwd(base_dir);
+		let mut proc = spawn_child("frontend", cmd.command(), &cwd, &[])?;
 		pipe_output(&mut proc).await;
 		children.push(proc);
 	}

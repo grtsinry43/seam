@@ -8,34 +8,34 @@ use loader::{find_config_in_dir, find_seam_config, load_seam_config};
 #[test]
 fn camel_to_snake_all_fields() {
 	let input: serde_json::Value = serde_json::json!({
-		"project": { "name": "test" },
-		"backend": { "devCommand": "bun run", "port": 3000 },
-		"frontend": {
-			"entry": "src/main.tsx",
-			"devCommand": "vite",
-			"devPort": 5173,
-			"outDir": "dist",
-			"rootId": "__app",
-			"dataId": "__d"
-		},
-		"build": {
-			"outDir": ".seam/output",
-			"backendBuildCommand": "bun build",
-			"routerFile": "router.ts",
-			"manifestCommand": "cargo run",
-			"typecheckCommand": "tsc",
-			"typeHint": true,
-			"hashLength": 16,
-			"pagesDir": "src/pages"
-		},
-		"generate": { "outDir": "gen" },
-		"dev": {
-			"port": 3000,
-			"vitePort": 5173,
-			"typeHint": false,
-			"hashLength": 8
-		},
-		"i18n": { "locales": ["en"], "default": "en", "messagesDir": "msgs" }
+	"project": { "name": "test" },
+	"backend": { "devCommand": "bun run", "port": 3000 },
+	"frontend": {
+		"entry": "src/main.tsx",
+		"devCommand": "vite",
+		"devPort": 5173,
+		"outDir": "dist",
+		"rootId": "__app",
+		"dataId": "__d"
+	},
+	"build": {
+		"outDir": ".seam/output",
+		"backendBuildCommand": "bun build",
+		"routerFile": "router.ts",
+		"manifestCommand": "cargo run",
+		"typecheckCommand": "tsc",
+		"typeHint": true,
+		"hashLength": 16,
+		"pagesDir": "src/pages"
+	},
+	"generate": { "outDir": "gen" },
+	"dev": {
+		"port": 3000,
+		"vitePort": 5173,
+		"typeHint": false,
+		"hashLength": 8
+	},
+	"i18n": { "locales": ["en"], "default": "en", "messagesDir": "msgs" }
 	});
 
 	let result = loader::prepare_ts_config(input);
@@ -56,6 +56,7 @@ fn camel_to_snake_all_fields() {
 	assert_eq!(result["build"]["hash_length"], 16);
 	assert_eq!(result["build"]["pages_dir"], "src/pages");
 	assert_eq!(result["generate"]["out_dir"], "gen");
+	assert_eq!(result["generate"]["manifest_url"], serde_json::Value::Null);
 	assert_eq!(result["dev"]["vite_port"], 5173);
 	assert_eq!(result["dev"]["type_hint"], false);
 	assert_eq!(result["dev"]["hash_length"], 8);
@@ -119,7 +120,10 @@ fn prepare_ts_config_deserializes_to_seam_config() {
 	let config: SeamConfig = serde_json::from_value(transformed).unwrap();
 
 	assert_eq!(config.project_name(), "round-trip");
-	assert_eq!(config.backend.dev_command.as_deref(), Some("bun run"));
+	assert_eq!(
+		config.backend.dev_command.as_ref().map(crate::config::CommandConfig::command),
+		Some("bun run")
+	);
 	assert_eq!(config.backend.port, 4000);
 	assert_eq!(config.frontend.entry.as_deref(), Some("main.tsx"));
 	assert_eq!(config.frontend.root_id, "app");
@@ -238,7 +242,10 @@ fn load_ts_config_via_subprocess() {
 
 	let config = load_seam_config(&tmp.join("seam.config.mjs")).unwrap();
 	assert_eq!(config.project_name(), "from-mjs");
-	assert_eq!(config.backend.dev_command.as_deref(), Some("bun run dev"));
+	assert_eq!(
+		config.backend.dev_command.as_ref().map(crate::config::CommandConfig::command),
+		Some("bun run dev")
+	);
 	assert_eq!(config.backend.port, 4567);
 	assert_eq!(config.build.pages_dir.as_deref(), Some("src/pages"));
 
@@ -295,4 +302,70 @@ members = ["backends/ts-hono"]
 	validate_workspace(&root, &tmp).unwrap();
 
 	let _ = std::fs::remove_dir_all(&tmp);
+}
+
+#[test]
+fn command_object_and_manifest_url_transform_recursively() {
+	let input: serde_json::Value = serde_json::json!({
+		"backend": {
+			"devCommand": {
+				"command": "bun run dev",
+				"cwd": "apps/backend"
+			}
+		},
+		"build": {
+			"backendBuildCommand": {
+				"command": "cargo build --release",
+				"cwd": "server"
+			},
+			"manifestCommand": {
+				"command": "cargo run -- --manifest",
+				"cwd": "server"
+			}
+		},
+		"generate": {
+			"manifestUrl": "http://127.0.0.1:3333/_seam/manifest.json"
+		}
+	});
+
+	let transformed = loader::prepare_ts_config(input);
+	assert_eq!(transformed["backend"]["dev_command"]["command"], "bun run dev");
+	assert_eq!(transformed["backend"]["dev_command"]["cwd"], "apps/backend");
+	assert_eq!(transformed["build"]["backend_build_command"]["command"], "cargo build --release");
+	assert_eq!(transformed["build"]["manifest_command"]["cwd"], "server");
+	assert_eq!(transformed["generate"]["manifest_url"], "http://127.0.0.1:3333/_seam/manifest.json");
+}
+
+#[test]
+fn command_object_deserializes_to_seam_config() {
+	let input: serde_json::Value = serde_json::json!({
+		"frontend": { "entry": "main.tsx" },
+		"backend": {
+			"devCommand": { "command": "bun run dev", "cwd": "apps/backend" }
+		},
+		"build": {
+			"pagesDir": "src/pages",
+			"backendBuildCommand": { "command": "cargo build --release", "cwd": "server" },
+			"manifestCommand": { "command": "cargo run -- --manifest", "cwd": "server" }
+		},
+		"generate": {
+			"manifestUrl": "http://127.0.0.1:3333/_seam/manifest.json"
+		}
+	});
+
+	let transformed = loader::prepare_ts_config(input);
+	let config: SeamConfig = serde_json::from_value(transformed).unwrap();
+	let backend = config.backend.dev_command.as_ref().unwrap();
+	assert_eq!(backend.command(), "bun run dev");
+	assert_eq!(backend.cwd(), Some("apps/backend"));
+	let build = config.build.backend_build_command.as_ref().unwrap();
+	assert_eq!(build.command(), "cargo build --release");
+	assert_eq!(build.cwd(), Some("server"));
+	let manifest = config.build.manifest_command.as_ref().unwrap();
+	assert_eq!(manifest.command(), "cargo run -- --manifest");
+	assert_eq!(manifest.cwd(), Some("server"));
+	assert_eq!(
+		config.generate.manifest_url.as_deref(),
+		Some("http://127.0.0.1:3333/_seam/manifest.json")
+	);
 }

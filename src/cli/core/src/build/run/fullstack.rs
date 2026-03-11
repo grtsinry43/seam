@@ -106,9 +106,10 @@ pub(super) fn run_fullstack_build(
 	let t = tracker.begin();
 	let backend_cmd = build_config
 		.backend_build_command
-		.as_deref()
+		.as_ref()
 		.expect("backend_build_command required in fullstack mode");
-	run_command(base_dir, backend_cmd, "backend build", &[])?;
+	let backend_cwd = backend_cmd.resolve_cwd(base_dir);
+	run_command(&backend_cwd, backend_cmd.command(), "backend build", &[])?;
 	copy_wasm_binary(base_dir, &out_dir)?;
 	tracker.end(t);
 

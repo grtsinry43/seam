@@ -80,8 +80,12 @@ pub(super) fn print_fullstack_banner(
 	watched_dirs: &[String],
 	vite_port: Option<u16>,
 ) {
-	let backend_cmd =
-		config.backend.dev_command.as_deref().unwrap_or("bun --watch src/server/index.ts");
+	let backend_cmd = config
+		.backend
+		.dev_command
+		.as_ref()
+		.map(crate::config::CommandConfig::command)
+		.unwrap_or("bun --watch src/server/index.ts");
 	let lang = &config.backend.lang;
 
 	ui::banner("dev", Some(config.project_name()));

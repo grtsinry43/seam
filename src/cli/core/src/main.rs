@@ -47,6 +47,9 @@ enum Command {
 		/// Path to the manifest JSON file
 		#[arg(short, long)]
 		manifest: Option<PathBuf>,
+		/// Base URL or manifest URL to fetch before generating
+		#[arg(short, long)]
+		url: Option<String>,
 		/// Output directory for the generated client
 		#[arg(short, long)]
 		out: Option<PathBuf>,
@@ -139,6 +142,13 @@ fn write_hooks_and_declarations(
 	Ok(())
 }
 
+fn resolve_generate_manifest_url(
+	url: Option<String>,
+	config: Option<&SeamConfig>,
+) -> Option<String> {
+	url.or_else(|| config.and_then(|cfg| cfg.generate.manifest_url.clone()))
+}
+
 async fn run() -> Result<()> {
 	let cli = Cli::parse();
 	ui::init_output_mode(cli.plain);
@@ -153,18 +163,21 @@ async fn run() -> Result<()> {
 			let out = out.unwrap_or_else(|| PathBuf::from("seam-manifest.json"));
 			pull::pull_manifest(&url, &out).await?;
 		}
-		Command::Generate { manifest, out } => {
+		Command::Generate { manifest, url, out } => {
 			let cfg = try_load_config();
-			let manifest = manifest.unwrap_or_else(|| PathBuf::from("seam-manifest.json"));
 			let cwd = std::env::current_dir().context("failed to get cwd")?;
 
 			ui::banner("generate", None);
-			ui::arrow(&format!("reading {}", manifest.display()));
-
-			let content = std::fs::read_to_string(&manifest)
-				.with_context(|| format!("failed to read {}", manifest.display()))?;
-			let parsed: seam_codegen::Manifest =
-				serde_json::from_str(&content).context("failed to parse manifest")?;
+			let parsed = if let Some(url) = resolve_generate_manifest_url(url, cfg.as_ref()) {
+				ui::arrow(&format!("fetching {url}"));
+				pull::fetch_manifest(&url).await?
+			} else {
+				let manifest = manifest.unwrap_or_else(|| PathBuf::from("seam-manifest.json"));
+				ui::arrow(&format!("reading {}", manifest.display()));
+				let content = std::fs::read_to_string(&manifest)
+					.with_context(|| format!("failed to read {}", manifest.display()))?;
+				serde_json::from_str(&content).context("failed to parse manifest")?
+			};
 
 			let proc_count = parsed.procedures.len();
 			let data_id = cfg.as_ref().map_or("__data", |c| &c.frontend.data_id);
@@ -241,4 +254,46 @@ async fn run() -> Result<()> {
 	}
 
 	Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+
+	#[test]
+	fn generate_url_flag_overrides_config_manifest_url() {
+		let config: SeamConfig = toml::from_str(
+			r#"
+[generate]
+manifest_url = "http://config.example/_seam/manifest.json"
+"#,
+		)
+		.unwrap();
+
+		let resolved = resolve_generate_manifest_url(
+			Some("http://flag.example/_seam/manifest.json".to_string()),
+			Some(&config),
+		);
+		assert_eq!(resolved.as_deref(), Some("http://flag.example/_seam/manifest.json"));
+	}
+
+	#[test]
+	fn generate_uses_config_manifest_url_when_flag_missing() {
+		let config: SeamConfig = toml::from_str(
+			r#"
+[generate]
+manifest_url = "http://config.example/_seam/manifest.json"
+"#,
+		)
+		.unwrap();
+
+		let resolved = resolve_generate_manifest_url(None, Some(&config));
+		assert_eq!(resolved.as_deref(), Some("http://config.example/_seam/manifest.json"));
+	}
+
+	#[test]
+	fn generate_falls_back_to_local_manifest_when_no_url_configured() {
+		let resolved = resolve_generate_manifest_url(None, None);
+		assert!(resolved.is_none());
+	}
 }

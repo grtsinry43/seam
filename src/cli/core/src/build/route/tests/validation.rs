@@ -6,6 +6,7 @@ use super::super::manifest::{extract_manifest_command, validate_invalidates};
 use super::super::ref_graph::{build_reference_graph, validate_procedure_references};
 use super::super::types::RouteManifestEntry;
 use super::{make_manifest, make_skeleton};
+use crate::config::CommandConfig;
 #[test]
 fn validate_all_procedures_exist() {
 	let manifest = make_manifest(&["getHomeData", "getSession"]);
@@ -93,7 +94,7 @@ fn extract_manifest_command_success() {
 	let manifest_json = r#"{"version":1,"procedures":{"getUser":{"type":"query","input":{"properties":{"username":{"type":"string"}}},"output":{"properties":{"login":{"type":"string"}}}}}}"#;
 	let command = format!("echo '{manifest_json}'");
 
-	let manifest = extract_manifest_command(&dir, &command, &out).unwrap();
+	let manifest = extract_manifest_command(&dir, &CommandConfig::Simple(command), &out).unwrap();
 	assert_eq!(manifest.procedures.len(), 1);
 	assert!(manifest.procedures.contains_key("getUser"));
 
@@ -111,7 +112,8 @@ fn extract_manifest_command_failure() {
 	std::fs::create_dir_all(&dir).unwrap();
 	let out = dir.join("output");
 
-	let err = extract_manifest_command(&dir, "exit 1", &out).unwrap_err();
+	let err =
+		extract_manifest_command(&dir, &CommandConfig::Simple("exit 1".to_string()), &out).unwrap_err();
 	assert!(err.to_string().contains("manifest command failed"));
 
 	let _ = std::fs::remove_dir_all(&dir);
@@ -124,8 +126,36 @@ fn extract_manifest_command_invalid_json() {
 	std::fs::create_dir_all(&dir).unwrap();
 	let out = dir.join("output");
 
-	let err = extract_manifest_command(&dir, "echo 'not json'", &out).unwrap_err();
+	let err =
+		extract_manifest_command(&dir, &CommandConfig::Simple("echo 'not json'".to_string()), &out)
+			.unwrap_err();
 	assert!(err.to_string().contains("failed to parse manifest JSON"));
+
+	let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn extract_manifest_command_respects_custom_cwd() {
+	let dir = std::env::temp_dir().join("seam-test-manifest-cmd-cwd");
+	let nested = dir.join("nested");
+	let _ = std::fs::remove_dir_all(&dir);
+	std::fs::create_dir_all(&nested).unwrap();
+	let out = dir.join("output");
+
+	let manifest_json = r#"{"version":1,"procedures":{"getUser":{"type":"query","input":{"properties":{"username":{"type":"string"}}},"output":{"properties":{"login":{"type":"string"}}}}}}"#;
+	std::fs::write(nested.join("manifest.sh"), format!("#!/bin/sh\necho '{manifest_json}'\n"))
+		.unwrap();
+
+	let manifest = extract_manifest_command(
+		&dir,
+		&CommandConfig::WithCwd {
+			command: "sh manifest.sh".to_string(),
+			cwd: Some("nested".to_string()),
+		},
+		&out,
+	)
+	.unwrap();
+	assert!(manifest.procedures.contains_key("getUser"));
 
 	let _ = std::fs::remove_dir_all(&dir);
 }

@@ -1,5 +1,7 @@
 /* src/cli/core/src/config/types.rs */
 
+use std::path::{Path, PathBuf};
+
 use anyhow::{Result, bail};
 use serde::{Deserialize, Serialize};
 
@@ -150,7 +152,7 @@ pub struct ProjectConfig {
 pub struct BackendConfig {
 	#[serde(default = "default_lang")]
 	pub lang: String,
-	pub dev_command: Option<String>,
+	pub dev_command: Option<CommandConfig>,
 	#[serde(default = "default_port")]
 	pub port: u16,
 }
@@ -164,7 +166,7 @@ impl Default for BackendConfig {
 #[derive(Debug, Clone, Deserialize)]
 pub struct FrontendConfig {
 	pub entry: Option<String>,
-	pub dev_command: Option<String>,
+	pub dev_command: Option<CommandConfig>,
 	pub dev_port: Option<u16>,
 	/// Deprecated: rejected at BuildConfig construction with clear error message
 	pub build_command: Option<String>,
@@ -207,9 +209,9 @@ pub struct BuildSection {
 	#[allow(dead_code)]
 	pub bundler_manifest: Option<String>,
 	pub renderer: Option<String>,
-	pub backend_build_command: Option<String>,
+	pub backend_build_command: Option<CommandConfig>,
 	pub router_file: Option<String>,
-	pub manifest_command: Option<String>,
+	pub manifest_command: Option<CommandConfig>,
 	pub typecheck_command: Option<String>,
 	#[serde(default)]
 	pub obfuscate: Option<bool>,
@@ -224,7 +226,46 @@ pub struct BuildSection {
 
 #[derive(Debug, Clone, Default, Deserialize)]
 pub struct GenerateSection {
+	pub manifest_url: Option<String>,
 	pub out_dir: Option<String>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(untagged)]
+pub enum CommandConfig {
+	Simple(String),
+	WithCwd { command: String, cwd: Option<String> },
+}
+
+impl CommandConfig {
+	pub fn command(&self) -> &str {
+		match self {
+			Self::Simple(command) => command,
+			Self::WithCwd { command, .. } => command,
+		}
+	}
+
+	pub fn cwd(&self) -> Option<&str> {
+		match self {
+			Self::Simple(_) => None,
+			Self::WithCwd { cwd, .. } => cwd.as_deref(),
+		}
+	}
+
+	pub fn resolve_cwd(&self, base_dir: &Path) -> PathBuf {
+		match self.cwd() {
+			Some(path) => {
+				let path = Path::new(path);
+				if path.is_absolute() {
+					path.to_path_buf()
+				} else {
+					let joined = base_dir.join(path);
+					joined.canonicalize().unwrap_or(joined)
+				}
+			}
+			None => base_dir.to_path_buf(),
+		}
+	}
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -281,5 +322,28 @@ impl SeamConfig {
 			Some(w) => &w.members,
 			None => &[],
 		}
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use super::CommandConfig;
+
+	#[test]
+	fn resolve_cwd_defaults_to_base_dir() {
+		let base_dir = std::env::temp_dir().join("seam-test-command-cwd-default");
+		let command = CommandConfig::Simple("bun run dev".to_string());
+		assert_eq!(command.resolve_cwd(&base_dir), base_dir);
+	}
+
+	#[test]
+	fn resolve_cwd_uses_absolute_path_as_is() {
+		let base_dir = std::env::temp_dir().join("seam-test-command-cwd-abs-base");
+		let abs = std::env::temp_dir().join("seam-test-command-cwd-abs-target");
+		let command = CommandConfig::WithCwd {
+			command: "bun run dev".to_string(),
+			cwd: Some(abs.to_string_lossy().to_string()),
+		};
+		assert_eq!(command.resolve_cwd(&base_dir), abs);
 	}
 }

@@ -152,7 +152,8 @@ fn build_reference_member(
 	// [1.1] Compile backend
 	ui::detail(&format!("{}[{}/backend]{} compiling...", col(DIM), first.name, col(RESET)));
 	if let Some(cmd) = &first.build_config.backend_build_command {
-		run_command(&first.member_dir, cmd, "backend build", &[])?;
+		let cwd = cmd.resolve_cwd(&first.member_dir);
+		run_command(&cwd, cmd.command(), "backend build", &[])?;
 	}
 
 	// [1.2] Extract manifest
@@ -245,7 +246,8 @@ fn build_validate_member(
 	ui::detail(&format!("{}[{}]{} compiling backend...", col(DIM), member.name, col(RESET)));
 
 	if let Some(cmd) = &member.build_config.backend_build_command {
-		run_command(&member.member_dir, cmd, "backend build", &[])?;
+		let cwd = cmd.resolve_cwd(&member.member_dir);
+		run_command(&cwd, cmd.command(), "backend build", &[])?;
 	}
 
 	let member_out = shared_out_dir.join(&member.name);

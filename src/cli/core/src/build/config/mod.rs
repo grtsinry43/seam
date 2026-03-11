@@ -5,7 +5,7 @@ use std::path::Path;
 
 use anyhow::{Result, bail};
 
-use crate::config::{I18nSection, OutputMode, SeamConfig};
+use crate::config::{CommandConfig, I18nSection, OutputMode, SeamConfig};
 use crate::ui;
 
 #[derive(Debug, Clone)]
@@ -15,9 +15,9 @@ pub struct BuildConfig {
 	pub routes: String,
 	pub out_dir: String,
 	pub renderer: String,
-	pub backend_build_command: Option<String>,
+	pub backend_build_command: Option<CommandConfig>,
 	pub router_file: Option<String>,
-	pub manifest_command: Option<String>,
+	pub manifest_command: Option<CommandConfig>,
 	pub typecheck_command: Option<String>,
 	pub is_fullstack: bool,
 	pub obfuscate: bool,

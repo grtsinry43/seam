@@ -2,19 +2,26 @@
 
 import type { UserConfig as ViteUserConfig } from 'vite'
 
+export interface CommandWithCwd {
+	command: string
+	cwd?: string
+}
+
+export type CommandConfig = string | CommandWithCwd
+
 export interface ProjectConfig {
 	name: string
 }
 
 export interface BackendConfig {
 	lang?: string
-	devCommand?: string
+	devCommand?: CommandConfig
 	port?: number
 }
 
 export interface FrontendConfig {
 	entry?: string
-	devCommand?: string
+	devCommand?: CommandConfig
 	devPort?: number
 	outDir?: string
 	rootId?: string
@@ -27,9 +34,9 @@ export interface BuildSection {
 	outDir?: string
 	/** Only `'react'` is supported. */
 	renderer?: 'react'
-	backendBuildCommand?: string
+	backendBuildCommand?: CommandConfig
 	routerFile?: string
-	manifestCommand?: string
+	manifestCommand?: CommandConfig
 	typecheckCommand?: string
 	obfuscate?: boolean
 	sourcemap?: boolean
@@ -41,6 +48,7 @@ export interface BuildSection {
 }
 
 export interface GenerateSection {
+	manifestUrl?: string
 	outDir?: string
 }
 

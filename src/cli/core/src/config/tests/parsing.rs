@@ -45,7 +45,10 @@ out_dir = "src/generated"
 	assert_eq!(config.project_name(), "full-app");
 	assert_eq!(config.backend.lang, "rust");
 	assert_eq!(config.backend.port, 8080);
-	assert_eq!(config.backend.dev_command.as_deref(), Some("cargo watch -x run"));
+	assert_eq!(
+		config.backend.dev_command.as_ref().map(crate::config::CommandConfig::command),
+		Some("cargo watch -x run")
+	);
 	assert_eq!(config.frontend.dev_port, Some(5173));
 	assert_eq!(config.build.renderer.as_deref(), Some("react"));
 	assert_eq!(config.generate.out_dir.as_deref(), Some("src/generated"));
@@ -69,7 +72,7 @@ typecheck_command = "bunx tsc --noEmit"
 "#;
 	let config: SeamConfig = toml::from_str(toml_str).unwrap();
 	assert_eq!(
-		config.build.backend_build_command.as_deref(),
+		config.build.backend_build_command.as_ref().map(crate::config::CommandConfig::command),
 		Some("bun build src/server/index.ts --target=bun --outdir=.seam/output/server")
 	);
 	assert_eq!(config.build.router_file.as_deref(), Some("src/server/router.ts"));
@@ -319,8 +322,44 @@ backend_build_command = "cargo build --release"
 routes = "frontend/src/client/routes.ts"
 "#;
 	let config: SeamConfig = toml::from_str(toml_str).unwrap();
-	assert_eq!(config.build.manifest_command.as_deref(), Some("cargo run --release -- --manifest"));
+	assert_eq!(
+		config.build.manifest_command.as_ref().map(crate::config::CommandConfig::command),
+		Some("cargo run --release -- --manifest")
+	);
 	assert!(config.build.router_file.is_none());
+}
+
+#[test]
+fn parse_command_config_object_and_generate_manifest_url() {
+	let toml_str = r#"
+[frontend]
+entry = "src/client/main.tsx"
+
+[backend]
+dev_command = { command = "bun run dev", cwd = "backend" }
+
+[build]
+routes = "src/routes.ts"
+backend_build_command = { command = "cargo build --release", cwd = "server" }
+manifest_command = { command = "cargo run -- --manifest", cwd = "server" }
+
+[generate]
+manifest_url = "http://127.0.0.1:3333/_seam/manifest.json"
+"#;
+	let config: SeamConfig = toml::from_str(toml_str).unwrap();
+	let backend = config.backend.dev_command.as_ref().unwrap();
+	assert_eq!(backend.command(), "bun run dev");
+	assert_eq!(backend.cwd(), Some("backend"));
+	let backend_build = config.build.backend_build_command.as_ref().unwrap();
+	assert_eq!(backend_build.command(), "cargo build --release");
+	assert_eq!(backend_build.cwd(), Some("server"));
+	let manifest = config.build.manifest_command.as_ref().unwrap();
+	assert_eq!(manifest.command(), "cargo run -- --manifest");
+	assert_eq!(manifest.cwd(), Some("server"));
+	assert_eq!(
+		config.generate.manifest_url.as_deref(),
+		Some("http://127.0.0.1:3333/_seam/manifest.json")
+	);
 }
 
 #[test]

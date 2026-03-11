@@ -55,11 +55,17 @@ members = ["backends/ts-hono"]
 	// Backend from member
 	assert_eq!(merged.backend.lang, "typescript");
 	assert_eq!(merged.backend.port, 4000);
-	assert_eq!(merged.backend.dev_command.as_deref(), Some("bun --watch src/index.ts"));
+	assert_eq!(
+		merged.backend.dev_command.as_ref().map(crate::config::CommandConfig::command),
+		Some("bun --watch src/index.ts")
+	);
 	// Build: shared fields from root
 	assert_eq!(merged.build.routes.as_deref(), Some("frontend/src/client/routes.ts"));
 	// Build: overridden fields from member
-	assert_eq!(merged.build.backend_build_command.as_deref(), Some("bun build src/index.ts"));
+	assert_eq!(
+		merged.build.backend_build_command.as_ref().map(crate::config::CommandConfig::command),
+		Some("bun build src/index.ts")
+	);
 	assert_eq!(merged.build.router_file.as_deref(), Some("src/router.ts"));
 	// Workspace stripped from merged
 	assert!(!merged.is_workspace());

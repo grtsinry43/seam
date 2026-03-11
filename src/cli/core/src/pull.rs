@@ -7,13 +7,17 @@ use anyhow::{Context, Result};
 use crate::ui;
 use seam_codegen::{Manifest, ProcedureType};
 
-pub async fn pull_manifest(base_url: &str, out: &Path) -> Result<()> {
-	ui::banner("pull", None);
+fn manifest_url(input: &str) -> String {
+	let trimmed = input.trim_end_matches('/');
+	if trimmed.ends_with("/_seam/manifest.json") {
+		trimmed.to_string()
+	} else {
+		format!("{trimmed}/_seam/manifest.json")
+	}
+}
 
-	let url = format!("{}/_seam/manifest.json", base_url.trim_end_matches('/'));
-
-	ui::arrow(&url);
-
+pub async fn fetch_manifest(url_or_base: &str) -> Result<Manifest> {
+	let url = manifest_url(url_or_base);
 	let resp =
 		reqwest::get(&url).await.with_context(|| format!("failed to fetch manifest from {url}"))?;
 
@@ -22,7 +26,16 @@ pub async fn pull_manifest(base_url: &str, out: &Path) -> Result<()> {
 		anyhow::bail!("server returned HTTP {status}");
 	}
 
-	let manifest: Manifest = resp.json().await.context("failed to parse manifest JSON")?;
+	resp.json().await.context("failed to parse manifest JSON")
+}
+
+pub async fn pull_manifest(base_url: &str, out: &Path) -> Result<()> {
+	ui::banner("pull", None);
+
+	let url = manifest_url(base_url);
+
+	ui::arrow(&url);
+	let manifest = fetch_manifest(base_url).await?;
 
 	let total = manifest.procedures.len();
 
@@ -85,4 +98,22 @@ pub async fn pull_manifest(base_url: &str, out: &Path) -> Result<()> {
 
 	ui::ok(&format!("saved {}", out.display()));
 	Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+	use super::manifest_url;
+
+	#[test]
+	fn manifest_url_accepts_base_url() {
+		assert_eq!(manifest_url("http://localhost:3000"), "http://localhost:3000/_seam/manifest.json");
+	}
+
+	#[test]
+	fn manifest_url_preserves_full_manifest_url() {
+		assert_eq!(
+			manifest_url("http://localhost:3000/_seam/manifest.json"),
+			"http://localhost:3000/_seam/manifest.json"
+		);
+	}
 }

@@ -5,7 +5,7 @@ use std::process::Command;
 
 use anyhow::{Context, Result, bail};
 
-use crate::config::SeamConfig;
+use crate::config::{CommandConfig, SeamConfig};
 use crate::shell::{run_command, which_exists};
 use crate::ui::{self, DIM, GREEN, RESET, col};
 use seam_codegen::{Manifest, ProcedureType};
@@ -158,14 +158,16 @@ pub(crate) fn print_procedure_breakdown(manifest: &Manifest) {
 /// Used for Rust/Go backends that can't be imported via bun -e.
 pub(crate) fn extract_manifest_command(
 	base_dir: &Path,
-	command: &str,
+	command_config: &CommandConfig,
 	out_dir: &Path,
 ) -> Result<Manifest> {
+	let command = command_config.command();
 	let spinner = ui::spinner(command);
+	let cwd = command_config.resolve_cwd(base_dir);
 
 	let output = Command::new("sh")
 		.args(["-c", command])
-		.current_dir(base_dir)
+		.current_dir(&cwd)
 		.output()
 		.with_context(|| format!("failed to run manifest command: {command}"))?;
 

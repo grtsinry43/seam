@@ -153,10 +153,10 @@ async fn spawn_fullstack_children(
 		ui::label(GREEN, "vite", "ready");
 	}
 
-	let backend_cmd_str = config
+	let backend_cmd = config
 		.backend
 		.dev_command
-		.as_deref()
+		.as_ref()
 		.context("backend.dev_command is required for fullstack dev mode")?;
 	let mut env_vars: Vec<(&str, &str)> = vec![
 		("PORT", port_str),
@@ -168,12 +168,14 @@ async fn spawn_fullstack_children(
 	if vite_port.is_some() {
 		env_vars.push(("SEAM_VITE", "1"));
 	}
-	let mut proc = spawn_child("backend", backend_cmd_str, base_dir, &env_vars)?;
+	let backend_cwd = backend_cmd.resolve_cwd(base_dir);
+	let mut proc = spawn_child("backend", backend_cmd.command(), &backend_cwd, &env_vars)?;
 	pipe_output(&mut proc).await;
 	children.push(proc);
 
-	if let Some(cmd) = config.frontend.dev_command.as_deref() {
-		let mut proc = spawn_child("frontend", cmd, base_dir, &[])?;
+	if let Some(cmd) = config.frontend.dev_command.as_ref() {
+		let frontend_cwd = cmd.resolve_cwd(base_dir);
+		let mut proc = spawn_child("frontend", cmd.command(), &frontend_cwd, &[])?;
 		pipe_output(&mut proc).await;
 		children.push(proc);
 	}
