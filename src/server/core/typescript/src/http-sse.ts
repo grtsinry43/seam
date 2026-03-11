@@ -11,8 +11,8 @@ const SSE_HEADER = {
 	Connection: 'keep-alive',
 }
 
-const DEFAULT_HEARTBEAT_MS = 15_000
-const DEFAULT_SSE_IDLE_MS = 30_000
+const DEFAULT_HEARTBEAT_MS = 10_000
+const DEFAULT_SSE_IDLE_MS = 15_000
 
 export function getSseHeaders(): Record<string, string> {
 	return SSE_HEADER
@@ -76,6 +76,7 @@ export async function* withSseLifecycle(
 		signal()
 	}, heartbeatMs)
 
+	queue.push({ type: 'heartbeat' })
 	resetIdle()
 
 	void (async () => {

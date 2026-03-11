@@ -187,7 +187,7 @@ describe('stream HTTP endpoint', () => {
 			body: () => Promise.resolve({ max: 'not a number' }),
 		})
 		expect('stream' in res).toBe(true)
-		const chunks = await collectStrings((res as HttpStreamResponse).stream)
+		const chunks = await collectDataChunks((res as HttpStreamResponse).stream)
 		expect(chunks[0]).toContain('VALIDATION_ERROR')
 	})
 })
@@ -209,4 +209,8 @@ async function collect<T>(iter: AsyncIterable<T>): Promise<T[]> {
 
 async function collectStrings(iter: AsyncIterable<string>): Promise<string[]> {
 	return collect(iter)
+}
+
+async function collectDataChunks(iter: AsyncIterable<string>): Promise<string[]> {
+	return (await collectStrings(iter)).filter((chunk) => chunk !== ': heartbeat\n\n')
 }

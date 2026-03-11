@@ -88,7 +88,7 @@ fn heartbeat_router(interval: Duration) -> axum::Router {
 	let server = SeamServer::new()
 		.transport_config(TransportConfig {
 			heartbeat_interval: interval,
-			sse_idle_timeout: Duration::from_secs(30),
+			sse_idle_timeout: Duration::from_secs(15),
 			pong_timeout: Duration::from_secs(5),
 		})
 		.subscription(SubscriptionDef {
@@ -167,6 +167,19 @@ async fn sse_subscription_sends_complete() {
 	let (status, body) = send_raw_request(router, req).await;
 	assert_eq!(status, StatusCode::OK);
 	assert!(body.contains("event: complete\n"), "missing complete event in:\n{body}");
+}
+
+#[tokio::test]
+async fn sse_subscription_starts_with_heartbeat() {
+	let router = heartbeat_router(Duration::from_millis(100));
+	let req = Request::builder()
+		.method("GET")
+		.uri("/_seam/procedure/chat.events")
+		.body(Body::empty())
+		.unwrap();
+	let (status, body) = send_raw_request(router, req).await;
+	assert_eq!(status, StatusCode::OK);
+	assert!(body.starts_with(": heartbeat\n\n"), "missing initial heartbeat in:\n{body}");
 }
 
 // --- WebSocket channel tests ---

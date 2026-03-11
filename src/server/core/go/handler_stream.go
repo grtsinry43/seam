@@ -63,6 +63,10 @@ func (s *appState) handleStream(w http.ResponseWriter, r *http.Request, name str
 	w.Header().Set("Connection", "keep-alive")
 
 	flusher, canFlush := w.(http.Flusher)
+	_, _ = fmt.Fprintf(w, ": heartbeat\n\n")
+	if canFlush {
+		flusher.Flush()
+	}
 	idle := s.opts.SSEIdleTimeout
 	seq := 0
 	heartbeatTicker := time.NewTicker(s.opts.HeartbeatInterval)

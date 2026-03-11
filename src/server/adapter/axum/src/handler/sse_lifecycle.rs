@@ -27,7 +27,10 @@ pub(super) fn with_sse_lifecycle(
 
 		let mut data_stream = data_stream;
 		let mut heartbeat = tokio::time::interval(heartbeat_interval);
-		// Skip the first immediate tick
+		let initial_heartbeat = Event::default().comment("heartbeat");
+		if tx.send(Ok(initial_heartbeat)).await.is_err() {
+			return;
+		}
 		heartbeat.tick().await;
 
 		let idle_enabled = idle_timeout > Duration::ZERO;

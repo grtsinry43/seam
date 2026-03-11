@@ -43,7 +43,7 @@ describe('dev reload SSE endpoint', () => {
 		expect('stream' in res).toBe(true)
 	})
 
-	it('first chunk is ": connected" comment for header flushing', async () => {
+	it('first chunk is an SSE heartbeat comment', async () => {
 		const router = createRouter({ procedures: {} })
 		const handler = createHttpHandler(router, { devBuildDir: tmpDir })
 		const res = await req(handler, 'GET', '/_seam/dev/reload')
@@ -53,10 +53,10 @@ describe('dev reload SSE endpoint', () => {
 		const chunks: string[] = []
 		for await (const chunk of res.stream) {
 			chunks.push(chunk)
-			// Stop after the first real chunk (the ': connected' comment)
+			// Stop after the initial keepalive frame.
 			if (chunks.length >= 1) break
 		}
-		expect(chunks[0]).toBe(': connected\n\n')
+		expect(chunks[0]).toBe(': heartbeat\n\n')
 	})
 
 	it('returns 404 when devBuildDir is not set', async () => {
@@ -85,7 +85,7 @@ describe('dev reload SSE endpoint', () => {
 		try {
 			for await (const chunk of res.stream) {
 				chunks.push(chunk)
-				// We expect ": connected", then "data: reload" (possibly with heartbeats between)
+				// We expect an initial heartbeat, then the connected comment, then reload.
 				if (chunks.some((c) => c.includes('data: reload'))) break
 			}
 		} finally {
@@ -93,7 +93,8 @@ describe('dev reload SSE endpoint', () => {
 			res.onCancel?.()
 		}
 
-		expect(chunks[0]).toBe(': connected\n\n')
+		expect(chunks[0]).toBe(': heartbeat\n\n')
+		expect(chunks.some((c) => c === ': connected\n\n')).toBe(true)
 		expect(chunks.some((c) => c === 'data: reload\n\n')).toBe(true)
 	})
 })

@@ -14,9 +14,12 @@ import (
 	"time"
 )
 
-func TestHandlerUses15SecondHeartbeatByDefault(t *testing.T) {
-	if defaultHandlerOptions.HeartbeatInterval != 15*time.Second {
-		t.Fatalf("expected default heartbeat interval to be 15s, got %s", defaultHandlerOptions.HeartbeatInterval)
+func TestHandlerUses10SecondHeartbeatAnd15SecondIdleTimeoutByDefault(t *testing.T) {
+	if defaultHandlerOptions.HeartbeatInterval != 10*time.Second {
+		t.Fatalf("expected default heartbeat interval to be 10s, got %s", defaultHandlerOptions.HeartbeatInterval)
+	}
+	if defaultHandlerOptions.SSEIdleTimeout != 15*time.Second {
+		t.Fatalf("expected default SSE idle timeout to be 15s, got %s", defaultHandlerOptions.SSEIdleTimeout)
 	}
 }
 

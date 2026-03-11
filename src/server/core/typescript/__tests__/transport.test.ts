@@ -9,7 +9,7 @@ afterEach(() => {
 	vi.useRealTimers()
 })
 
-describe('transport declaration', () => {
+function registerTransportManifestTests() {
 	test('procedure transport appears in manifest', () => {
 		const transport: TransportConfig = { prefer: 'ws' }
 		const router = createRouter({
@@ -90,8 +90,25 @@ describe('transport declaration', () => {
 		const manifest = router.manifest()
 		expect(manifest.transportDefaults).toEqual({})
 	})
+}
 
-	test('default SSE heartbeat fires at 15 seconds', async () => {
+function registerSseLifecycleTests() {
+	test('SSE emits an initial heartbeat immediately', async () => {
+		const iter = withSseLifecycle(
+			{
+				async *[Symbol.asyncIterator]() {
+					await new Promise(() => {})
+					yield ''
+				},
+			},
+			{ sseIdleTimeout: 0 },
+		)[Symbol.asyncIterator]()
+
+		await expect(iter.next()).resolves.toEqual({ done: false, value: ': heartbeat\n\n' })
+		await iter.return?.(undefined)
+	})
+
+	test('default SSE heartbeat fires every 10 seconds', async () => {
 		vi.useFakeTimers()
 
 		const iter = withSseLifecycle(
@@ -104,10 +121,44 @@ describe('transport declaration', () => {
 			{ sseIdleTimeout: 0 },
 		)[Symbol.asyncIterator]()
 
-		const nextChunk = iter.next()
-		await vi.advanceTimersByTimeAsync(15_000)
+		await expect(iter.next()).resolves.toEqual({ done: false, value: ': heartbeat\n\n' })
 
+		const nextChunk = iter.next()
+		vi.advanceTimersByTime(10_000)
+		await Promise.resolve()
+		await Promise.resolve()
 		await expect(nextChunk).resolves.toEqual({ done: false, value: ': heartbeat\n\n' })
 		await iter.return?.(undefined)
 	})
+
+	test('default SSE idle timeout completes after 15 seconds', async () => {
+		vi.useFakeTimers()
+
+		const iter = withSseLifecycle(
+			{
+				async *[Symbol.asyncIterator]() {
+					await new Promise(() => {})
+					yield ''
+				},
+			},
+			{ heartbeatInterval: 60_000 },
+		)[Symbol.asyncIterator]()
+
+		await expect(iter.next()).resolves.toEqual({ done: false, value: ': heartbeat\n\n' })
+
+		const nextChunk = iter.next()
+		vi.advanceTimersByTime(15_000)
+		await Promise.resolve()
+		await Promise.resolve()
+		await expect(nextChunk).resolves.toEqual({
+			done: false,
+			value: 'event: complete\ndata: {}\n\n',
+		})
+		await iter.return?.(undefined)
+	})
+}
+
+describe('transport declaration', () => {
+	registerTransportManifestTests()
+	registerSseLifecycleTests()
 })

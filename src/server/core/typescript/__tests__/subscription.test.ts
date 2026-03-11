@@ -94,7 +94,7 @@ describe('subscription output validation', () => {
 			body: () => Promise.reject(new Error('no body')),
 		})
 		expect('stream' in res).toBe(true)
-		const chunks = await collectStrings((res as HttpStreamResponse).stream)
+		const chunks = await collectDataChunks((res as HttpStreamResponse).stream)
 		expect(chunks[0]).toContain('INTERNAL_ERROR')
 		expect(chunks[0]).toContain('Output validation failed')
 	})
@@ -139,7 +139,7 @@ describe('SSE HTTP endpoint', () => {
 		const res = await sseReq('/_seam/procedure/unknown')
 		expect('stream' in res).toBe(true)
 
-		const chunks = await collectStrings((res as HttpStreamResponse).stream)
+		const chunks = await collectDataChunks((res as HttpStreamResponse).stream)
 		expect(chunks.length).toBe(1)
 		expect(chunks[0]).toContain('NOT_FOUND')
 	})
@@ -161,7 +161,7 @@ describe('SSE HTTP endpoint', () => {
 		const res = await sseReq('/_seam/procedure/onCount')
 		expect('stream' in res).toBe(true)
 
-		const chunks = await collectStrings((res as HttpStreamResponse).stream)
+		const chunks = await collectDataChunks((res as HttpStreamResponse).stream)
 		expect(chunks[0]).toContain('VALIDATION_ERROR')
 	})
 })
@@ -245,4 +245,8 @@ async function collect<T>(iter: AsyncIterable<T>): Promise<T[]> {
 
 async function collectStrings(iter: AsyncIterable<string>): Promise<string[]> {
 	return collect(iter)
+}
+
+async function collectDataChunks(iter: AsyncIterable<string>): Promise<string[]> {
+	return (await collectStrings(iter)).filter((chunk) => chunk !== ': heartbeat\n\n')
 }

@@ -197,6 +197,10 @@ func (s *appState) handleSubscribe(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Connection", "keep-alive")
 
 	flusher, canFlush := w.(http.Flusher)
+	_, _ = fmt.Fprintf(w, ": heartbeat\n\n")
+	if canFlush {
+		flusher.Flush()
+	}
 	idle := s.opts.SSEIdleTimeout
 	heartbeatTicker := time.NewTicker(s.opts.HeartbeatInterval)
 	defer heartbeatTicker.Stop()

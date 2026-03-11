@@ -24,6 +24,36 @@ fn stream_router() -> axum::Router {
 	server.into_axum_router()
 }
 
+fn heartbeat_stream_router(interval: std::time::Duration) -> axum::Router {
+	let server = SeamServer::new()
+		.transport_config(seam_server::TransportConfig {
+			heartbeat_interval: interval,
+			sse_idle_timeout: std::time::Duration::from_secs(15),
+			pong_timeout: std::time::Duration::from_secs(5),
+		})
+		.stream(StreamDef {
+			name: "countStream".into(),
+			input_schema: serde_json::json!({"properties": {"n": {"type": "int32"}}}),
+			chunk_output_schema: serde_json::json!({"properties": {"value": {"type": "int32"}}}),
+			error_schema: None,
+			context_keys: vec![],
+			suppress: None,
+			handler: Arc::new(|_params| {
+				Box::pin(async move {
+					let (tx, rx) = tokio::sync::mpsc::channel(8);
+					tokio::spawn(async move {
+						tokio::time::sleep(std::time::Duration::from_millis(250)).await;
+						let _ = tx.send(Ok(serde_json::json!({"value": 1}))).await;
+					});
+					let stream: BoxStream<Result<serde_json::Value, SeamError>> =
+						Box::pin(tokio_stream::wrappers::ReceiverStream::new(rx));
+					Ok(stream)
+				})
+			}),
+		});
+	server.into_axum_router()
+}
+
 #[tokio::test]
 async fn stream_returns_sse_with_ids() {
 	let router = stream_router();
@@ -40,6 +70,21 @@ async fn stream_returns_sse_with_ids() {
 	assert!(body.contains("event: data\nid: 1\n"), "missing id: 1 in:\n{body}");
 	assert!(body.contains("event: data\nid: 2\n"), "missing id: 2 in:\n{body}");
 	assert!(body.contains("event: complete\n"), "missing complete event");
+}
+
+#[tokio::test]
+async fn stream_starts_with_heartbeat() {
+	let router = heartbeat_stream_router(std::time::Duration::from_millis(100));
+	let req = Request::builder()
+		.method("POST")
+		.uri("/_seam/procedure/countStream")
+		.header("content-type", "application/json")
+		.body(Body::from(r#"{"n": 1}"#))
+		.unwrap();
+	let (status, body) = send_raw_request(router, req).await;
+	assert_eq!(status, StatusCode::OK);
+	assert!(body.starts_with(": heartbeat\n\n"), "missing initial heartbeat in:\n{body}");
+	assert!(body.contains("event: data\nid: 0\n"), "missing first data event in:\n{body}");
 }
 
 #[tokio::test]

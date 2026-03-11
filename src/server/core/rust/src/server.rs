@@ -21,8 +21,8 @@ pub struct TransportConfig {
 impl Default for TransportConfig {
 	fn default() -> Self {
 		Self {
-			heartbeat_interval: Duration::from_secs(15),
-			sse_idle_timeout: Duration::from_secs(30),
+			heartbeat_interval: Duration::from_secs(10),
+			sse_idle_timeout: Duration::from_secs(15),
 			pong_timeout: Duration::from_secs(5),
 		}
 	}
@@ -215,8 +215,9 @@ mod tests {
 	use std::time::Duration;
 
 	#[test]
-	fn transport_config_uses_15_second_heartbeat_by_default() {
+	fn transport_config_uses_10_second_heartbeat_and_15_second_idle_timeout_by_default() {
 		let config = TransportConfig::default();
-		assert_eq!(config.heartbeat_interval, Duration::from_secs(15));
+		assert_eq!(config.heartbeat_interval, Duration::from_secs(10));
+		assert_eq!(config.sse_idle_timeout, Duration::from_secs(15));
 	}
 }

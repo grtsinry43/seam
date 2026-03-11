@@ -136,3 +136,61 @@ func TestSSEZeroIdleTimeout(t *testing.T) {
 		t.Fatalf("expected complete event, got: %s", body)
 	}
 }
+
+func TestSSESubscriptionStartsWithHeartbeatAndPropagatesLastEventID(t *testing.T) {
+	subHandler := func(ctx context.Context, input json.RawMessage) (<-chan SubscriptionEvent, error) {
+		ch := make(chan SubscriptionEvent, 1)
+		ch <- SubscriptionEvent{Value: map[string]string{"lastEventId": LastEventID(ctx)}}
+		close(ch)
+		return ch, nil
+	}
+
+	handler := buildHandler(
+		nil,
+		[]SubscriptionDef{{Name: "resume", Handler: subHandler}},
+		nil, nil, nil, nil, nil, nil, "", nil, nil,
+		nil, HandlerOptions{SSEIdleTimeout: 0, HeartbeatInterval: 1 * time.Second}, ValidationModeNever,
+	)
+
+	req := httptest.NewRequest("GET", "/_seam/procedure/resume", http.NoBody)
+	req.Header.Set("Last-Event-ID", "42")
+	w := httptest.NewRecorder()
+	handler.ServeHTTP(w, req)
+
+	body := w.Body.String()
+	if !strings.HasPrefix(body, ": heartbeat\n\n") {
+		t.Fatalf("expected initial heartbeat, got: %s", body)
+	}
+	if !strings.Contains(body, `"lastEventId":"42"`) {
+		t.Fatalf("expected propagated Last-Event-ID, got: %s", body)
+	}
+}
+
+func TestSSEStreamStartsWithHeartbeat(t *testing.T) {
+	streamHandler := func(ctx context.Context, input json.RawMessage) (<-chan StreamEvent, error) {
+		ch := make(chan StreamEvent, 1)
+		ch <- StreamEvent{Value: map[string]string{"chunk": "first"}}
+		close(ch)
+		return ch, nil
+	}
+
+	handler := buildHandler(
+		nil,
+		nil,
+		[]StreamDef{{Name: "count-stream", Handler: streamHandler}},
+		nil, nil, nil, nil, nil, "", nil, nil,
+		nil, HandlerOptions{SSEIdleTimeout: 0, HeartbeatInterval: 1 * time.Second}, ValidationModeNever,
+	)
+
+	req := httptest.NewRequest("POST", "/_seam/procedure/count-stream", strings.NewReader(`{}`))
+	w := httptest.NewRecorder()
+	handler.ServeHTTP(w, req)
+
+	body := w.Body.String()
+	if !strings.HasPrefix(body, ": heartbeat\n\n") {
+		t.Fatalf("expected initial heartbeat, got: %s", body)
+	}
+	if !strings.Contains(body, "event: data\nid: 0\n") {
+		t.Fatalf("expected stream data event with id, got: %s", body)
+	}
+}
