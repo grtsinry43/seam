@@ -110,7 +110,10 @@ fn try_load_config() -> Option<SeamConfig> {
 /// Resolve config path (explicit or auto-detected) and parse it
 fn resolve_config(explicit: Option<PathBuf>) -> Result<(PathBuf, SeamConfig)> {
 	let path = match explicit {
-		Some(p) => p,
+		Some(p) => {
+			let cwd = std::env::current_dir().context("failed to get cwd")?;
+			if p.is_absolute() { p } else { cwd.join(p) }
+		}
 		None => {
 			let cwd = std::env::current_dir().context("failed to get cwd")?;
 			find_seam_config(&cwd)?
@@ -295,5 +298,27 @@ manifest_url = "http://config.example/_seam/manifest.json"
 	fn generate_falls_back_to_local_manifest_when_no_url_configured() {
 		let resolved = resolve_generate_manifest_url(None, None);
 		assert!(resolved.is_none());
+	}
+
+	#[test]
+	fn resolve_config_converts_explicit_relative_path_to_absolute() {
+		let old_cwd = std::env::current_dir().unwrap();
+		let tmp = std::env::temp_dir().join("seam-test-resolve-config-relative");
+		let _ = std::fs::remove_dir_all(&tmp);
+		std::fs::create_dir_all(&tmp).unwrap();
+		std::fs::write(
+			tmp.join("seam.dev-cwd.config.ts"),
+			r#"export default { frontend: { entry: "src/main.tsx" }, build: { pagesDir: "src/pages" } }"#,
+		)
+		.unwrap();
+
+		std::env::set_current_dir(&tmp).unwrap();
+		let (path, _) = resolve_config(Some(PathBuf::from("seam.dev-cwd.config.ts"))).unwrap();
+		assert!(path.is_absolute());
+		assert_eq!(path.file_name().and_then(|name| name.to_str()), Some("seam.dev-cwd.config.ts"));
+		assert!(path.ends_with("seam.dev-cwd.config.ts"));
+
+		std::env::set_current_dir(old_cwd).unwrap();
+		let _ = std::fs::remove_dir_all(&tmp);
 	}
 }
