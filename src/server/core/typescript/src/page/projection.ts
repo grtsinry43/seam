@@ -4,26 +4,20 @@ import { isLoaderError } from './loader-error.js'
 
 export type ProjectionMap = Record<string, string[]>
 
-const UNSAFE_PATH_SEGMENTS = new Set(['__proto__', 'prototype', 'constructor'])
-
-function isUnsafePathSegment(part: string): boolean {
-	return UNSAFE_PATH_SEGMENTS.has(part)
-}
-
 /** Set a nested field by dot-separated path, creating intermediate objects as needed. */
 function setNestedField(target: Record<string, unknown>, path: string, value: unknown): void {
 	const parts = path.split('.')
 	let current: Record<string, unknown> = target
 	for (let i = 0; i < parts.length - 1; i++) {
 		const key = parts[i] as string
-		if (isUnsafePathSegment(key)) return
+		if (key === '__proto__' || key === 'prototype' || key === 'constructor') return
 		if (!(key in current) || typeof current[key] !== 'object' || current[key] === null) {
 			current[key] = {}
 		}
 		current = current[key] as Record<string, unknown>
 	}
 	const lastPart = parts[parts.length - 1] as string
-	if (isUnsafePathSegment(lastPart)) return
+	if (lastPart === '__proto__' || lastPart === 'prototype' || lastPart === 'constructor') return
 	current[lastPart] = value
 }
 

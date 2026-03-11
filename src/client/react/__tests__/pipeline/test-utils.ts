@@ -12,12 +12,6 @@ import type { Axis } from './extract/index.js'
 
 export { inject, buildSentinelData }
 
-const UNSAFE_PATH_SEGMENTS = new Set(['__proto__', 'prototype', 'constructor'])
-
-function isUnsafePathSegment(part: string): boolean {
-	return UNSAFE_PATH_SEGMENTS.has(part)
-}
-
 // -- Slot replacement (mirrors Rust sentinel_to_slots) --
 // Non-sentinel attributes (e.g. id="_R_1_" from React's useId) pass through
 // verbatim as static template literals. The ID format is React-version dependent
@@ -247,7 +241,7 @@ function setNestedValue(obj: Record<string, unknown>, path: string, value: unkno
 			if (!Array.isArray(current) || current.length === 0) return
 			current = current[0]
 		} else {
-			if (isUnsafePathSegment(part)) return
+			if (part === '__proto__' || part === 'prototype' || part === 'constructor') return
 			current = current[part]
 		}
 		if (current === null || current === undefined) return
@@ -256,7 +250,7 @@ function setNestedValue(obj: Record<string, unknown>, path: string, value: unkno
 	if (lastPart === '$') {
 		if (Array.isArray(current)) current[0] = value
 	} else {
-		if (isUnsafePathSegment(lastPart)) return
+		if (lastPart === '__proto__' || lastPart === 'prototype' || lastPart === 'constructor') return
 		current[lastPart] = value
 	}
 }
