@@ -180,7 +180,8 @@ type publicFileHandler struct {
 }
 
 func (h *publicFileHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	if !strings.HasPrefix(r.URL.Path, "/_seam/") && r.Method == http.MethodGet {
+	if !strings.HasPrefix(r.URL.Path, "/_seam/") &&
+		(r.Method == http.MethodGet || r.Method == http.MethodHead) {
 		clean := filepath.Clean(r.URL.Path)
 		if !strings.Contains(clean, "..") {
 			full := filepath.Join(h.dir, clean)

@@ -174,6 +174,7 @@ export interface RouterOptions<TState = undefined> {
 	pages?: Record<string, PageDef>
 	rpcHashMap?: RpcHashMap
 	i18n?: I18nConfig | null
+	publicDir?: string
 	validateOutput?: boolean
 	validation?: ValidationConfig
 	resolve?: ResolveStrategy[]
@@ -218,6 +219,7 @@ export interface Router<T extends DefinitionMap> {
 	readonly ctxConfig: ContextConfig
 	readonly hasPages: boolean
 	readonly rpcHashMap: RpcHashMap | undefined
+	readonly publicDir: string | undefined
 	/** Atomically replace pages, i18n, and rpcHashMap from a fresh build (dev-mode hot-reload) */
 	reload(build: BuildOutput): void
 	/** Exposed for adapter access to the definitions */
@@ -239,6 +241,11 @@ export function createRouter<TState = undefined, T extends DefinitionMap = Defin
 	})
 	Object.defineProperty(router, 'rpcHashMap', {
 		get: () => state.rpcHashMap,
+		enumerable: true,
+		configurable: true,
+	})
+	Object.defineProperty(router, 'publicDir', {
+		get: () => state.publicDir,
 		enumerable: true,
 		configurable: true,
 	})

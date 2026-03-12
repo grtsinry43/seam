@@ -10,10 +10,15 @@ mod subscribe;
 mod upload;
 
 use std::collections::HashMap;
+use std::path::{Component, PathBuf};
 use std::sync::Arc;
 use std::time::Duration;
 
 use axum::Router;
+use axum::body::Body;
+use axum::http::{Method, Request, StatusCode};
+use axum::middleware::{self, Next};
+use axum::response::{IntoResponse, Response};
 use axum::routing::{get, post};
 use seam_server::RpcHashMap;
 use seam_server::SeamError;
@@ -21,6 +26,8 @@ use seam_server::context::{ContextConfig, RawContextMap, resolve_context};
 use seam_server::page::PageDef;
 use seam_server::procedure::{ProcedureDef, ProcedureType, StreamDef, SubscriptionDef, UploadDef};
 use seam_server::resolve::ResolveStrategy;
+use tower::util::ServiceExt;
+use tower_http::services::ServeFile;
 
 pub(crate) struct AppState {
 	pub manifest_json: serde_json::Value,
@@ -74,6 +81,49 @@ pub(super) fn resolve_ctx_for_proc(
 	}
 	let raw = extract_raw_context_from_req(&state.context_config, headers, uri);
 	resolve_context(&state.context_config, &raw, context_keys)
+}
+
+fn safe_public_path(path: &str) -> Option<PathBuf> {
+	let trimmed = path.trim_start_matches('/');
+	if trimmed.is_empty() {
+		return None;
+	}
+
+	let rel = PathBuf::from(trimmed);
+	if rel.components().any(|component| matches!(component, Component::ParentDir)) {
+		return None;
+	}
+
+	Some(rel)
+}
+
+async fn public_file_middleware(
+	axum::extract::State(public_dir): axum::extract::State<Arc<PathBuf>>,
+	req: Request<Body>,
+	next: Next,
+) -> Response {
+	if req.uri().path().starts_with("/_seam/") {
+		return next.run(req).await;
+	}
+	if req.method() != Method::GET && req.method() != Method::HEAD {
+		return next.run(req).await;
+	}
+
+	let Some(rel_path) = safe_public_path(req.uri().path()) else {
+		return next.run(req).await;
+	};
+	let full_path = public_dir.join(rel_path);
+	match tokio::fs::metadata(&full_path).await {
+		Ok(metadata) if metadata.is_file() => match ServeFile::new(full_path).oneshot(req).await {
+			Ok(response) => response.into_response(),
+			Err(_) => StatusCode::INTERNAL_SERVER_ERROR.into_response(),
+		},
+		_ => next.run(req).await,
+	}
+}
+
+pub fn with_public_files(router: Router, public_dir: PathBuf) -> Router {
+	router.layer(middleware::from_fn_with_state(Arc::new(public_dir), public_file_middleware))
 }
 
 #[allow(clippy::too_many_arguments, clippy::too_many_lines)]

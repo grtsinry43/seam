@@ -6,13 +6,13 @@ import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { createRouter, t, createHttpHandler, toWebResponse } from '../src/index.js'
 
-const router = createRouter({
+const procedures = {
 	greet: {
 		input: t.object({ name: t.string() }),
 		output: t.object({ message: t.string() }),
 		handler: ({ input }) => ({ message: `Hello, ${input.name}!` }),
 	},
-})
+}
 
 let publicDir: string
 
@@ -30,8 +30,10 @@ afterAll(() => {
 })
 
 function makeHandler(opts?: { withPublic?: boolean; withFallback?: boolean }) {
-	return createHttpHandler(router, {
+	const router = createRouter(procedures, {
 		publicDir: opts?.withPublic !== false ? publicDir : undefined,
+	})
+	return createHttpHandler(router, {
 		fallback: opts?.withFallback
 			? async () => ({ status: 200, headers: { 'Content-Type': 'text/html' }, body: '<html/>' })
 			: undefined,

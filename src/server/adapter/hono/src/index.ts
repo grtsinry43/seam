@@ -47,14 +47,20 @@ const EVENTS_SUFFIX = '.events'
 // Track WS sessions without patching the ws object
 const wsSessions = new WeakMap<object, ChannelWsSession>()
 
+function resolveRouterPublicDir<T extends DefinitionMap>(router: Router<T>): string | undefined {
+	const publicDir = (router as unknown as { publicDir?: string }).publicDir
+	return typeof publicDir === 'string' ? publicDir : undefined
+}
+
 /** Hono middleware that handles all /_seam/* routes via the seam router */
 export function seam<T extends DefinitionMap>(
 	router: Router<T>,
 	opts?: SeamHonoOptions,
 ): MiddlewareHandler {
+	const effectivePublicDir = opts?.publicDir ?? resolveRouterPublicDir(router)
 	const handlerOpts: HttpHandlerOptions = {}
 	if (opts?.staticDir) handlerOpts.staticDir = opts.staticDir
-	if (opts?.publicDir) handlerOpts.publicDir = opts.publicDir
+	if (effectivePublicDir) handlerOpts.publicDir = effectivePublicDir
 	if (opts?.fallback) handlerOpts.fallback = opts.fallback
 	if (opts?.rpcHashMap) handlerOpts.rpcHashMap = opts.rpcHashMap
 	if (opts?.sseOptions) handlerOpts.sseOptions = opts.sseOptions
@@ -65,7 +71,9 @@ export function seam<T extends DefinitionMap>(
 		const url = new URL(c.req.url)
 
 		if (!url.pathname.startsWith(SEAM_PREFIX)) {
-			if (!opts?.publicDir || c.req.method !== 'GET') return next()
+			if (!effectivePublicDir || (c.req.method !== 'GET' && c.req.method !== 'HEAD')) {
+				return next()
+			}
 			// Public file: let handler check the file, fall through to next() on miss
 			const raw = c.req.raw
 			const result = await handler({

@@ -190,10 +190,17 @@ type BuildOutput struct {
 // LoadBuild loads all build artifacts (pages, rpcHashMap, i18n) in one call.
 func LoadBuild(dir string) BuildOutput {
 	pages, _ := LoadBuildOutput(dir)
-	publicDir := filepath.Join(dir, "public-root")
 	var pubDir string
-	if info, err := os.Stat(publicDir); err == nil && info.IsDir() {
-		pubDir = publicDir
+	if explicitDir := os.Getenv("SEAM_PUBLIC_DIR"); explicitDir != "" {
+		if info, err := os.Stat(explicitDir); err == nil && info.IsDir() {
+			pubDir = explicitDir
+		}
+	}
+	if pubDir == "" {
+		publicDir := filepath.Join(dir, "public-root")
+		if info, err := os.Stat(publicDir); err == nil && info.IsDir() {
+			pubDir = publicDir
+		}
 	}
 	return BuildOutput{
 		Pages:      pages,

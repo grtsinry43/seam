@@ -9,6 +9,7 @@ use std::sync::Arc;
 use seam_server::SeamServer;
 use seam_server::manifest::build_manifest;
 
+pub use handler::with_public_files;
 /// Re-export seam-server core for convenience
 pub use seam_server;
 
@@ -24,6 +25,7 @@ pub trait IntoAxumRouter {
 impl IntoAxumRouter for SeamServer {
 	fn into_axum_router(self) -> axum::Router {
 		let parts = self.into_parts();
+		let public_dir = parts.public_dir.clone();
 		let manifest_json = serde_json::to_value(build_manifest(
 			&parts.procedures,
 			&parts.subscriptions,
@@ -38,7 +40,7 @@ impl IntoAxumRouter for SeamServer {
 			parts.subscriptions.into_iter().map(|s| (s.name.clone(), Arc::new(s))).collect();
 		let streams = parts.streams.into_iter().map(|s| (s.name.clone(), Arc::new(s))).collect();
 		let uploads = parts.uploads.into_iter().map(|u| (u.name.clone(), Arc::new(u))).collect();
-		handler::build_router(
+		let router = handler::build_router(
 			manifest_json,
 			handlers,
 			subscriptions,
@@ -51,7 +53,12 @@ impl IntoAxumRouter for SeamServer {
 			parts.context_config,
 			&parts.validation_mode,
 			&parts.transport_config,
-		)
+		);
+		if let Some(public_dir) = public_dir {
+			handler::with_public_files(router, public_dir)
+		} else {
+			router
+		}
 	}
 
 	#[allow(clippy::print_stdout)]

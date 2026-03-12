@@ -14,7 +14,10 @@ pub mod server;
 pub mod validation;
 
 // Re-exports for ergonomic use
-pub use build_loader::{RpcHashMap, load_build_output, load_i18n_config, load_rpc_hash_map};
+pub use build_loader::{
+	BuildOutput, RpcHashMap, load_build, load_build_output, load_i18n_config, load_public_dir,
+	load_rpc_hash_map,
+};
 pub use channel::{ChannelDef, ChannelMeta, IncomingDef, IncomingMeta};
 pub use context::{
 	ContextConfig, ContextFieldDef, RawContextMap, context_has_extracts, context_keys_from_schema,

@@ -4,6 +4,7 @@ use std::collections::HashMap;
 
 use super::loader::{convert_route_path, load_build_output, parse_loaders};
 use super::types::ParamConfig;
+use super::{load_build, load_public_dir};
 
 #[test]
 fn convert_route_simple() {
@@ -240,6 +241,51 @@ fn load_build_output_with_route_params() {
 	params.insert("username".to_string(), "octocat".to_string());
 	let input = (pages[0].loaders[0].input_fn)(&params);
 	assert_eq!(input["username"], "octocat");
+
+	let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn load_public_dir_prefers_env_override() {
+	let dir = std::env::temp_dir().join("seam-test-public-dir");
+	let _ = std::fs::remove_dir_all(&dir);
+	std::fs::create_dir_all(&dir).unwrap();
+
+	let prev = std::env::var("SEAM_PUBLIC_DIR").ok();
+	unsafe { std::env::set_var("SEAM_PUBLIC_DIR", &dir) };
+
+	let public_dir = load_public_dir("ignored");
+	assert_eq!(public_dir.as_deref(), Some(dir.as_path()));
+
+	if let Some(value) = prev {
+		unsafe { std::env::set_var("SEAM_PUBLIC_DIR", value) };
+	} else {
+		unsafe { std::env::remove_var("SEAM_PUBLIC_DIR") };
+	}
+	let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn load_build_includes_public_dir() {
+	let dir = std::env::temp_dir().join("seam-test-build-output");
+	let _ = std::fs::remove_dir_all(&dir);
+	std::fs::create_dir_all(dir.join("templates")).unwrap();
+	std::fs::create_dir_all(dir.join("public-root")).unwrap();
+	std::fs::write(dir.join("templates/index.html"), "<p>body</p>").unwrap();
+	let manifest = serde_json::json!({
+		"routes": {
+			"/": {
+				"template": "templates/index.html",
+				"loaders": {}
+			}
+		}
+	});
+	std::fs::write(dir.join("route-manifest.json"), serde_json::to_string_pretty(&manifest).unwrap())
+		.unwrap();
+
+	let build = load_build(dir.to_str().unwrap()).unwrap();
+	let expected_public_dir = dir.join("public-root");
+	assert_eq!(build.public_dir.as_deref(), Some(expected_public_dir.as_path()));
 
 	let _ = std::fs::remove_dir_all(&dir);
 }

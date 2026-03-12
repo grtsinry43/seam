@@ -70,6 +70,7 @@ export function initRouterState<TState = undefined>(
 		hasCtx,
 		appState: opts?.state,
 		rpcHashMap: opts?.rpcHashMap,
+		publicDir: opts?.publicDir,
 	}
 }
 
@@ -131,7 +132,7 @@ export function buildRouterMethods<TState = undefined>(
 	state: ReturnType<typeof initRouterState<TState>>,
 	procedures: DefinitionMap,
 	opts?: RouterOptions<TState>,
-): Omit<Router<DefinitionMap>, 'procedures' | 'rpcHashMap' | 'hasPages'> {
+): Omit<Router<DefinitionMap>, 'procedures' | 'rpcHashMap' | 'publicDir' | 'hasPages'> {
 	return {
 		ctxConfig: state.ctxConfig,
 		hasContext() {
@@ -193,6 +194,7 @@ export function buildRouterMethods<TState = undefined>(
 			state.i18nConfig = build.i18n ?? null
 			if (state.i18nConfig) registerI18nQuery(state.procedureMap, state.i18nConfig)
 			state.rpcHashMap = build.rpcHashMap
+			state.publicDir = build.publicDir
 		},
 		handlePageData(path) {
 			const match = state.pageMatcher?.match(path)

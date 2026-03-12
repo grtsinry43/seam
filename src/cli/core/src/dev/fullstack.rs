@@ -23,6 +23,21 @@ struct ManifestMetaOnly {
 	_meta: Option<crate::build::route::ManifestMeta>,
 }
 
+#[derive(Clone, Copy, Debug)]
+enum DevEvent {
+	Reload,
+	Rebuild(RebuildMode),
+}
+
+struct SpawnOptions {
+	port: String,
+	out_dir: String,
+	public_dir: Option<String>,
+	obfuscate: String,
+	sourcemap: String,
+	vite_port: Option<u16>,
+}
+
 /// Returns `None` if the manifest is fresh, or `Some(reason)` explaining why a rebuild is needed.
 fn manifest_stale_reason(json: &str, build_config: &BuildConfig) -> Option<String> {
 	let wrapper: ManifestMetaOnly = match serde_json::from_str(json) {
@@ -43,19 +58,41 @@ fn manifest_stale_reason(json: &str, build_config: &BuildConfig) -> Option<Strin
 	None
 }
 
+fn classify_event(event: &notify::Event, server_dir: &Path, public_dir: Option<&Path>) -> DevEvent {
+	if event.paths.iter().any(|p| p.starts_with(server_dir)) {
+		return DevEvent::Rebuild(RebuildMode::Full);
+	}
+	if let Some(public_dir) = public_dir
+		&& event.paths.iter().any(|p| p.starts_with(public_dir))
+	{
+		return DevEvent::Reload;
+	}
+	DevEvent::Rebuild(RebuildMode::FrontendOnly)
+}
+
+fn merge_dev_events(current: DevEvent, incoming: DevEvent) -> DevEvent {
+	match (current, incoming) {
+		(DevEvent::Rebuild(RebuildMode::Full), _) | (_, DevEvent::Rebuild(RebuildMode::Full)) => {
+			DevEvent::Rebuild(RebuildMode::Full)
+		}
+		(DevEvent::Rebuild(RebuildMode::FrontendOnly), _)
+		| (_, DevEvent::Rebuild(RebuildMode::FrontendOnly)) => {
+			DevEvent::Rebuild(RebuildMode::FrontendOnly)
+		}
+		_ => DevEvent::Reload,
+	}
+}
+
 fn setup_watcher(
 	server_dir: std::path::PathBuf,
-) -> Result<(RecommendedWatcher, tokio::sync::mpsc::Receiver<RebuildMode>)> {
+	public_dir: Option<std::path::PathBuf>,
+) -> Result<(RecommendedWatcher, tokio::sync::mpsc::Receiver<DevEvent>)> {
 	let (tx, rx) = tokio::sync::mpsc::channel(16);
 	let watcher = RecommendedWatcher::new(
 		move |res: std::result::Result<notify::Event, notify::Error>| {
 			if let Ok(event) = res {
-				let mode = if event.paths.iter().any(|p| p.starts_with(&server_dir)) {
-					RebuildMode::Full
-				} else {
-					RebuildMode::FrontendOnly
-				};
-				let _ = tx.blocking_send(mode);
+				let dev_event = classify_event(&event, &server_dir, public_dir.as_deref());
+				let _ = tx.blocking_send(dev_event);
 			}
 		},
 		notify::Config::default(),
@@ -113,19 +150,20 @@ async fn handle_rebuild(
 	}
 }
 
+fn handle_public_reload(out_dir: &Path) {
+	ui::label(CYAN, "seam", "public/ changed, reloading...");
+	write_reload_trigger(out_dir);
+}
+
 async fn spawn_fullstack_children(
 	config: &SeamConfig,
 	base_dir: &Path,
-	port_str: &str,
-	out_dir_str: &str,
-	obfuscate_str: &str,
-	sourcemap_str: &str,
-	vite_port: Option<u16>,
+	opts: &SpawnOptions,
 ) -> Result<Vec<ChildProcess>> {
 	let mut children: Vec<ChildProcess> = Vec::new();
 
 	// Spawn Vite dev server via dev-frontend.mjs when configured
-	if let Some(vp) = vite_port {
+	if let Some(vp) = opts.vite_port {
 		let script = crate::shell::find_cli_script(base_dir, "dev-frontend.mjs")?;
 		let runtime = if crate::shell::which_exists("bun") { "bun" } else { "node" };
 		let runtime_path = std::path::PathBuf::from(runtime);
@@ -159,13 +197,16 @@ async fn spawn_fullstack_children(
 		.as_ref()
 		.context("backend.dev_command is required for fullstack dev mode")?;
 	let mut env_vars: Vec<(&str, &str)> = vec![
-		("PORT", port_str),
+		("PORT", &opts.port),
 		("SEAM_DEV", "1"),
-		("SEAM_OUTPUT_DIR", out_dir_str),
-		("SEAM_OBFUSCATE", obfuscate_str),
-		("SEAM_SOURCEMAP", sourcemap_str),
+		("SEAM_OUTPUT_DIR", &opts.out_dir),
+		("SEAM_OBFUSCATE", &opts.obfuscate),
+		("SEAM_SOURCEMAP", &opts.sourcemap),
 	];
-	if vite_port.is_some() {
+	if let Some(public_dir) = opts.public_dir.as_deref() {
+		env_vars.push(("SEAM_PUBLIC_DIR", public_dir));
+	}
+	if opts.vite_port.is_some() {
 		env_vars.push(("SEAM_VITE", "1"));
 	}
 	let backend_cwd = backend_cmd.resolve_cwd(base_dir);
@@ -183,6 +224,147 @@ async fn spawn_fullstack_children(
 	Ok(children)
 }
 
+fn configure_dev_build(
+	config: &SeamConfig,
+	base_dir: &Path,
+) -> Result<(BuildConfig, std::path::PathBuf)> {
+	let mut build_config = BuildConfig::from_seam_config_dev(config)?;
+	let dev_dir = std::path::Path::new(&build_config.out_dir)
+		.parent()
+		.unwrap_or(std::path::Path::new("."))
+		.join("dev-output");
+	build_config.out_dir = dev_dir.to_string_lossy().to_string();
+	if build_config.obfuscate {
+		build_config.rpc_salt = Some(seam_codegen::generate_random_salt());
+	}
+	Ok((build_config, base_dir.join(dev_dir)))
+}
+
+fn ensure_initial_dev_build(
+	config: &SeamConfig,
+	build_config: &BuildConfig,
+	base_dir: &Path,
+	out_dir: &Path,
+) -> Result<()> {
+	let route_manifest_path = out_dir.join("route-manifest.json");
+	let should_rebuild = match std::fs::read_to_string(&route_manifest_path) {
+		Ok(json) => {
+			let reason = manifest_stale_reason(&json, build_config);
+			if let Some(r) = &reason {
+				println!("  {}rebuilding: {r}{}", col(DIM), col(RESET));
+			}
+			reason.is_some()
+		}
+		Err(_) => true,
+	};
+	if should_rebuild {
+		crate::build::run::run_dev_build(config, build_config, base_dir)?;
+		println!();
+		return Ok(());
+	}
+	println!("  {}route-manifest.json up to date, skipping initial build{}", col(DIM), col(RESET));
+	println!("  {}(delete {} to force rebuild){}", col(DIM), out_dir.display(), col(RESET));
+	println!();
+	Ok(())
+}
+
+fn watch_dir(
+	watcher: &mut RecommendedWatcher,
+	path: &Path,
+	label: &str,
+	watched_dirs: &mut Vec<String>,
+) -> Result<()> {
+	if path.exists() {
+		watcher.watch(path, RecursiveMode::Recursive)?;
+		watched_dirs.push(label.to_string());
+	}
+	Ok(())
+}
+
+fn setup_watched_dirs(
+	base_dir: &Path,
+	build_config: &BuildConfig,
+	public_dir: Option<&Path>,
+	watcher: &mut RecommendedWatcher,
+) -> Result<Vec<String>> {
+	let mut watched_dirs = Vec::new();
+	for dir in ["src/client", "src/server", "shared"] {
+		watch_dir(watcher, &base_dir.join(dir), &format!("{dir}/"), &mut watched_dirs)?;
+	}
+	if let Some(pages_dir) = &build_config.pages_dir {
+		watch_dir(watcher, &base_dir.join(pages_dir), &format!("{pages_dir}/"), &mut watched_dirs)?;
+	}
+	if let Some(public_dir) = public_dir {
+		watch_dir(watcher, public_dir, "public/", &mut watched_dirs)?;
+	}
+	Ok(watched_dirs)
+}
+
+fn resolve_spawn_options(
+	build_config: &BuildConfig,
+	base_dir: &Path,
+	out_dir: &Path,
+	public_dir: Option<&Path>,
+	port: u16,
+	vite_port: Option<u16>,
+) -> Result<SpawnOptions> {
+	let abs_out_dir = if out_dir.is_absolute() {
+		out_dir.to_path_buf()
+	} else {
+		base_dir
+			.join(out_dir)
+			.canonicalize()
+			.with_context(|| format!("failed to resolve {}", out_dir.display()))?
+	};
+	Ok(SpawnOptions {
+		port: port.to_string(),
+		out_dir: abs_out_dir.to_string_lossy().to_string(),
+		public_dir: public_dir.map(|dir| dir.to_string_lossy().to_string()),
+		obfuscate: if build_config.obfuscate { "1" } else { "0" }.to_string(),
+		sourcemap: if build_config.sourcemap { "1" } else { "0" }.to_string(),
+		vite_port,
+	})
+}
+
+async fn run_dev_event_loop(
+	children: &mut [ChildProcess],
+	watcher_rx: &mut tokio::sync::mpsc::Receiver<DevEvent>,
+	config: &SeamConfig,
+	build_config: &BuildConfig,
+	base_dir: &Path,
+	out_dir: &Path,
+	is_vite: bool,
+) {
+	loop {
+		tokio::select! {
+			_ = signal::ctrl_c() => {
+				println!();
+				ui::shutting_down();
+				break;
+			}
+			result = wait_any(children) => {
+				let (label, status) = result;
+				let color = label_color(label);
+				ui::process_exited(label, color, status);
+				break;
+			}
+			Some(initial_event) = watcher_rx.recv() => {
+				tokio::time::sleep(Duration::from_millis(300)).await;
+				let mut event = initial_event;
+				while let Ok(next_event) = watcher_rx.try_recv() {
+					event = merge_dev_events(event, next_event);
+				}
+				match event {
+					DevEvent::Reload => handle_public_reload(out_dir),
+					DevEvent::Rebuild(mode) => {
+						handle_rebuild(config, build_config, base_dir, out_dir, is_vite, mode).await;
+					}
+				}
+			}
+		}
+	}
+}
+
 /// Workspace dev mode: resolve a single member, then run fullstack dev with merged config
 pub async fn run_dev_workspace(
 	root: &SeamConfig,
@@ -195,125 +377,44 @@ pub async fn run_dev_workspace(
 }
 
 pub(super) async fn run_dev_fullstack(config: &SeamConfig, base_dir: &Path) -> Result<()> {
-	let mut build_config = BuildConfig::from_seam_config_dev(config)?;
-	// Dev writes to sibling dir to avoid overwriting production output
-	let dev_dir = std::path::Path::new(&build_config.out_dir)
-		.parent()
-		.unwrap_or(std::path::Path::new("."))
-		.join("dev-output");
-	build_config.out_dir = dev_dir.to_string_lossy().to_string();
-	let out_dir = base_dir.join(&build_config.out_dir);
+	let (build_config, out_dir) = configure_dev_build(config, base_dir)?;
+	ensure_initial_dev_build(config, &build_config, base_dir, &out_dir)?;
 
-	// Generate stable salt once per dev session
-	if build_config.obfuscate {
-		build_config.rpc_salt = Some(seam_codegen::generate_random_salt());
-	}
-
-	// Skip build only if route-manifest.json exists and matches current version + config
-	let route_manifest_path = out_dir.join("route-manifest.json");
-	let should_rebuild = match std::fs::read_to_string(&route_manifest_path) {
-		Ok(json) => {
-			let reason = manifest_stale_reason(&json, &build_config);
-			if let Some(r) = &reason {
-				println!("  {}rebuilding: {r}{}", col(DIM), col(RESET));
-			}
-			reason.is_some()
-		}
-		Err(_) => true,
-	};
-	if should_rebuild {
-		crate::build::run::run_dev_build(config, &build_config, base_dir)?;
-		println!();
-	} else {
-		println!("  {}route-manifest.json up to date, skipping initial build{}", col(DIM), col(RESET));
-		println!("  {}(delete {} to force rebuild){}", col(DIM), out_dir.display(), col(RESET));
-		println!();
-	}
-
-	// Set up file watcher before spawning backend
 	let server_dir = base_dir.join("src/server");
-	let (mut _watcher, mut watcher_rx) = setup_watcher(server_dir)?;
-	let mut watched_dirs = Vec::new();
-	for dir in ["src/client", "src/server", "shared"] {
-		let path = base_dir.join(dir);
-		if path.exists() {
-			_watcher.watch(&path, RecursiveMode::Recursive)?;
-			watched_dirs.push(format!("{dir}/"));
-		}
-	}
-
-	if let Some(pages_dir) = &build_config.pages_dir {
-		let path = base_dir.join(pages_dir);
-		if path.exists() {
-			_watcher.watch(&path, RecursiveMode::Recursive)?;
-			watched_dirs.push(format!("{pages_dir}/"));
-		}
-	}
-
+	let public_dir = base_dir.join("public");
+	let public_dir = if public_dir.is_dir() { Some(public_dir) } else { None };
+	let (mut _watcher, mut watcher_rx) = setup_watcher(server_dir, public_dir.clone())?;
+	let watched_dirs =
+		setup_watched_dirs(base_dir, &build_config, public_dir.as_deref(), &mut _watcher)?;
 	let port = find_available_port(config.dev.port)?;
 	let vite_port = config.dev.vite_port;
-
-	// Resolve absolute output dir for SEAM_OUTPUT_DIR env var
-	let abs_out_dir = if out_dir.is_absolute() {
-		out_dir.clone()
-	} else {
-		base_dir
-			.join(&out_dir)
-			.canonicalize()
-			.with_context(|| format!("failed to resolve {}", out_dir.display()))?
-	};
-	let out_dir_str = abs_out_dir.to_string_lossy().to_string();
-	let port_str = port.to_string();
-
-	let obfuscate_str = if build_config.obfuscate { "1" } else { "0" };
-	let sourcemap_str = if build_config.sourcemap { "1" } else { "0" };
-
-	print_fullstack_banner(config, port, &watched_dirs, vite_port);
-
-	let mut children = spawn_fullstack_children(
-		config,
+	let spawn_opts = resolve_spawn_options(
+		&build_config,
 		base_dir,
-		&port_str,
-		&out_dir_str,
-		obfuscate_str,
-		sourcemap_str,
+		&out_dir,
+		public_dir.as_deref(),
+		port,
 		vite_port,
+	)?;
+	print_fullstack_banner(config, port, &watched_dirs, vite_port);
+	let mut children = spawn_fullstack_children(config, base_dir, &spawn_opts).await?;
+	run_dev_event_loop(
+		&mut children,
+		&mut watcher_rx,
+		config,
+		&build_config,
+		base_dir,
+		&out_dir,
+		vite_port.is_some(),
 	)
-	.await?;
-
-	// Event loop: Ctrl+C, child exit, or file change triggers rebuild
-	loop {
-		tokio::select! {
-			_ = signal::ctrl_c() => {
-				println!();
-				ui::shutting_down();
-				break;
-			}
-			result = wait_any(&mut children) => {
-				let (label, status) = result;
-				let color = label_color(label);
-				ui::process_exited(label, color, status);
-				break;
-			}
-			Some(initial_mode) = watcher_rx.recv() => {
-				// Debounce: wait 300ms, drain pending events, keep highest-priority mode
-				tokio::time::sleep(Duration::from_millis(300)).await;
-				let mut mode = initial_mode;
-				while let Ok(m) = watcher_rx.try_recv() {
-					if matches!(m, RebuildMode::Full) {
-						mode = RebuildMode::Full;
-					}
-				}
-				handle_rebuild(config, &build_config, base_dir, &out_dir, vite_port.is_some(), mode).await;
-			}
-		}
-	}
-
+	.await;
 	Ok(())
 }
 
 #[cfg(test)]
 mod tests {
+	use std::path::PathBuf;
+
 	use super::*;
 
 	fn test_build_config() -> BuildConfig {
@@ -358,6 +459,36 @@ mod tests {
 		let json = make_manifest_json("0.0.0", &bc.config_hash());
 		let reason = manifest_stale_reason(&json, &bc).unwrap();
 		assert!(reason.contains("version changed"));
+	}
+
+	#[test]
+	fn classify_event_marks_public_changes_as_reload() {
+		let event = notify::Event {
+			kind: notify::EventKind::Modify(notify::event::ModifyKind::Any),
+			paths: vec![PathBuf::from("/app/public/images/logo.png")],
+			attrs: notify::event::EventAttributes::new(),
+		};
+
+		let kind = classify_event(&event, Path::new("/app/src/server"), Some(Path::new("/app/public")));
+		assert!(matches!(kind, DevEvent::Reload));
+	}
+
+	#[test]
+	fn classify_event_marks_server_changes_as_full_rebuild() {
+		let event = notify::Event {
+			kind: notify::EventKind::Modify(notify::event::ModifyKind::Any),
+			paths: vec![PathBuf::from("/app/src/server/index.ts")],
+			attrs: notify::event::EventAttributes::new(),
+		};
+
+		let kind = classify_event(&event, Path::new("/app/src/server"), Some(Path::new("/app/public")));
+		assert!(matches!(kind, DevEvent::Rebuild(RebuildMode::Full)));
+	}
+
+	#[test]
+	fn merge_dev_events_prefers_rebuild_over_reload() {
+		let merged = merge_dev_events(DevEvent::Reload, DevEvent::Rebuild(RebuildMode::FrontendOnly));
+		assert!(matches!(merged, DevEvent::Rebuild(RebuildMode::FrontendOnly)));
 	}
 
 	#[test]

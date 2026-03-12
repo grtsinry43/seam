@@ -178,3 +178,24 @@ async fn validation_error_details_shape() {
 	assert!(detail.get("expected").is_some());
 	assert!(detail.get("actual").is_some());
 }
+
+#[tokio::test]
+async fn public_files_are_served_before_fallback_routes() {
+	let dir = std::env::temp_dir().join("seam-axum-public");
+	let _ = std::fs::remove_dir_all(&dir);
+	std::fs::create_dir_all(dir.join("images")).unwrap();
+	std::fs::write(dir.join("images/logo.png"), "png").unwrap();
+
+	let router = SeamServer::new()
+		.public_dir(dir.clone())
+		.into_axum_router()
+		.fallback(|| async { (StatusCode::OK, "page fallback") });
+	let router = crate::with_public_files(router, dir.clone());
+
+	let req = Request::builder().method("GET").uri("/images/logo.png").body(Body::empty()).unwrap();
+	let (status, body) = send_raw_request(router, req).await;
+	assert_eq!(status, StatusCode::OK);
+	assert_eq!(body, "png");
+
+	let _ = std::fs::remove_dir_all(&dir);
+}

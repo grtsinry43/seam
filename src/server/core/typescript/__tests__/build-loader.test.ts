@@ -229,6 +229,65 @@ describe('loadBuildOutput — data_id', () => {
 	})
 })
 
+describe('loadBuild publicDir', () => {
+	it('loads production public-root when present', () => {
+		const dir = mkdtempSync(join(tmpdir(), 'seam-public-root-'))
+		mkdirSync(join(dir, 'templates'))
+		mkdirSync(join(dir, 'public-root', 'images'), { recursive: true })
+		writeFileSync(join(dir, 'templates/index.html'), '<p>body</p>')
+		writeFileSync(join(dir, 'public-root', 'images/logo.png'), 'png')
+		writeFileSync(
+			join(dir, 'route-manifest.json'),
+			JSON.stringify({
+				routes: {
+					'/': {
+						template: 'templates/index.html',
+						loaders: {},
+					},
+				},
+			}),
+		)
+		try {
+			const build = loadBuild(dir)
+			expect(build.publicDir).toBe(join(dir, 'public-root'))
+		} finally {
+			rmSync(dir, { recursive: true, force: true })
+		}
+	})
+
+	it('loads source public dir in dev mode from env override', () => {
+		const dir = mkdtempSync(join(tmpdir(), 'seam-dev-public-env-'))
+		const publicDir = mkdtempSync(join(tmpdir(), 'seam-dev-public-src-'))
+		mkdirSync(join(dir, 'templates'))
+		mkdirSync(join(publicDir, 'images'), { recursive: true })
+		writeFileSync(join(dir, 'templates/index.html'), '<p>body</p>')
+		writeFileSync(join(publicDir, 'images/logo.png'), 'png')
+		writeFileSync(
+			join(dir, 'route-manifest.json'),
+			JSON.stringify({
+				routes: {
+					'/': {
+						template: 'templates/index.html',
+						loaders: {},
+					},
+				},
+			}),
+		)
+
+		const prev = process.env.SEAM_PUBLIC_DIR
+		process.env.SEAM_PUBLIC_DIR = publicDir
+		try {
+			const build = loadBuildDev(dir)
+			expect(build.publicDir).toBe(publicDir)
+		} finally {
+			if (prev === undefined) delete process.env.SEAM_PUBLIC_DIR
+			else process.env.SEAM_PUBLIC_DIR = prev
+			rmSync(dir, { recursive: true, force: true })
+			rmSync(publicDir, { recursive: true, force: true })
+		}
+	})
+})
+
 describe('loadRpcHashMap', () => {
 	it('returns hash map when file exists', () => {
 		const hashDir = mkdtempSync(join(tmpdir(), 'seam-hashmap-'))

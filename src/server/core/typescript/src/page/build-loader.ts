@@ -180,10 +180,19 @@ export interface BuildOutput {
 	publicDir: string | undefined
 }
 
-/** Detect public-root directory from build output */
-function detectPublicDir(distDir: string): string | undefined {
+/** Detect public-root directory from production build output */
+function detectBuiltPublicDir(distDir: string): string | undefined {
 	const publicRootDir = join(distDir, 'public-root')
 	return existsSync(publicRootDir) ? publicRootDir : undefined
+}
+
+/** Detect source public/ directory for dev mode. */
+function detectDevPublicDir(distDir: string): string | undefined {
+	const explicitDir = process.env.SEAM_PUBLIC_DIR
+	if (explicitDir && existsSync(explicitDir)) return explicitDir
+
+	const sourcePublicDir = join(distDir, '..', '..', 'public')
+	return existsSync(sourcePublicDir) ? sourcePublicDir : undefined
 }
 
 /** Load all build artifacts (pages, rpcHashMap, i18n) in one call */
@@ -192,7 +201,7 @@ export function loadBuild(distDir: string): BuildOutput {
 		pages: loadBuildOutput(distDir),
 		rpcHashMap: loadRpcHashMap(distDir),
 		i18n: loadI18nMessages(distDir),
-		publicDir: detectPublicDir(distDir),
+		publicDir: detectBuiltPublicDir(distDir),
 	}
 }
 
@@ -202,7 +211,7 @@ export function loadBuildDev(distDir: string): BuildOutput {
 		pages: loadBuildOutputDev(distDir),
 		rpcHashMap: loadRpcHashMap(distDir),
 		i18n: loadI18nMessages(distDir),
-		publicDir: detectPublicDir(distDir),
+		publicDir: detectDevPublicDir(distDir) ?? detectBuiltPublicDir(distDir),
 	}
 }
 

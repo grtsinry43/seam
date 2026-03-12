@@ -7,6 +7,7 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"net/http/httptest"
 	"os"
 	"strings"
 
@@ -77,6 +78,22 @@ func main() {
 		if c.Request.Method != http.MethodGet {
 			return
 		}
+
+		// Give Seam one chance to serve automatic root public files before
+		// falling through to page routing.
+		probe := httptest.NewRecorder()
+		seamHandler.ServeHTTP(probe, c.Request)
+		if probe.Code != http.StatusNotFound {
+			for key, values := range probe.Header() {
+				for _, value := range values {
+					c.Writer.Header().Add(key, value)
+				}
+			}
+			c.Status(probe.Code)
+			_, _ = c.Writer.Write(probe.Body.Bytes())
+			return
+		}
+
 		c.Request.URL.Path = "/_seam/page" + c.Request.URL.Path
 		// Reset gin's pending 404 — the seam handler sets the real status
 		c.Writer.WriteHeader(http.StatusOK)

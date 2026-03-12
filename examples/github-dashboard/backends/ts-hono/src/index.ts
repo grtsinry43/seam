@@ -28,7 +28,6 @@ app.use(
 	'/*',
 	seam(router, {
 		staticDir: resolve(BUILD_DIR, 'public'),
-		publicDir: build.publicDir,
 	}),
 )
 

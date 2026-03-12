@@ -14,7 +14,7 @@ use std::collections::BTreeMap;
 
 use seam_server::SeamServer;
 use seam_server::manifest::build_manifest;
-use seam_server_axum::IntoAxumRouter;
+use seam_server_axum::{IntoAxumRouter, with_public_files};
 use tower::ServiceExt;
 use tower_http::services::ServeDir;
 
@@ -40,16 +40,20 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 	let port = env::var("PORT").unwrap_or_else(|_| "3000".to_string());
 	let addr = format!("0.0.0.0:{port}");
 
-	// Load pages from build output if available
 	let build_dir = env::var("SEAM_OUTPUT_DIR").unwrap_or_else(|_| ".seam/output".to_string());
-	let pages = match seam_server::load_build_output(&build_dir) {
-		Ok(p) => {
-			eprintln!("Loaded {} pages from {build_dir}", p.len());
-			p
+	let build = match seam_server::load_build(&build_dir) {
+		Ok(build) => {
+			eprintln!("Loaded {} pages from {build_dir}", build.pages.len());
+			build
 		}
 		Err(e) => {
 			eprintln!("No build output at {build_dir}: {e} (API-only mode)");
-			vec![]
+			seam_server::BuildOutput {
+				pages: vec![],
+				rpc_hash_map: None,
+				i18n_config: None,
+				public_dir: None,
+			}
 		}
 	};
 
@@ -59,21 +63,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 		.procedure(get_user_procedure())
 		.procedure(get_user_repos_procedure());
 
-	// Load RPC hash map for production hashed procedure names
-	if let Some(hash_map) = seam_server::load_rpc_hash_map(&build_dir) {
+	if let Some(ref hash_map) = build.rpc_hash_map {
 		eprintln!("RPC hash map loaded ({} procedures)", hash_map.procedures.len());
-		server = server.rpc_hash_map(hash_map);
 	}
-
-	// Load i18n configuration for runtime locale routing
-	if let Some(i18n_config) = seam_server::load_i18n_config(&build_dir) {
+	if let Some(ref i18n_config) = build.i18n_config {
 		eprintln!("i18n: {} locales, default={}", i18n_config.locales.len(), i18n_config.default);
-		server = server.i18n_config(i18n_config);
 	}
-
-	for page in pages {
-		server = server.page(page);
-	}
+	let build_public_dir = build.public_dir.clone();
+	server = server.build(build);
 
 	// The seam adapter serves pages under /_seam/page/* only — it deliberately
 	// avoids claiming root paths so the application retains full control over
@@ -99,6 +96,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 			svc.oneshot(Request::from_parts(parts, body)).await.into_response()
 		}
 	});
+	let router = if let Some(public_dir) = build_public_dir {
+		with_public_files(router, public_dir)
+	} else {
+		router
+	};
 
 	let listener = tokio::net::TcpListener::bind(&addr).await?;
 	let actual_port = listener.local_addr()?.port();

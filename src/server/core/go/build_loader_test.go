@@ -5,6 +5,7 @@ package seam
 import (
 	"encoding/json"
 	"os"
+	"path/filepath"
 	"testing"
 )
 
@@ -36,6 +37,31 @@ func TestLoadBuildWithHashMap(t *testing.T) {
 	}
 	if build.RpcHashMap.Procedures["foo"] != "h1" {
 		t.Fatalf("expected hash h1, got %s", build.RpcHashMap.Procedures["foo"])
+	}
+}
+
+func TestLoadBuildPrefersDevPublicDirFromEnv(t *testing.T) {
+	dir := t.TempDir()
+	publicDir := filepath.Join(t.TempDir(), "public")
+	if err := os.MkdirAll(publicDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	prev := os.Getenv("SEAM_PUBLIC_DIR")
+	if err := os.Setenv("SEAM_PUBLIC_DIR", publicDir); err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		if prev == "" {
+			_ = os.Unsetenv("SEAM_PUBLIC_DIR")
+			return
+		}
+		_ = os.Setenv("SEAM_PUBLIC_DIR", prev)
+	}()
+
+	build := LoadBuild(dir)
+	if build.PublicDir != publicDir {
+		t.Fatalf("expected PublicDir %q, got %q", publicDir, build.PublicDir)
 	}
 }
 

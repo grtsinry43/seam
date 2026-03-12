@@ -1,8 +1,10 @@
 /* src/server/core/rust/src/server.rs */
 
 use std::collections::BTreeMap;
+use std::path::PathBuf;
 use std::time::Duration;
 
+use crate::build_loader::BuildOutput;
 use crate::build_loader::RpcHashMap;
 use crate::channel::{ChannelDef, ChannelMeta};
 use crate::context::{ContextConfig, ContextFieldDef};
@@ -38,6 +40,7 @@ pub struct SeamParts {
 	pub pages: Vec<PageDef>,
 	pub rpc_hash_map: Option<RpcHashMap>,
 	pub i18n_config: Option<I18nConfig>,
+	pub public_dir: Option<PathBuf>,
 	pub strategies: Vec<Box<dyn ResolveStrategy>>,
 	pub channel_metas: BTreeMap<String, ChannelMeta>,
 	pub context_config: ContextConfig,
@@ -60,6 +63,7 @@ pub struct SeamServer {
 	pages: Vec<PageDef>,
 	rpc_hash_map: Option<RpcHashMap>,
 	i18n_config: Option<I18nConfig>,
+	public_dir: Option<PathBuf>,
 	strategies: Vec<Box<dyn ResolveStrategy>>,
 	context_config: ContextConfig,
 	validation_mode: ValidationMode,
@@ -77,6 +81,7 @@ impl SeamServer {
 			pages: Vec::new(),
 			rpc_hash_map: None,
 			i18n_config: None,
+			public_dir: None,
 			strategies: Vec::new(),
 			context_config: ContextConfig::new(),
 			validation_mode: ValidationMode::Dev,
@@ -151,6 +156,25 @@ impl SeamServer {
 		self
 	}
 
+	pub fn public_dir(mut self, dir: PathBuf) -> Self {
+		self.public_dir = Some(dir);
+		self
+	}
+
+	pub fn build(mut self, build: BuildOutput) -> Self {
+		self.pages.extend(build.pages);
+		if let Some(map) = build.rpc_hash_map {
+			self.rpc_hash_map = Some(map);
+		}
+		if let Some(config) = build.i18n_config {
+			self.i18n_config = Some(config);
+		}
+		if let Some(dir) = build.public_dir {
+			self.public_dir = Some(dir);
+		}
+		self
+	}
+
 	pub fn resolve_strategies(mut self, strategies: Vec<Box<dyn ResolveStrategy>>) -> Self {
 		self.strategies = strategies;
 		self
@@ -194,6 +218,7 @@ impl SeamServer {
 			pages: self.pages,
 			rpc_hash_map: self.rpc_hash_map,
 			i18n_config: self.i18n_config,
+			public_dir: self.public_dir,
 			strategies: self.strategies,
 			channel_metas,
 			context_config: self.context_config,

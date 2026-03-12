@@ -273,8 +273,9 @@ export function createHttpHandler<T extends DefinitionMap>(
 			return createDevReloadResponse(devState, opts?.sseOptions)
 		}
 
-		if (req.method === 'GET' && opts?.publicDir) {
-			const publicResult = await handlePublicFile(pathname, opts.publicDir)
+		const publicDir = opts?.publicDir ?? router.publicDir
+		if (req.method === 'GET' && publicDir) {
+			const publicResult = await handlePublicFile(pathname, publicDir)
 			if (publicResult) return publicResult
 		}
 
