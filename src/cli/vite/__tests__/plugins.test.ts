@@ -56,7 +56,7 @@ type PluginWithResolve = Plugin & {
 }
 
 describe('seamVirtual', () => {
-	it('config hardens optimizeDeps for Seam and TanStack packages', () => {
+	it('config hardens optimizeDeps for linked router and hydration entries', () => {
 		const plugin = seamVirtual() as PluginWithConfig
 		const result = plugin.config({}) as {
 			optimizeDeps: { exclude: string[]; include: string[] }
@@ -66,11 +66,7 @@ describe('seamVirtual', () => {
 			'@canmi/seam-tanstack-router',
 			'@canmi/seam-client',
 		])
-		expect(result.optimizeDeps.include).toEqual([
-			'@tanstack/react-router',
-			'@tanstack/react-store',
-			'use-sync-external-store/shim/with-selector',
-		])
+		expect(result.optimizeDeps.include).toEqual(['@tanstack/react-router', 'react-dom/client'])
 	})
 
 	it('resolveId returns absolute path when file exists', () => {

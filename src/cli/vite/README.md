@@ -41,7 +41,7 @@ Resolved by `seamVirtual()` (also included in `seam()`):
 | `virtual:seam/meta`   | `.seam/generated/meta.ts`   | `export const DATA_ID = "__data"` |
 | `virtual:seam/hooks`  | `.seam/generated/hooks.ts`  | (empty)                           |
 
-Seam packages (`@canmi/seam-react`, `@canmi/seam-tanstack-router`, `@canmi/seam-client`) are automatically excluded from Vite's esbuild pre-bundling so linked workspace packages keep normal dev-server behavior. Seam also force-includes the TanStack Router dependency chain (`@tanstack/react-router`, `@tanstack/react-store`, `use-sync-external-store/shim/with-selector`) to keep CommonJS interop stable in dev.
+Seam packages (`@canmi/seam-react`, `@canmi/seam-tanstack-router`, `@canmi/seam-client`) are automatically excluded from Vite's esbuild pre-bundling so linked workspace packages keep normal dev-server behavior. Seam also force-includes the top-level runtime entries it expects linked packages to consume in dev (`@tanstack/react-router`, `react-dom/client`) so Vite still pre-bundles the TanStack + hydration chain.
 
 ## Per-Page Splitting
 

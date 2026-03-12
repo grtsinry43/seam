@@ -14,16 +14,12 @@ const VIRTUAL_MODULES: Record<string, string> = {
 }
 
 const SEAM_PACKAGES = ['@canmi/seam-react', '@canmi/seam-tanstack-router', '@canmi/seam-client']
-const OPTIMIZE_DEPS_INCLUDE = [
-	'@tanstack/react-router',
-	'@tanstack/react-store',
-	'use-sync-external-store/shim/with-selector',
-]
+const OPTIMIZE_DEPS_INCLUDE = ['@tanstack/react-router', 'react-dom/client']
 
 /**
  * Vite plugin that resolves `virtual:seam/*` imports to generated files
- * while preserving linked Seam package HMR and pre-bundling nested CJS deps
- * used by the TanStack router stack.
+ * while preserving linked Seam package HMR and force-optimizing the top-level
+ * router/runtime entries that linked Seam packages rely on in dev.
  */
 export function seamVirtual(): Plugin {
 	let projectRoot: string
