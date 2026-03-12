@@ -4,7 +4,7 @@ use std::collections::HashSet;
 
 use super::boolean::insert_boolean_directives;
 use super::combo::AxisGroup;
-use super::container::{hoist_list_container, unwrap_container_tree};
+use super::container::{hoist_list_container, is_list_container, unwrap_container_tree};
 use super::directives::{comment_each, comment_else, comment_endeach, comment_endif, comment_if};
 use super::dom::{DomNode, parse_html, serialize};
 use super::tree_diff::{DiffOp, diff_children};
@@ -175,6 +175,13 @@ fn insert_array_modified(
 
 /// Wrap array body nodes with each/endeach, unwrapping container if applicable.
 fn wrap_array_body(body: &[DomNode], path: &str) -> Vec<DomNode> {
+	// Descend through a single wrapper to preserve static table shell around repeated rows.
+	if body.len() == 1
+		&& let Some(wrapped) = wrap_single_body_node(&body[0], path)
+	{
+		return vec![wrapped];
+	}
+
 	// Simple case: single list container
 	if let Some((tag, attrs, inner)) = unwrap_container_tree(body) {
 		let mut inner_with_directives = vec![comment_each(path)];
@@ -206,6 +213,97 @@ fn wrap_array_body(body: &[DomNode], path: &str) -> Vec<DomNode> {
 	nodes.extend(body.iter().cloned());
 	nodes.push(comment_endeach());
 	nodes
+}
+
+fn wrap_single_body_node(node: &DomNode, path: &str) -> Option<DomNode> {
+	match node {
+		DomNode::Element { tag, attrs, children, self_closing: false } => {
+			if tag == "table" {
+				return wrap_table_body(tag, attrs, children, path);
+			}
+
+			if is_list_container(tag) {
+				let mut inner_with_directives = vec![comment_each(path)];
+				inner_with_directives.extend(children.iter().cloned());
+				inner_with_directives.push(comment_endeach());
+				return Some(DomNode::Element {
+					tag: tag.clone(),
+					attrs: attrs.clone(),
+					children: inner_with_directives,
+					self_closing: false,
+				});
+			}
+
+			let mut target_idx: Option<usize> = None;
+			let mut wrapped_child: Option<DomNode> = None;
+			for (idx, child) in children.iter().enumerate() {
+				if let Some(candidate) = wrap_single_body_node(child, path) {
+					if target_idx.is_some() {
+						return None;
+					}
+					target_idx = Some(idx);
+					wrapped_child = Some(candidate);
+				}
+			}
+
+			if let (Some(idx), Some(child)) = (target_idx, wrapped_child) {
+				let mut new_children = children.clone();
+				new_children[idx] = child;
+				return Some(DomNode::Element {
+					tag: tag.clone(),
+					attrs: attrs.clone(),
+					children: new_children,
+					self_closing: false,
+				});
+			}
+
+			None
+		}
+		_ => None,
+	}
+}
+
+fn wrap_table_body(tag: &str, attrs: &str, children: &[DomNode], path: &str) -> Option<DomNode> {
+	let tbody_indices: Vec<usize> = children
+		.iter()
+		.enumerate()
+		.filter_map(|(idx, child)| match child {
+			DomNode::Element { tag, self_closing: false, .. } if tag == "tbody" => Some(idx),
+			_ => None,
+		})
+		.collect();
+
+	if tbody_indices.len() != 1 {
+		return None;
+	}
+
+	let tbody_idx = tbody_indices[0];
+	let mut new_children = children.to_vec();
+	if let DomNode::Element {
+		tag: tbody_tag,
+		attrs: tbody_attrs,
+		children: tbody_children,
+		self_closing: false,
+	} = &children[tbody_idx]
+	{
+		let mut inner_with_directives = vec![comment_each(path)];
+		inner_with_directives.extend(tbody_children.iter().cloned());
+		inner_with_directives.push(comment_endeach());
+		new_children[tbody_idx] = DomNode::Element {
+			tag: tbody_tag.clone(),
+			attrs: tbody_attrs.clone(),
+			children: inner_with_directives,
+			self_closing: false,
+		};
+		return Some(DomNode::Element {
+			tag: tag.to_string(),
+			attrs: attrs.to_string(),
+			children: new_children,
+			self_closing: false,
+		});
+	}
+
+	None
 }
 
 /// Recursively find the body location by diffing populated vs empty trees.

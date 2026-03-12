@@ -81,10 +81,16 @@ fn extract_static_siblings_around_list_body_stay_outside_each() {
 	let result = extract_template(&axes, &variants);
 
 	assert!(result.contains("<h2>Recent Posts</h2>"), "missing heading in:\n{result}");
-	assert!(result.contains("<p class=\"summary\">Static footer</p>"), "missing footer in:\n{result}");
+	assert!(
+		result.contains("<p class=\"summary\">Static footer</p>"),
+		"missing footer in:\n{result}"
+	);
 	assert!(result.contains("<!--seam:each:posts-->"), "missing each:posts in:\n{result}");
 	assert!(result.contains("<!--seam:$.title-->"), "missing $.title in:\n{result}");
-	assert!(!result.contains("<!--seam:each:posts--><section"), "section wrapped by each in:\n{result}");
+	assert!(
+		!result.contains("<!--seam:each:posts--><section"),
+		"section wrapped by each in:\n{result}"
+	);
 	assert!(!result.contains("posts.$."), "leaked nested post path in:\n{result}");
 }
 
@@ -130,7 +136,10 @@ fn extract_table_row_with_nested_boolean_stays_scoped_to_row() {
 	assert!(result.contains("<!--seam:each:rows-->"), "missing each:rows in:\n{result}");
 	assert!(result.contains("<!--seam:if:$.selected-->"), "missing if:$.selected in:\n{result}");
 	assert!(result.contains("<strong>Selected</strong>"), "missing selected badge in:\n{result}");
-	assert!(result.contains("<!--seam:endif:$.selected-->"), "missing endif:$.selected in:\n{result}");
+	assert!(
+		result.contains("<!--seam:endif:$.selected-->"),
+		"missing endif:$.selected in:\n{result}"
+	);
 	assert!(!result.contains("<!--seam:each:rows--><table"), "table wrapped by each in:\n{result}");
 	assert!(!result.contains("rows.$."), "leaked full row path in:\n{result}");
 }
@@ -190,8 +199,14 @@ fn extract_repeating_tbody_keeps_table_caption_and_head_static() {
 	assert!(result.contains("<thead><tr><th>Name</th></tr></thead>"), "missing head in:\n{result}");
 	assert!(result.contains("<!--seam:each:sections-->"), "missing each:sections in:\n{result}");
 	assert!(result.contains("<!--seam:$.name-->"), "missing $.name in:\n{result}");
-	assert!(!result.contains("<!--seam:each:sections--><table"), "table wrapped by each in:\n{result}");
-	assert!(!result.contains("<!--seam:each:sections--><caption"), "caption wrapped by each in:\n{result}");
+	assert!(
+		!result.contains("<!--seam:each:sections--><table"),
+		"table wrapped by each in:\n{result}"
+	);
+	assert!(
+		!result.contains("<!--seam:each:sections--><caption"),
+		"caption wrapped by each in:\n{result}"
+	);
 	assert!(!result.contains("sections.$."), "leaked full section path in:\n{result}");
 }
 
@@ -222,10 +237,16 @@ fn extract_select_options_keeps_placeholder_static() {
 
 	let result = extract_template(&axes, &variants);
 
-	assert!(result.contains("<option value=\"\">Choose one</option>"), "missing placeholder in:\n{result}");
+	assert!(
+		result.contains("<option value=\"\">Choose one</option>"),
+		"missing placeholder in:\n{result}"
+	);
 	assert!(result.contains("<!--seam:each:choices-->"), "missing each:choices in:\n{result}");
 	assert!(result.contains("<!--seam:$.label-->"), "missing $.label in:\n{result}");
-	assert!(!result.contains("<!--seam:each:choices--><label"), "label wrapped by each in:\n{result}");
+	assert!(
+		!result.contains("<!--seam:each:choices--><label"),
+		"label wrapped by each in:\n{result}"
+	);
 	assert!(!result.contains("choices.$."), "leaked full choice path in:\n{result}");
 }
 
@@ -250,15 +271,15 @@ fn extract_description_list_pair_repeats_dt_and_dd_together() {
 #[test]
 fn extract_table_row_text_boundary_stays_inside_row_body() {
 	let axes = vec![make_axis("rows", "array", vec![json!("populated"), json!("empty")])];
-		let variants = vec![
-			concat!(
-				"<table><tbody>",
-				"<tr><td>by <!-- --><!--seam:rows.$.author--></td></tr>",
-				"</tbody></table>",
-			)
-			.to_string(),
-			"<table><tbody></tbody></table>".to_string(),
-		];
+	let variants = vec![
+		concat!(
+			"<table><tbody>",
+			"<tr><td>by <!-- --><!--seam:rows.$.author--></td></tr>",
+			"</tbody></table>",
+		)
+		.to_string(),
+		"<table><tbody></tbody></table>".to_string(),
+	];
 
 	let result = extract_template(&axes, &variants);
 

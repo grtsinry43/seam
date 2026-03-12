@@ -386,12 +386,12 @@
     },
     "src/cli/pkg": {
       "name": "@canmi/seam-cli",
-      "version": "0.5.35",
+      "version": "0.5.36",
       "bin": {
         "seam": "bin/seam",
       },
       "dependencies": {
-        "@canmi/seam-vite": "0.5.35",
+        "@canmi/seam-vite": "0.5.36",
         "@vitejs/plugin-react": "5",
         "vite": "7",
       },
@@ -400,15 +400,15 @@
         "vitest": "4",
       },
       "optionalDependencies": {
-        "@canmi/seam-cli-darwin-arm64": "0.5.35",
-        "@canmi/seam-cli-darwin-x64": "0.5.35",
-        "@canmi/seam-cli-linux-arm64": "0.5.35",
-        "@canmi/seam-cli-linux-x64": "0.5.35",
+        "@canmi/seam-cli-darwin-arm64": "0.5.36",
+        "@canmi/seam-cli-darwin-x64": "0.5.36",
+        "@canmi/seam-cli-linux-arm64": "0.5.36",
+        "@canmi/seam-cli-linux-x64": "0.5.36",
       },
     },
     "src/cli/seam": {
       "name": "@canmi/seam",
-      "version": "0.5.35",
+      "version": "0.5.36",
       "devDependencies": {
         "vitest": "4",
       },
@@ -418,7 +418,7 @@
     },
     "src/cli/vite": {
       "name": "@canmi/seam-vite",
-      "version": "0.5.35",
+      "version": "0.5.36",
       "devDependencies": {
         "@canmi/seam-server": "workspace:*",
         "@types/node": "25",
@@ -437,7 +437,7 @@
     },
     "src/client/react": {
       "name": "@canmi/seam-react",
-      "version": "0.5.35",
+      "version": "0.5.36",
       "dependencies": {
         "@canmi/seam-client": "workspace:*",
         "esbuild": "0.27",
@@ -461,7 +461,7 @@
     },
     "src/client/vanilla": {
       "name": "@canmi/seam-client",
-      "version": "0.5.35",
+      "version": "0.5.36",
       "devDependencies": {
         "tsdown": "0.21",
         "typescript": "5",
@@ -470,7 +470,7 @@
     },
     "src/eslint": {
       "name": "@canmi/eslint-plugin-seam",
-      "version": "0.5.35",
+      "version": "0.5.36",
       "devDependencies": {
         "eslint": "10",
         "tsdown": "0.21",
@@ -483,7 +483,7 @@
     },
     "src/i18n": {
       "name": "@canmi/seam-i18n",
-      "version": "0.5.35",
+      "version": "0.5.36",
       "devDependencies": {
         "@types/react": "19",
         "@types/react-dom": "19",
@@ -502,7 +502,7 @@
     },
     "src/query/react": {
       "name": "@canmi/seam-query-react",
-      "version": "0.5.35",
+      "version": "0.5.36",
       "dependencies": {
         "@canmi/seam-query": "workspace:*",
         "@tanstack/react-query": "5",
@@ -523,7 +523,7 @@
     },
     "src/query/seam": {
       "name": "@canmi/seam-query",
-      "version": "0.5.35",
+      "version": "0.5.36",
       "dependencies": {
         "@tanstack/query-core": "5",
       },
@@ -535,7 +535,7 @@
     },
     "src/router/seam": {
       "name": "@canmi/seam-router",
-      "version": "0.5.35",
+      "version": "0.5.36",
       "bin": {
         "seam-router-generate": "dist/cli.js",
       },
@@ -551,7 +551,7 @@
     },
     "src/router/tanstack": {
       "name": "@canmi/seam-tanstack-router",
-      "version": "0.5.35",
+      "version": "0.5.36",
       "dependencies": {
         "@canmi/seam-client": "workspace:*",
         "@canmi/seam-react": "workspace:*",
@@ -578,7 +578,7 @@
     },
     "src/server/adapter/bun": {
       "name": "@canmi/seam-adapter-bun",
-      "version": "0.5.35",
+      "version": "0.5.36",
       "devDependencies": {
         "@canmi/seam-server": "workspace:*",
         "@types/bun": "1",
@@ -592,7 +592,7 @@
     },
     "src/server/adapter/hono": {
       "name": "@canmi/seam-adapter-hono",
-      "version": "0.5.35",
+      "version": "0.5.36",
       "devDependencies": {
         "@canmi/seam-server": "workspace:*",
         "hono": "4",
@@ -607,7 +607,7 @@
     },
     "src/server/adapter/node": {
       "name": "@canmi/seam-adapter-node",
-      "version": "0.5.35",
+      "version": "0.5.36",
       "dependencies": {
         "ws": "8",
       },
@@ -625,7 +625,7 @@
     },
     "src/server/core/typescript": {
       "name": "@canmi/seam-server",
-      "version": "0.5.35",
+      "version": "0.5.36",
       "dependencies": {
         "@canmi/seam-engine": "workspace:*",
         "jtd": "0.1",
@@ -639,7 +639,7 @@
     },
     "src/server/engine/js": {
       "name": "@canmi/seam-engine",
-      "version": "0.5.35",
+      "version": "0.5.36",
       "devDependencies": {
         "@types/node": "25",
         "tsdown": "0.21",
