@@ -14,17 +14,28 @@ const VIRTUAL_MODULES: Record<string, string> = {
 }
 
 const SEAM_PACKAGES = ['@canmi/seam-react', '@canmi/seam-tanstack-router', '@canmi/seam-client']
+const OPTIMIZE_DEPS_INCLUDE = [
+	'@tanstack/react-router',
+	'@tanstack/react-store',
+	'use-sync-external-store/shim/with-selector',
+]
 
 /**
  * Vite plugin that resolves `virtual:seam/*` imports to generated files
- * and excludes seam packages from esbuild pre-bundling.
+ * while preserving linked Seam package HMR and pre-bundling nested CJS deps
+ * used by the TanStack router stack.
  */
 export function seamVirtual(): Plugin {
 	let projectRoot: string
 	return {
 		name: 'seam-virtual',
 		config() {
-			return { optimizeDeps: { exclude: SEAM_PACKAGES } }
+			return {
+				optimizeDeps: {
+					exclude: SEAM_PACKAGES,
+					include: OPTIMIZE_DEPS_INCLUDE,
+				},
+			}
 		},
 		configResolved(config) {
 			projectRoot = config.root

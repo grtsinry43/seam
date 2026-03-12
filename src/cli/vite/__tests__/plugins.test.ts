@@ -56,13 +56,20 @@ type PluginWithResolve = Plugin & {
 }
 
 describe('seamVirtual', () => {
-	it('config excludes seam packages from optimizeDeps', () => {
+	it('config hardens optimizeDeps for Seam and TanStack packages', () => {
 		const plugin = seamVirtual() as PluginWithConfig
-		const result = plugin.config({}) as { optimizeDeps: { exclude: string[] } }
+		const result = plugin.config({}) as {
+			optimizeDeps: { exclude: string[]; include: string[] }
+		}
 		expect(result.optimizeDeps.exclude).toEqual([
 			'@canmi/seam-react',
 			'@canmi/seam-tanstack-router',
 			'@canmi/seam-client',
+		])
+		expect(result.optimizeDeps.include).toEqual([
+			'@tanstack/react-router',
+			'@tanstack/react-store',
+			'use-sync-external-store/shim/with-selector',
 		])
 	})
 
