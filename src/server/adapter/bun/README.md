@@ -19,4 +19,4 @@ Exports `serveBun()` which starts a Bun HTTP server with seam routing, optional 
 
 - Peer dependency: `@canmi/seam-server`
 - Tests use `bun:test`, not vitest
-- Options: `staticDir` for static files, `fallback` for unmatched routes
+- Options: `staticDir` for static files, `publicDir` for serving `public/` directory files (from build output), `fallback` for unmatched routes

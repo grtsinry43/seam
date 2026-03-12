@@ -12,12 +12,14 @@ ESLint plugin enforcing build-time safety for filesystem-router page components 
 
 ## Key Files
 
-| File                                           | Purpose                                          |
-| ---------------------------------------------- | ------------------------------------------------ |
-| `src/index.ts`                                 | Plugin entry: exports rules + recommended config |
-| `src/rules/no-browser-apis-in-skeleton.ts`     | Bans window, document, localStorage, etc.        |
-| `src/rules/no-async-in-skeleton.ts`            | Bans async/await, Promises, fetch, setTimeout    |
-| `src/rules/no-nondeterministic-in-skeleton.ts` | Bans Date.now, Math.random, crypto               |
+| File                                           | Purpose                                                       |
+| ---------------------------------------------- | ------------------------------------------------------------- |
+| `src/index.ts`                                 | Plugin entry: exports rules + recommended config              |
+| `src/rules/no-browser-apis-in-skeleton.ts`     | Bans window, document, localStorage, etc.                     |
+| `src/rules/no-async-in-skeleton.ts`            | Bans async/await, Promises, fetch, setTimeout                 |
+| `src/rules/no-nondeterministic-in-skeleton.ts` | Bans Date.now, Math.random, crypto                            |
+| `src/rules/no-derived-data-in-skeleton.ts`     | Bans arithmetic, array derivation, formatting on seam data    |
+| `src/rules/no-effect-in-skeleton.ts`           | Warns useEffect/useLayoutEffect (dead code in renderToString) |
 
 ## Testing
 

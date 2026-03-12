@@ -4,11 +4,13 @@ ESLint rules that enforce build-time safety constraints for SeamJS filesystem-ro
 
 ## Rules
 
-| Rule                              | Description                                                            | Status |
-| --------------------------------- | ---------------------------------------------------------------------- | ------ |
-| `no-browser-apis-in-skeleton`     | Disallow browser-only APIs (window, document, localStorage, etc.)      | Stub   |
-| `no-async-in-skeleton`            | Disallow async operations (async/await, Promises, fetch, setTimeout)   | Stub   |
-| `no-nondeterministic-in-skeleton` | Disallow non-deterministic expressions (Date.now, Math.random, crypto) | Stub   |
+| Rule                              | Description                                                                                         | Status |
+| --------------------------------- | --------------------------------------------------------------------------------------------------- | ------ |
+| `no-browser-apis-in-skeleton`     | Disallow browser-only APIs (window, document, localStorage, etc.)                                   | Error  |
+| `no-async-in-skeleton`            | Disallow async operations (async/await, Promises, fetch, setTimeout)                                | Error  |
+| `no-nondeterministic-in-skeleton` | Disallow non-deterministic expressions (Date.now, Math.random, crypto)                              | Error  |
+| `no-derived-data-in-skeleton`     | Disallow render-time derived computations from seam data (arithmetic, array derivation, formatting) | Error  |
+| `no-effect-in-skeleton`           | Warn against useEffect/useLayoutEffect (no-op during build-time renderToString)                     | Warn   |
 
 ## Usage
 

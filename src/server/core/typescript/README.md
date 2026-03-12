@@ -16,16 +16,17 @@ Framework-agnostic server core that defines procedures, subscriptions, pages, an
 
 ## Key Exports
 
-| Export              | Purpose                                                 |
-| ------------------- | ------------------------------------------------------- |
-| `createRouter`      | Wire procedures, subscriptions, and pages into a router |
-| `createHttpHandler` | Create HTTP request handler from a router               |
-| `definePage`        | Define a page with loaders and route patterns           |
-| `t`                 | JTD schema builder (`t.string()`, `t.object()`, etc.)   |
-| `toWebResponse`     | Convert internal response to Web `Response`             |
-| `serialize`         | Serialize response body to JSON                         |
-| `loadBuildOutput`   | Load pre-built skeleton templates and per-page assets   |
-| `PageAssets`        | Per-page CSS/JS/preload/prefetch references (type)      |
+| Export              | Purpose                                                               |
+| ------------------- | --------------------------------------------------------------------- |
+| `createRouter`      | Wire procedures, subscriptions, and pages into a router               |
+| `createHttpHandler` | Create HTTP request handler from a router                             |
+| `definePage`        | Define a page with loaders and route patterns                         |
+| `t`                 | JTD schema builder (`t.string()`, `t.object()`, etc.)                 |
+| `toWebResponse`     | Convert internal response to Web `Response`                           |
+| `serialize`         | Serialize response body to JSON                                       |
+| `loadBuildOutput`   | Load pre-built skeleton templates and per-page assets                 |
+| `PageAssets`        | Per-page CSS/JS/preload/prefetch references (type)                    |
+| `createSeamRouter`  | Router-bound typed procedure factories with context + state inference |
 
 ## Development
 
@@ -37,3 +38,5 @@ Framework-agnostic server core that defines procedures, subscriptions, pages, an
 - Adapters depend on this package; it has no framework-specific code
 - SSE subscriptions use `text/event-stream` with JSON-encoded data fields
 - JTD validation runs at the protocol boundary before procedure handlers execute
+- App state: `createRouter({ ..., state })` injects shared state (DB pools, services) into all procedure handlers as the `state` parameter
+- Public file serving: `HttpHandlerOptions.publicDir` enables serving files from `public/` directory; `loadBuild()` auto-detects `{distDir}/public-root/`; `Cache-Control: public, max-age=3600`; path traversal protected

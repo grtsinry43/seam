@@ -19,3 +19,4 @@ Exports a single `seam()` function that returns a Hono `MiddlewareHandler`. Wrap
 
 - Peer dependencies: `@canmi/seam-server`, `hono` ^4.0.0
 - Designed for use with Hono's `app.use()` middleware registration
+- `SeamHonoOptions.publicDir` for public file serving; auto-reads from `router.publicDir` when omitted

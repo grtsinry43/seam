@@ -54,6 +54,14 @@ Three special files define error/loading/not-found boundaries alongside `page.ts
 - The nearest ancestor boundary applies to all child routes
 - A leaf-level file overrides its parent boundary
 
+### Layout Routes
+
+- `layout.tsx` wraps all child routes in the same directory
+- When `page.tsx` and `layout.tsx` coexist: page is split into a `path: "/"` child route under the layout
+- Group directories `(group)` with layout: generates pathless wrapper (`path: "/"`) — no URL impact
+- Non-group directories with layout: preserves the directory's path prefix
+- Layout `head` export propagates to all leaf child routes (merged via `mergeHeadConfigs`; leaf head takes precedence)
+
 ## Development
 
 - Build: `just build-ts`

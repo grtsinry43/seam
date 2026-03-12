@@ -57,3 +57,5 @@ Go implementation of the SeamJS server core, defining procedures, subscriptions,
 - Generic helpers handle JSON deserialization and schema generation automatically
 - Context injection uses Go's `context.WithValue`; per-procedure context keys control which values are injected
 - JTD validation with detailed error reporting (path/expected/actual)
+- `BuildOutput.PublicDir` auto-detected from `{dir}/public-root/` or `SEAM_PUBLIC_DIR` env var
+- `buildHandler` wraps mux with `publicFileHandler` when `publicDir` is set (GET/HEAD, non-`/_seam/`, `Cache-Control: public, max-age=3600`)

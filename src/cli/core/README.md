@@ -21,14 +21,14 @@ The CLI is split into three crates:
 
 ## Commands
 
-| Command          | Description                                                             |
-| ---------------- | ----------------------------------------------------------------------- |
-| `seam pull`      | Fetch procedure manifest from a running server                          |
-| `seam generate`  | Generate typed client from a manifest file                              |
-| `seam build`     | Extract HTML skeletons, run full build pipeline with per-page splitting |
-| `seam dev`       | Start backend and frontend dev servers                                  |
-| `seam clean`     | Remove build artifacts (`.seam/` directory)                             |
-| `seam --version` | Print CLI version                                                       |
+| Command          | Description                                                                                                                    |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| `seam pull`      | Fetch procedure manifest from a running server                                                                                 |
+| `seam generate`  | Generate typed client from a manifest file; supports `--url` flag or `generate.manifestUrl` config to fetch from remote server |
+| `seam build`     | Extract HTML skeletons, run full build pipeline with per-page splitting                                                        |
+| `seam dev`       | Start backend and frontend dev servers; fullstack mode: unified proxy server (single port)                                     |
+| `seam clean`     | Remove build artifacts (`.seam/` directory)                                                                                    |
+| `seam --version` | Print CLI version                                                                                                              |
 
 ## Development
 
@@ -41,3 +41,5 @@ The CLI is split into three crates:
 - The crate name is `seam-cli`, but the binary name is `seam`
 - Config file lookup walks up the directory tree until it finds `seam.config.ts`, `seam.config.mjs`, or `seam.toml`
 - Skeleton logic lives in `seam-skeleton`, codegen in `seam-codegen`
+- Command config fields (`devCommand`, `backendBuildCommand`, etc.) accept `string | { command, cwd }` for monorepo setups; `cwd` resolves relative to config file location
+- `seam dev` in fullstack mode runs an embedded proxy server: `/_seam/*` and non-GET → backend; HTML navigation → backend; JS/CSS/assets → Vite HMR; WebSocket → routed by path prefix

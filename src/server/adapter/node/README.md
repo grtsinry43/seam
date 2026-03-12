@@ -20,3 +20,4 @@ Exports `serveNode()` which creates a Node.js HTTP server with seam routing and 
 - Peer dependency: `@canmi/seam-server`
 - Does NOT use `toWebResponse` — has its own `sendResponse` for Node.js stream compatibility
 - Optional `wsProxy` option for WebSocket proxy support
+- `ServeNodeOptions.publicDir` for public file serving
