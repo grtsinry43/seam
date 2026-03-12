@@ -17,7 +17,6 @@ export function AsyncSkeleton() {
 	const [state, setState] = useState<'loading' | 'loaded' | 'error'>('loading')
 	const [items, setItems] = useState<AsyncItem[]>([])
 
-	// eslint-disable-next-line seam/no-effect-in-skeleton -- client-only fetch
 	useEffect(() => {
 		fetch('/_seam/procedure/getAsyncItems', {
 			method: 'POST',

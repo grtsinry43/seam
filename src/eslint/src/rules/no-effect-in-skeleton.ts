@@ -2,7 +2,7 @@
 
 import type { Rule } from 'eslint'
 
-const SKELETON_PATTERN = /-skeleton\.tsx$/
+const PAGE_COMPONENT_PATTERN = /(?:^|[\\/])page\.tsx$/
 
 const EFFECT_HOOKS = new Set(['useEffect', 'useLayoutEffect'])
 
@@ -11,7 +11,7 @@ const rule: Rule.RuleModule = {
 		type: 'suggestion',
 		docs: {
 			description:
-				'Warn against useEffect/useLayoutEffect in skeleton components (dead code in renderToString)',
+				'Warn against useEffect/useLayoutEffect in page components rendered through build-time renderToString',
 		},
 		schema: [],
 		messages: {
@@ -22,7 +22,7 @@ const rule: Rule.RuleModule = {
 		},
 	},
 	create(context) {
-		if (!SKELETON_PATTERN.test(context.filename)) return {}
+		if (!PAGE_COMPONENT_PATTERN.test(context.filename)) return {}
 
 		return {
 			CallExpression(node) {

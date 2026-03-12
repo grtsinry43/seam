@@ -12,44 +12,44 @@ const tester = new RuleTester({
 	languageOptions: { ecmaVersion: 'latest', sourceType: 'module' },
 })
 
-const SKELETON = 'home-skeleton.tsx'
+const PAGE = 'src/pages/home/page.tsx'
 
 tester.run('no-nondeterministic-in-skeleton', rule, {
 	valid: [
-		// deterministic math in skeleton — allowed
-		{ code: 'const x = Math.floor(1.5);', filename: SKELETON },
-		// Math.random in non-skeleton file — not checked
-		{ code: 'const r = Math.random();', filename: 'home.tsx' },
+		// deterministic math in page component — allowed
+		{ code: 'const x = Math.floor(1.5);', filename: PAGE },
+		// Math.random in non-page file — not checked
+		{ code: 'const r = Math.random();', filename: 'src/components/home.tsx' },
 	],
 	invalid: [
 		// Math.random()
 		{
 			code: 'const r = Math.random();',
-			filename: SKELETON,
+			filename: PAGE,
 			errors: [{ messageId: 'mathRandom' }],
 		},
 		// Date.now()
 		{
 			code: 'const t = Date.now();',
-			filename: SKELETON,
+			filename: PAGE,
 			errors: [{ messageId: 'dateNow' }],
 		},
 		// new Date()
 		{
 			code: 'const d = new Date();',
-			filename: SKELETON,
+			filename: PAGE,
 			errors: [{ messageId: 'dateNow' }],
 		},
 		// crypto.randomUUID()
 		{
 			code: 'const id = crypto.randomUUID();',
-			filename: SKELETON,
+			filename: PAGE,
 			errors: [{ messageId: 'cryptoRandom' }],
 		},
 		// crypto.getRandomValues()
 		{
 			code: 'const buf = crypto.getRandomValues(new Uint8Array(16));',
-			filename: SKELETON,
+			filename: PAGE,
 			errors: [{ messageId: 'cryptoRandom' }],
 		},
 	],

@@ -24,6 +24,6 @@
     "vitest": "4"
   },
   "peerDependencies": {
-    "eslint": "9"
+    "eslint": ">=10"
   }
 }

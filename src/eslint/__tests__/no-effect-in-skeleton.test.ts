@@ -16,26 +16,26 @@ const tester = new RuleTester({
 	},
 })
 
-const SKELETON = 'home-skeleton.tsx'
+const PAGE = 'src/pages/home/page.tsx'
 
 tester.run('no-effect-in-skeleton', rule, {
 	valid: [
-		// useEffect in non-skeleton file — not checked
-		{ code: 'useEffect(() => {}, []);', filename: 'home.tsx' },
-		// useState (not an effect hook) in skeleton — allowed
-		{ code: 'const [x, setX] = useState(0);', filename: SKELETON },
+		// useEffect in non-page file — not checked
+		{ code: 'useEffect(() => {}, []);', filename: 'src/components/home.tsx' },
+		// useState (not an effect hook) in page component — allowed
+		{ code: 'const [x, setX] = useState(0);', filename: PAGE },
 	],
 	invalid: [
 		// useEffect in skeleton
 		{
 			code: "useEffect(() => { console.log('mounted'); }, []);",
-			filename: SKELETON,
+			filename: PAGE,
 			errors: [{ messageId: 'noEffect' }],
 		},
 		// useLayoutEffect in skeleton
 		{
 			code: "useLayoutEffect(() => { document.title = 'x'; }, []);",
-			filename: SKELETON,
+			filename: PAGE,
 			errors: [{ messageId: 'noEffect' }],
 		},
 	],

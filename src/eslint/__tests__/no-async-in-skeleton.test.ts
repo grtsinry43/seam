@@ -16,44 +16,44 @@ const tester = new RuleTester({
 	},
 })
 
-const SKELETON = 'home-skeleton.tsx'
+const PAGE = 'src/pages/home/page.tsx'
 
 tester.run('no-async-in-skeleton', rule, {
 	valid: [
-		// synchronous component in skeleton file — allowed
-		{ code: 'function HomeSkeleton() { return <div />; }', filename: SKELETON },
-		// use() in non-skeleton file — not checked
-		{ code: 'const data = use(promise);', filename: 'home.tsx' },
+		// synchronous component in page file — allowed
+		{ code: 'function HomePage() { return <div />; }', filename: PAGE },
+		// use() in non-page file — not checked
+		{ code: 'const data = use(promise);', filename: 'src/components/home.tsx' },
 	],
 	invalid: [
 		// use() call
 		{
 			code: 'const data = use(fetchData());',
-			filename: SKELETON,
+			filename: PAGE,
 			errors: [{ messageId: 'noUse' }],
 		},
 		// async function component
 		{
-			code: 'async function HomeSkeleton() { return <div />; }',
-			filename: SKELETON,
+			code: 'async function HomePage() { return <div />; }',
+			filename: PAGE,
 			errors: [{ messageId: 'noAsyncComponent' }],
 		},
 		// async arrow function component
 		{
-			code: 'const HomeSkeleton = async () => <div />;',
-			filename: SKELETON,
+			code: 'const HomePage = async () => <div />;',
+			filename: PAGE,
 			errors: [{ messageId: 'noAsyncComponent' }],
 		},
 		// async function expression
 		{
-			code: 'const HomeSkeleton = async function() { return <div />; }',
-			filename: SKELETON,
+			code: 'const HomePage = async function() { return <div />; }',
+			filename: PAGE,
 			errors: [{ messageId: 'noAsyncComponent' }],
 		},
 		// Suspense boundary
 		{
 			code: '<Suspense fallback={<p>Loading</p>}><Child /></Suspense>;',
-			filename: SKELETON,
+			filename: PAGE,
 			errors: [{ messageId: 'noSuspense' }],
 		},
 	],

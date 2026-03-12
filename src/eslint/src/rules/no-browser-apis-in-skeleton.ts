@@ -2,7 +2,7 @@
 
 import type { Rule } from 'eslint'
 
-const SKELETON_PATTERN = /-skeleton\.tsx$/
+const PAGE_COMPONENT_PATTERN = /(?:^|[\\/])page\.tsx$/
 
 const BROWSER_GLOBALS = new Set([
 	'window',
@@ -18,7 +18,7 @@ const rule: Rule.RuleModule = {
 		type: 'problem',
 		docs: {
 			description:
-				'Disallow browser-only APIs (window, document, localStorage, etc.) in skeleton components',
+				'Disallow browser-only APIs (window, document, localStorage, etc.) in page components rendered at build time',
 		},
 		schema: [],
 		messages: {
@@ -27,7 +27,7 @@ const rule: Rule.RuleModule = {
 		},
 	},
 	create(context) {
-		if (!SKELETON_PATTERN.test(context.filename)) return {}
+		if (!PAGE_COMPONENT_PATTERN.test(context.filename)) return {}
 
 		return {
 			Identifier(node) {

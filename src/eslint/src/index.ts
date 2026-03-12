@@ -24,7 +24,7 @@ const plugin: ESLint.Plugin = {
 // plugin object exists, so the config can reference the plugin itself.
 ;(plugin.configs as Record<string, Linter.Config[]>).recommended = [
 	{
-		files: ['**/*-skeleton.tsx'],
+		files: ['page.tsx', '**/page.tsx'],
 		plugins: { seam: plugin },
 		rules: {
 			'seam/no-browser-apis-in-skeleton': 'error',

@@ -14,7 +14,6 @@ export function FormSkeleton() {
 	const [state, setState] = useState<'idle' | 'success' | 'error'>('idle')
 	const [message, setMessage] = useState('')
 
-	// eslint-disable-next-line seam/no-async-in-skeleton -- client-only handler
 	async function handleSubmit(e: FormEvent) {
 		e.preventDefault()
 		if (!name.trim() || !email.trim()) {

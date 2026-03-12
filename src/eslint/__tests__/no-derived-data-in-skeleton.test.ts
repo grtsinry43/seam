@@ -12,7 +12,7 @@ const tester = new RuleTester({
 	languageOptions: { ecmaVersion: 'latest', sourceType: 'module' },
 })
 
-const SKELETON = 'home-skeleton.tsx'
+const PAGE = 'src/pages/home/page.tsx'
 
 tester.run('no-derived-data-in-skeleton', rule, {
 	valid: [
@@ -21,20 +21,20 @@ tester.run('no-derived-data-in-skeleton', rule, {
         const { title, show } = useSeamData();
         const body = show ? title : null;
       `,
-			filename: SKELETON,
+			filename: PAGE,
 		},
 		{
 			code: `
         const { items } = useSeamData();
         const rows = items.map((item) => item.name);
       `,
-			filename: SKELETON,
+			filename: PAGE,
 		},
 		{
 			code: `
         const price = Number(input);
       `,
-			filename: 'home.tsx',
+			filename: 'src/components/home.tsx',
 		},
 	],
 	invalid: [
@@ -43,7 +43,7 @@ tester.run('no-derived-data-in-skeleton', rule, {
         const { price } = useSeamData();
         const discount = price * 0.8;
       `,
-			filename: SKELETON,
+			filename: PAGE,
 			errors: [{ messageId: 'arithmetic' }],
 		},
 		{
@@ -51,7 +51,7 @@ tester.run('no-derived-data-in-skeleton', rule, {
         const { price } = useSeamData();
         const expensive = price > 1000;
       `,
-			filename: SKELETON,
+			filename: PAGE,
 			errors: [{ messageId: 'numericComparison' }],
 		},
 		{
@@ -59,7 +59,7 @@ tester.run('no-derived-data-in-skeleton', rule, {
         const { formattedPrice } = useSeamData();
         const label = formattedPrice.toUpperCase();
       `,
-			filename: SKELETON,
+			filename: PAGE,
 			errors: [{ messageId: 'formatMethod', data: { method: 'toUpperCase' } }],
 		},
 		{
@@ -67,7 +67,7 @@ tester.run('no-derived-data-in-skeleton', rule, {
         const { watches } = useSeamData();
         const visible = watches.filter((watch) => watch.visible);
       `,
-			filename: SKELETON,
+			filename: PAGE,
 			errors: [{ messageId: 'arrayDerivation', data: { method: 'filter' } }],
 		},
 		{
@@ -75,7 +75,7 @@ tester.run('no-derived-data-in-skeleton', rule, {
         const { createdAt } = useSeamData();
         const date = new Date(createdAt);
       `,
-			filename: SKELETON,
+			filename: PAGE,
 			errors: [{ messageId: 'dateConstruction' }],
 		},
 		{
@@ -83,7 +83,7 @@ tester.run('no-derived-data-in-skeleton', rule, {
         const { watches } = useSeamData();
         const rows = watches.map((watch) => watch.price > 0 ? 'paid' : 'free');
       `,
-			filename: SKELETON,
+			filename: PAGE,
 			errors: [{ messageId: 'numericComparison' }],
 		},
 	],

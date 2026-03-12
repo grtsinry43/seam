@@ -2,7 +2,7 @@
 
 import type { Rule } from 'eslint'
 
-const SKELETON_PATTERN = /-skeleton\.tsx$/
+const PAGE_COMPONENT_PATTERN = /(?:^|[\\/])page\.tsx$/
 
 // obj.method patterns detected via MemberExpression + CallExpression
 const MEMBER_CALLS = new Map<string, Map<string, string>>([
@@ -22,7 +22,7 @@ const rule: Rule.RuleModule = {
 		type: 'problem',
 		docs: {
 			description:
-				'Disallow non-deterministic expressions (Math.random, Date.now, new Date, crypto) in skeleton components',
+				'Disallow non-deterministic expressions (Math.random, Date.now, new Date, crypto) in page components rendered at build time',
 		},
 		schema: [],
 		messages: {
@@ -35,7 +35,7 @@ const rule: Rule.RuleModule = {
 		},
 	},
 	create(context) {
-		if (!SKELETON_PATTERN.test(context.filename)) return {}
+		if (!PAGE_COMPONENT_PATTERN.test(context.filename)) return {}
 
 		return {
 			// Math.random(), Date.now(), crypto.randomUUID(), crypto.getRandomValues()

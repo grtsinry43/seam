@@ -2,7 +2,7 @@
 
 import type { Rule } from 'eslint'
 
-const SKELETON_PATTERN = /-skeleton\.tsx$/
+const PAGE_COMPONENT_PATTERN = /(?:^|[\\/])page\.tsx$/
 
 const ARITHMETIC_OPERATORS = new Set(['+', '-', '*', '/', '%', '**'])
 const NUMERIC_COMPARISON_OPERATORS = new Set(['>', '>=', '<', '<='])
@@ -342,7 +342,7 @@ const rule: Rule.RuleModule = {
 		type: 'problem',
 		docs: {
 			description:
-				'Disallow render-time derived computations from useSeamData() values in skeleton components',
+				'Disallow render-time derived computations from useSeamData() values in build-time rendered page components',
 		},
 		schema: [],
 		messages: {
@@ -364,7 +364,7 @@ const rule: Rule.RuleModule = {
 		},
 	},
 	create(context) {
-		if (!SKELETON_PATTERN.test(context.filename)) return {}
+		if (!PAGE_COMPONENT_PATTERN.test(context.filename)) return {}
 		return createRuleListeners(context)
 	},
 }

@@ -2,14 +2,14 @@
 
 import type { Rule } from 'eslint'
 
-const SKELETON_PATTERN = /-skeleton\.tsx$/
+const PAGE_COMPONENT_PATTERN = /(?:^|[\\/])page\.tsx$/
 
 const rule: Rule.RuleModule = {
 	meta: {
 		type: 'problem',
 		docs: {
 			description:
-				'Disallow async operations (use(), async components, Suspense) in skeleton components',
+				'Disallow async operations (use(), async components, Suspense) in page components rendered at build time',
 		},
 		schema: [],
 		messages: {
@@ -26,7 +26,7 @@ const rule: Rule.RuleModule = {
 		},
 	},
 	create(context) {
-		if (!SKELETON_PATTERN.test(context.filename)) return {}
+		if (!PAGE_COMPONENT_PATTERN.test(context.filename)) return {}
 
 		return {
 			// use(somePromise)

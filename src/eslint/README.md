@@ -1,6 +1,6 @@
 # @canmi/eslint-plugin-seam
 
-ESLint rules that enforce build-time safety constraints for SeamJS skeleton components (`*-skeleton.tsx`).
+ESLint rules that enforce build-time safety constraints for SeamJS filesystem-router page components (`page.tsx`).
 
 ## Rules
 
@@ -23,7 +23,7 @@ export default [
 ]
 ```
 
-The recommended config scopes all rules to `**/*-skeleton.tsx` files as `"error"`.
+The recommended config scopes all rules to `page.tsx` files as `"error"`.
 
 ## Development
 

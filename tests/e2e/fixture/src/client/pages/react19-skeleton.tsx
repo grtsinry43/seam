@@ -51,7 +51,6 @@ export function React19Skeleton() {
 			</section>
 
 			{/* Suspense boundary — static children, no abort markers */}
-			{/* eslint-disable-next-line seam/no-async-in-skeleton */}
 			<Suspense fallback={<p>Loading...</p>}>
 				<p data-testid="suspense-content">Suspense-wrapped content loaded successfully.</p>
 			</Suspense>

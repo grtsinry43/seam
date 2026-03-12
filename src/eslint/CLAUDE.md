@@ -1,14 +1,14 @@
 # @canmi/eslint-plugin-seam
 
-ESLint plugin enforcing build-time safety for skeleton components rendered via `renderToString`.
+ESLint plugin enforcing build-time safety for filesystem-router page components rendered via `renderToString`.
 
 ## Architecture
 
-- Skeleton components (`*-skeleton.tsx`) run at build time through React `renderToString`
+- Filesystem-router page components (`page.tsx`) run at build time through React `renderToString`
 - No browser APIs, async operations, or non-deterministic logic allowed
 - Each rule lives in `src/rules/` as a standalone `Rule.RuleModule`
 - Plugin entry (`src/index.ts`) exports `rules` map and `configs.recommended`
-- `configs.recommended` scopes all rules to `**/*-skeleton.tsx` via flat config `files` glob
+- `configs.recommended` scopes all rules to `page.tsx` via flat config `files` globs
 
 ## Key Files
 
