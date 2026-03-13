@@ -57,8 +57,33 @@ fmt-check:
     cargo fmt --all -- --check
     test -z "$(gofmt -l .)"
 
-# Run all linters
-lint: lint-ts lint-clippy lint-go lint-length
+# Run all linters (parallel)
+lint:
+    #!/usr/bin/env bash
+    set -uo pipefail
+    tmpdir=$(mktemp -d)
+    trap 'rm -rf "$tmpdir"' EXIT
+    pids=()
+    names=()
+    run_task() {
+      local name=$1; shift
+      names+=("$name")
+      "$@" >"$tmpdir/$name.log" 2>&1 &
+      pids+=($!)
+    }
+    run_task lint-ts     bash -c 'just lint-ts'
+    run_task lint-clippy bash -c 'just lint-clippy'
+    run_task lint-go     bash -c 'just lint-go'
+    run_task lint-length bash -c 'just lint-length'
+    run_task lint-links  bash -c 'just lint-links'
+    failed=0
+    for i in "${!pids[@]}"; do
+      code=0; wait "${pids[$i]}" || code=$?
+      printf '\n==> %s (exit %s)\n' "${names[$i]}" "$code"
+      cat "$tmpdir/${names[$i]}.log"
+      if [ "$code" != "0" ]; then failed=1; fi
+    done
+    exit $failed
 
 # Lint TS (oxlint + eslint)
 lint-ts:
@@ -73,18 +98,30 @@ lint-ox:
 lint-clippy:
     {{ _cranelift }} cargo clippy --workspace --all-targets {{ _crypto }} -- -D warnings
 
-# Lint Go (golangci-lint per module)
+# Lint Go (golangci-lint per module, parallel)
 lint-go:
     #!/usr/bin/env bash
-    set -euo pipefail
-    status=0
+    set -uo pipefail
+    tmpdir=$(mktemp -d)
+    trap 'rm -rf "$tmpdir"' EXIT
+    pids=()
+    mods=()
     while IFS= read -r mod; do
       dir="$(dirname "$mod")"
       rel="${dir#"$(pwd)"/}"
-      printf '  -> %s\n' "$rel"
-      (cd "$dir" && golangci-lint run ./...) || status=1
+      mods+=("$rel")
+      (cd "$dir" && golangci-lint run --allow-parallel-runners ./...) >"$tmpdir/${rel//\//_}.log" 2>&1 &
+      pids+=($!)
     done < <(find . -name go.mod -not -path '*/vendor/*')
-    exit $status
+    failed=0
+    for i in "${!pids[@]}"; do
+      if ! wait "${pids[$i]}"; then
+        printf '  FAIL: %s\n' "${mods[$i]}"
+        cat "$tmpdir/${mods[$i]//\//_}.log"
+        failed=1
+      fi
+    done
+    exit $failed
 
 # Warn about files exceeding 500 lines
 lint-length:
