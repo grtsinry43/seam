@@ -34,7 +34,7 @@ if [[ -z "$HOST_CLI_TARGET" || -z "$HOST_CLI_WRAPPER" ]]; then
 fi
 
 printf '==> build local CLI wrapper (%s -> %s)\n' "$HOST_CLI_TARGET" "$HOST_CLI_WRAPPER"
-bash "$ROOT/scripts/build-cli.sh" --target "$HOST_CLI_TARGET"
+bash "$ROOT/scripts/build-cli.sh" --debug --target "$HOST_CLI_TARGET"
 
 PACKAGES=(
   src/cli/wrapper/darwin-arm64
