@@ -10,10 +10,10 @@ pm := "bun"
 
 # Cranelift fast builds: auto-detected on nightly. Set SEAM_STABLE=1 for stable LLVM + release.
 _is_nightly := `rustc --version 2>&1 | grep -q nightly && echo "yes" || echo ""`
-_cranelift := if _is_nightly != "" { if env_var_or_default("SEAM_STABLE", "") == "" { "CARGO_UNSTABLE_CODEGEN_BACKEND=true CARGO_PROFILE_DEV_CODEGEN_BACKEND=cranelift" } else { "" } } else { "" }
-_crypto := if env_var_or_default("SEAM_STABLE", "") != "" { "--no-default-features --features crypto-aws" } else { "" }
-_release := if env_var_or_default("SEAM_STABLE", "") != "" { "--release" } else { "" }
-_profile := if env_var_or_default("SEAM_STABLE", "") != "" { "release" } else { "debug" }
+_cranelift := if _is_nightly != "" { if env("SEAM_STABLE", "") == "" { "CARGO_UNSTABLE_CODEGEN_BACKEND=true CARGO_PROFILE_DEV_CODEGEN_BACKEND=cranelift" } else { "" } } else { "" }
+_crypto := if env("SEAM_STABLE", "") != "" { "--no-default-features --features crypto-aws" } else { "" }
+_release := if env("SEAM_STABLE", "") != "" { "--release" } else { "" }
+_profile := if env("SEAM_STABLE", "") != "" { "release" } else { "debug" }
 
 # List all recipes
 default:
