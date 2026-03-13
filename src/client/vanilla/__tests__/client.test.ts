@@ -325,3 +325,59 @@ describe('fetchManifest()', () => {
 		}
 	})
 })
+
+describe('URL safety', () => {
+	it('normalizes multiple trailing slashes', async () => {
+		vi.mocked(fetch).mockResolvedValue(jsonResponse({ ok: true, data: null }))
+
+		const client = createClient({ baseUrl: 'http://localhost:3000///' })
+		await client.call('test', {})
+
+		expect(fetch).toHaveBeenCalledWith(
+			'http://localhost:3000/_seam/procedure/test',
+			expect.any(Object),
+		)
+	})
+
+	it('handles empty string baseUrl as relative', async () => {
+		vi.mocked(fetch).mockResolvedValue(jsonResponse({ ok: true, data: null }))
+
+		const client = createClient({ baseUrl: '' })
+		await client.call('test', {})
+
+		expect(fetch).toHaveBeenCalledWith('/_seam/procedure/test', expect.any(Object))
+	})
+
+	it('normalizes all-slashes baseUrl to empty', async () => {
+		vi.mocked(fetch).mockResolvedValue(jsonResponse({ ok: true, data: null }))
+
+		const client = createClient({ baseUrl: '///' })
+		await client.call('test', {})
+
+		expect(fetch).toHaveBeenCalledWith('/_seam/procedure/test', expect.any(Object))
+	})
+
+	it('passes procedure name with ../ through (server responsibility)', async () => {
+		vi.mocked(fetch).mockResolvedValue(jsonResponse({ ok: true, data: null }))
+
+		const client = createClient({ baseUrl: 'http://localhost:3000' })
+		await client.call('../secret', {})
+
+		expect(fetch).toHaveBeenCalledWith(
+			'http://localhost:3000/_seam/procedure/../secret',
+			expect.any(Object),
+		)
+	})
+
+	it('preserves path component in baseUrl', async () => {
+		vi.mocked(fetch).mockResolvedValue(jsonResponse({ ok: true, data: null }))
+
+		const client = createClient({ baseUrl: 'http://localhost:3000/api/v1' })
+		await client.call('test', {})
+
+		expect(fetch).toHaveBeenCalledWith(
+			'http://localhost:3000/api/v1/_seam/procedure/test',
+			expect.any(Object),
+		)
+	})
+})
