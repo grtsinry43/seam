@@ -173,6 +173,71 @@ describe('useSeamSubscription: connection', () => {
 	})
 })
 
+describe('useSeamSubscription: URL safety', () => {
+	const unsafeNames = [
+		{ label: 'path traversal', name: '../../../etc' },
+		{ label: 'slash in name', name: 'foo/bar' },
+		{ label: 'query injection', name: 'name?inject=true' },
+		{ label: 'fragment injection', name: 'name#fragment' },
+		{ label: 'spaces', name: 'name with spaces' },
+		{ label: 'HTML injection', name: '<script>' },
+	] as const
+
+	it.each(unsafeNames)(
+		'encodes $label ($name) into fetch URL preserving procedure path',
+		async ({ name }) => {
+			const fetchSpy = mockFetchSse('event: complete\ndata: {}\n\n')
+			vi.stubGlobal('fetch', fetchSpy)
+
+			await act(async () => {
+				root.render(
+					createElement(Sub, {
+						baseUrl: 'http://localhost:3000',
+						procedure: name,
+						input: {},
+					}),
+				)
+			})
+
+			await act(async () => {
+				await new Promise<void>((r) => {
+					setTimeout(r, 0)
+				})
+			})
+
+			expect(fetchSpy).toHaveBeenCalledTimes(1)
+			const url = fetchSpy.mock.calls[0][0] as string
+			expect(url.startsWith(`http://localhost:3000/_seam/procedure/${name}?input=`)).toBe(true)
+		},
+	)
+
+	it('does not produce double slashes from trailing-slash base URL', async () => {
+		const fetchSpy = mockFetchSse('event: complete\ndata: {}\n\n')
+		vi.stubGlobal('fetch', fetchSpy)
+
+		await act(async () => {
+			root.render(
+				createElement(Sub, {
+					baseUrl: 'http://localhost:3000/',
+					procedure: 'test',
+					input: {},
+				}),
+			)
+		})
+
+		await act(async () => {
+			await new Promise<void>((r) => {
+				setTimeout(r, 0)
+			})
+		})
+
+		const url = fetchSpy.mock.calls[0][0] as string
+		expect(url.startsWith('http://localhost:3000/_seam/procedure/test?input=')).toBe(true)
+		const path = new URL(url).pathname
+		expect(path).not.toContain('//')
+	})
+})
+
 describe('useSeamSubscription: errors', () => {
 	it('reports error on data parse failure', async () => {
 		vi.stubGlobal(

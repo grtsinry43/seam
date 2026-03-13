@@ -3,6 +3,9 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { greetRouter as router } from '../../../core/typescript/__tests__/fixtures.js'
 import { serveNode } from '../src/index.js'
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs'
+import { join } from 'node:path'
+import { tmpdir } from 'node:os'
 import type { Server } from 'node:http'
 import type { AddressInfo } from 'node:net'
 
@@ -175,5 +178,53 @@ describe('adapter-node stream', () => {
 		expect(events.some((e) => e.event === 'error' && e.data?.includes('validation failed'))).toBe(
 			true,
 		)
+	})
+})
+
+// -- Public directory tests --
+
+describe('adapter-node publicDir', () => {
+	let pubServer: Server
+	let pubBase: string
+	let pubDir: string
+
+	beforeAll(async () => {
+		pubDir = mkdtempSync(join(tmpdir(), 'seam-node-public-'))
+		writeFileSync(join(pubDir, 'hello.txt'), 'hello world')
+		mkdirSync(join(pubDir, 'images'), { recursive: true })
+		writeFileSync(join(pubDir, 'images', 'logo.png'), 'fake-png-data')
+
+		pubServer = serveNode(router, { port: 0, publicDir: pubDir })
+		await new Promise<void>((r) => {
+			if (pubServer.listening) {
+				r()
+			} else {
+				pubServer.once('listening', r)
+			}
+		})
+		const addr = pubServer.address() as AddressInfo
+		pubBase = `http://localhost:${addr.port}`
+	})
+
+	afterAll(() => {
+		pubServer.close()
+		rmSync(pubDir, { recursive: true, force: true })
+	})
+
+	it('serves existing public file', async () => {
+		const res = await fetch(`${pubBase}/hello.txt`)
+		expect(res.status).toBe(200)
+		const body = await res.text()
+		expect(body).toBe('hello world')
+	})
+
+	it('serves nested public file', async () => {
+		const res = await fetch(`${pubBase}/images/logo.png`)
+		expect(res.status).toBe(200)
+	})
+
+	it('blocks path traversal', async () => {
+		const res = await fetch(`${pubBase}/../etc/passwd`)
+		expect(res.status).toBe(404)
 	})
 })

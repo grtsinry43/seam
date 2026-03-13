@@ -95,6 +95,15 @@ describe('seamVirtual', () => {
 		expect(plugin.resolveId('react')).toBeUndefined()
 	})
 
+	it('resolveId rejects path traversal attempts', () => {
+		const dir = createTmpDir()
+		const plugin = seamVirtual() as PluginWithResolve
+		plugin.configResolved({ root: dir })
+		// VIRTUAL_MODULES is a fixed allowlist; traversal IDs never match
+		expect(plugin.resolveId('virtual:seam/../../../etc/passwd')).toBeUndefined()
+		expect(plugin.resolveId('virtual:seam/client/../secret')).toBeUndefined()
+	})
+
 	it('load returns fallback for each virtual module', () => {
 		const plugin = seamVirtual() as Plugin & { load: (id: string) => string | undefined }
 		expect(plugin.load('\0virtual:seam/routes')).toBe('export default []')

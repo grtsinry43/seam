@@ -139,6 +139,61 @@ describe('useSeamStream: streaming', () => {
 	})
 })
 
+describe('useSeamStream: URL safety', () => {
+	const unsafeNames = [
+		{ label: 'path traversal', name: '../../../etc' },
+		{ label: 'slash in name', name: 'foo/bar' },
+		{ label: 'query injection', name: 'name?inject=true' },
+		{ label: 'fragment injection', name: 'name#fragment' },
+		{ label: 'spaces', name: 'name with spaces' },
+		{ label: 'HTML injection', name: '<script>' },
+	] as const
+
+	it.each(unsafeNames)(
+		'encodes $label ($name) into fetch URL without altering path structure',
+		async ({ name }) => {
+			const fetchMock = vi.fn().mockResolvedValue(mockSseResponse('event: complete\ndata: {}\n\n'))
+			vi.stubGlobal('fetch', fetchMock)
+
+			await act(async () => {
+				root.render(
+					createElement(StreamComp, {
+						baseUrl: 'http://localhost:3000',
+						procedure: name,
+						input: {},
+					}),
+				)
+			})
+
+			expect(fetchMock).toHaveBeenCalledTimes(1)
+			const url = fetchMock.mock.calls[0][0] as string
+			expect(url).toBe(`http://localhost:3000/_seam/procedure/${name}`)
+			expect(fetchMock.mock.calls[0][1]).toEqual(expect.objectContaining({ method: 'POST' }))
+		},
+	)
+
+	it('does not produce double slashes from trailing-slash base URL', async () => {
+		const fetchMock = vi.fn().mockResolvedValue(mockSseResponse('event: complete\ndata: {}\n\n'))
+		vi.stubGlobal('fetch', fetchMock)
+
+		await act(async () => {
+			root.render(
+				createElement(StreamComp, {
+					baseUrl: 'http://localhost:3000/',
+					procedure: 'test',
+					input: {},
+				}),
+			)
+		})
+
+		const url = fetchMock.mock.calls[0][0] as string
+		expect(url).toBe('http://localhost:3000/_seam/procedure/test')
+		// No double slashes in the path portion
+		const path = new URL(url).pathname
+		expect(path).not.toContain('//')
+	})
+})
+
 describe('useSeamStream: errors', () => {
 	it('transitions to error on HTTP failure', async () => {
 		vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(null, { status: 500 })))

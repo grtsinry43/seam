@@ -12,6 +12,7 @@ use axum::http::header::SEC_WEBSOCKET_PROTOCOL;
 use axum::routing::get;
 use futures_util::{SinkExt, StreamExt};
 use std::net::TcpListener;
+use tempfile::TempDir;
 use tokio::sync::mpsc;
 use tokio::task::JoinHandle;
 use tokio_tungstenite::tungstenite::client::IntoClientRequest;
@@ -176,4 +177,70 @@ async fn fullstack_proxy_preserves_websocket_subprotocol_for_vite_hmr() {
 	proxy_handle.abort();
 	backend_handle.abort();
 	vite_handle.abort();
+}
+
+#[tokio::test]
+async fn dev_server_serves_public_dir_files() {
+	ensure_crypto();
+	let static_dir = TempDir::new().unwrap();
+	let public_dir = TempDir::new().unwrap();
+	std::fs::write(public_dir.path().join("hello.txt"), "hello world").unwrap();
+
+	let dev_port = free_port();
+	let backend_port = free_port(); // non-listening; we only test public file paths
+	let handle = tokio::spawn(async move {
+		start_dev_server(
+			static_dir.path().to_path_buf(),
+			dev_port,
+			backend_port,
+			AssetFiles { css: vec![], js: vec![] },
+			Some(public_dir.path().to_path_buf()),
+		)
+		.await
+		.unwrap();
+	});
+
+	tokio::time::sleep(std::time::Duration::from_millis(150)).await;
+
+	let client = reqwest::Client::new();
+	let res = client.get(format!("http://127.0.0.1:{dev_port}/hello.txt")).send().await.unwrap();
+	assert_eq!(res.status(), 200);
+	assert_eq!(res.text().await.unwrap(), "hello world");
+
+	handle.abort();
+}
+
+#[tokio::test]
+async fn dev_server_public_dir_falls_back_to_spa() {
+	ensure_crypto();
+	let static_dir = TempDir::new().unwrap();
+	let public_dir = TempDir::new().unwrap();
+
+	let dev_port = free_port();
+	let backend_port = free_port();
+	let handle = tokio::spawn(async move {
+		start_dev_server(
+			static_dir.path().to_path_buf(),
+			dev_port,
+			backend_port,
+			AssetFiles { css: vec![], js: vec![] },
+			Some(public_dir.path().to_path_buf()),
+		)
+		.await
+		.unwrap();
+	});
+
+	tokio::time::sleep(std::time::Duration::from_millis(150)).await;
+
+	let client = reqwest::Client::new();
+	let res = client
+		.get(format!("http://127.0.0.1:{dev_port}/nonexistent.txt"))
+		.header("accept", "text/html")
+		.send()
+		.await
+		.unwrap();
+	let body = res.text().await.unwrap();
+	assert!(body.contains(r#"<div id="root">"#));
+
+	handle.abort();
 }

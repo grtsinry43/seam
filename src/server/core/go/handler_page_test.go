@@ -3,6 +3,7 @@
 package seam
 
 import (
+	"encoding/json"
 	"path/filepath"
 	"testing"
 )
@@ -129,6 +130,98 @@ func TestResolveI18nMessagesPath(t *testing.T) {
 			}
 			if ok && got != tt.wantPath {
 				t.Errorf("resolveI18nMessagesPath(%q, %q) = %q, want %q", tt.routeHash, tt.locale, got, tt.wantPath)
+			}
+		})
+	}
+}
+
+func TestIsKnownRouteHash(t *testing.T) {
+	tests := []struct {
+		name string
+		cfg  *I18nConfig
+		hash string
+		want bool
+	}{
+		{
+			name: "empty string",
+			cfg:  &I18nConfig{},
+			hash: "",
+			want: false,
+		},
+		{
+			name: "hash in ContentHashes",
+			cfg: &I18nConfig{
+				ContentHashes: map[string]map[string]string{
+					"abc12345": {"en": "c1d2"},
+				},
+			},
+			hash: "abc12345",
+			want: true,
+		},
+		{
+			name: "hash in RouteHashes values",
+			cfg: &I18nConfig{
+				RouteHashes: map[string]string{
+					"/dashboard": "rh123456",
+				},
+			},
+			hash: "rh123456",
+			want: true,
+		},
+		{
+			name: "RouteHashes key is not matched",
+			cfg: &I18nConfig{
+				RouteHashes: map[string]string{
+					"/dashboard": "rh123456",
+				},
+			},
+			hash: "/dashboard",
+			want: false,
+		},
+		{
+			name: "hash in Messages first locale",
+			cfg: &I18nConfig{
+				Messages: map[string]map[string]json.RawMessage{
+					"en": {"msg11111": json.RawMessage(`{"hello":"world"}`)},
+				},
+			},
+			hash: "msg11111",
+			want: true,
+		},
+		{
+			name: "hash in Messages second locale",
+			cfg: &I18nConfig{
+				Messages: map[string]map[string]json.RawMessage{
+					"en": {"enonly000": json.RawMessage(`{}`)},
+					"ja": {"jaonly000": json.RawMessage(`{}`)},
+				},
+			},
+			hash: "jaonly000",
+			want: true,
+		},
+		{
+			name: "unknown hash with all maps populated",
+			cfg: &I18nConfig{
+				ContentHashes: map[string]map[string]string{"ch000000": {"en": "x"}},
+				RouteHashes:   map[string]string{"/": "rh000000"},
+				Messages:      map[string]map[string]json.RawMessage{"en": {"ms000000": json.RawMessage(`{}`)}},
+			},
+			hash: "notfound",
+			want: false,
+		},
+		{
+			name: "nil maps",
+			cfg:  &I18nConfig{},
+			hash: "anything",
+			want: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := isKnownRouteHash(tt.cfg, tt.hash)
+			if got != tt.want {
+				t.Errorf("isKnownRouteHash(%q) = %v, want %v", tt.hash, got, tt.want)
 			}
 		})
 	}
