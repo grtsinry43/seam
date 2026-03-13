@@ -98,10 +98,11 @@ lint-ox:
 lint-clippy:
     {{ _cranelift }} cargo clippy --workspace --all-targets {{ _crypto }} -- -D warnings
 
-# Lint Go (golangci-lint per module, parallel)
+# Lint Go (golangci-lint per module, parallel with concurrency limit)
 lint-go:
     #!/usr/bin/env bash
     set -uo pipefail
+    max_jobs=${LINT_GO_JOBS:-4}
     tmpdir=$(mktemp -d)
     trap 'rm -rf "$tmpdir"' EXIT
     pids=()
@@ -112,10 +113,16 @@ lint-go:
       mods+=("$rel")
       (cd "$dir" && golangci-lint run --allow-parallel-runners ./...) >"$tmpdir/${rel//\//_}.log" 2>&1 &
       pids+=($!)
+      # throttle: wait for a slot when hitting max_jobs
+      if (( ${#pids[@]} % max_jobs == 0 )); then
+        for pid in "${pids[@]:$(( ${#pids[@]} - max_jobs )):$max_jobs}"; do
+          wait "$pid" 2>/dev/null || true
+        done
+      fi
     done < <(find . -name go.mod -not -path '*/vendor/*')
     failed=0
     for i in "${!pids[@]}"; do
-      if ! wait "${pids[$i]}"; then
+      if ! wait "${pids[$i]}" 2>/dev/null; then
         printf '  FAIL: %s\n' "${mods[$i]}"
         cat "$tmpdir/${mods[$i]//\//_}.log"
         failed=1
