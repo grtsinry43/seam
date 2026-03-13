@@ -58,7 +58,7 @@
     "eslint": "10",
     "eslint-plugin-oxlint": "1",
     "knip": "5",
-    "oxfmt": "0.37",
+    "oxfmt": "0.40",
     "oxlint": "1",
     "tsx": "4",
     "typescript-eslint": "8"

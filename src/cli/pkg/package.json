@@ -16,8 +16,8 @@
   },
   "dependencies": {
     "@canmi/seam-vite": "0.5.36",
-    "@vitejs/plugin-react": "5",
-    "vite": "7"
+    "@vitejs/plugin-react": "6",
+    "vite": "8"
   },
   "devDependencies": {
     "@types/node": "25",
