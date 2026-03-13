@@ -11,6 +11,7 @@ on:
 
 env:
   SEAM_STABLE: '1'
+  RUSTUP_TOOLCHAIN: stable
 
 jobs:
   check:
