@@ -60,6 +60,7 @@
     "knip": "5",
     "oxfmt": "0.40",
     "oxlint": "1",
+    "tsdown": "0.21",
     "tsx": "4",
     "typescript-eslint": "8"
   }

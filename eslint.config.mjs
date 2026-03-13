@@ -62,6 +62,7 @@ export default tseslint.config(
 			'**/__tests__/**',
 			'tests/**',
 			'**/tsdown.config.ts',
+			'tsdown.p*.ts',
 			'**/vitest.config.*',
 			'**/scripts/**',
 			'eslint.config.mjs',

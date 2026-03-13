@@ -154,30 +154,17 @@ lint-fix:
 # Build TS + Rust
 build: build-ts build-rs
 
-# Build TS phase 1 (leaf packages, no cross-deps)
+# Build TS phase 1 (leaf packages, no cross-deps — parallel via tsdown workspace)
 build-ts-p1:
-    {{ pm }} run --filter '@canmi/seam-injector' build
-    {{ pm }} run --filter '@canmi/seam-injector-native' build
-    {{ pm }} run --filter '@canmi/seam-engine' build
-    {{ pm }} run --filter '@canmi/seam-client' build
-    {{ pm }} run --filter '@canmi/seam-vite' build
-    {{ pm }} run --filter '@canmi/seam-i18n' build
-    {{ pm }} run --filter '@canmi/seam-router' build
-    {{ pm }} run --filter '@canmi/seam-query' build
-    {{ pm }} run --filter '@canmi/eslint-plugin-seam' build
+    {{ pm }} x tsdown -c tsdown.p1.ts
 
-# Build TS phase 2 (depends on p1)
+# Build TS phase 2 (depends on p1 — parallel via tsdown workspace)
 build-ts-p2:
-    {{ pm }} run --filter '@canmi/seam-server' build
-    {{ pm }} run --filter '@canmi/seam-react' build
-    {{ pm }} run --filter '@canmi/seam-query-react' build
+    {{ pm }} x tsdown -c tsdown.p2.ts
 
-# Build TS phase 3 (depends on p2)
+# Build TS phase 3 (depends on p2 — parallel via tsdown workspace)
 build-ts-p3:
-    {{ pm }} run --filter '@canmi/seam-adapter-hono' build
-    {{ pm }} run --filter '@canmi/seam-adapter-bun' build
-    {{ pm }} run --filter '@canmi/seam-adapter-node' build
-    {{ pm }} run --filter '@canmi/seam-tanstack-router' build
+    {{ pm }} x tsdown -c tsdown.p3.ts
 
 # Build all TS packages (3-phase dependency order), then push to yalc locally if available
 build-ts: build-ts-p1 build-ts-p2 build-ts-p3
