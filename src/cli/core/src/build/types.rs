@@ -39,7 +39,6 @@ struct ViteManifestEntry {
 	#[serde(default)]
 	imports: Vec<String>,
 	#[serde(default, rename = "dynamicImports")]
-	#[allow(dead_code)] // reserved for future prefetch graph expansion
 	dynamic_imports: Vec<String>,
 }
 
@@ -99,6 +98,12 @@ pub fn read_bundle_manifest_extended(path: &Path) -> Result<BundleManifest> {
 	let vite: HashMap<String, ViteManifestEntry> =
 		serde_json::from_str(&content).context("failed to parse Vite manifest for extended reading")?;
 
+	// Collect all keys that appear in any entry's dynamicImports — these are
+	// page entries in Rolldown's manifest style (isEntry: true but referenced
+	// as dynamicImports from the main entry).
+	let dynamically_imported: HashSet<&str> =
+		vite.values().flat_map(|e| e.dynamic_imports.iter()).map(String::as_str).collect();
+
 	let mut entries = BTreeMap::new();
 	// Template assets: only main (non-dynamic) entries
 	let mut tmpl_js = Vec::new();
@@ -125,8 +130,10 @@ pub fn read_bundle_manifest_extended(path: &Path) -> Result<BundleManifest> {
 
 		let scripts = vec![entry.file.clone()];
 
-		// Template: only non-dynamic entries go into the global template
-		if entry.is_entry && !entry.is_dynamic_entry {
+		// Template: only non-dynamic entries go into the global template.
+		// Exclude entries referenced via dynamicImports (Rolldown marks page
+		// entries as isEntry but the main entry lists them in dynamicImports).
+		if entry.is_entry && !entry.is_dynamic_entry && !dynamically_imported.contains(key.as_str()) {
 			tmpl_js.push(entry.file.clone());
 			tmpl_css.extend(entry.css.iter().cloned());
 		}
@@ -211,12 +218,13 @@ mod tests {
         "file": "assets/main-abc.js",
         "css": ["assets/main-abc.css"],
         "isEntry": true,
-        "imports": ["_shared-xyz"]
+        "imports": ["_shared-xyz"],
+        "dynamicImports": ["src/pages/home.tsx"]
       },
       "src/pages/home.tsx": {
         "file": "assets/home-def.js",
         "css": ["assets/home-def.css"],
-        "isDynamicEntry": true,
+        "isEntry": true,
         "imports": ["_shared-xyz"]
       },
       "_shared-xyz": {
@@ -243,7 +251,49 @@ mod tests {
 		assert!(home.styles.contains(&"assets/shared-xyz.css".to_string()));
 		assert_eq!(home.preload, vec!["assets/shared-xyz.js"]);
 
-		// Template: only main entry (non-dynamic), excludes home page entry
+		// Template: only main entry — home is in main's dynamicImports
+		assert_eq!(result.template.js, vec!["assets/main-abc.js"]);
+		assert_eq!(result.template.css, vec!["assets/main-abc.css"]);
+	}
+
+	#[test]
+	fn parse_extended_manifest_rolldown_style() {
+		// Rolldown marks all entries as isEntry (no isDynamicEntry), with
+		// the main entry listing page entries in dynamicImports.
+		let json = r#"{
+      "src/main.tsx": {
+        "file": "assets/main-abc.js",
+        "css": ["assets/main-abc.css"],
+        "isEntry": true,
+        "imports": [],
+        "dynamicImports": ["src/pages/home.tsx", "src/pages/about.tsx"]
+      },
+      "src/pages/home.tsx": {
+        "file": "assets/home-def.js",
+        "css": ["assets/home-def.css"],
+        "isEntry": true,
+        "imports": []
+      },
+      "src/pages/about.tsx": {
+        "file": "assets/about-ghi.js",
+        "css": ["assets/about-ghi.css"],
+        "isEntry": true,
+        "imports": []
+      }
+    }"#;
+		let dir = tempfile::tempdir().unwrap();
+		let path = dir.path().join("manifest.json");
+		std::fs::write(&path, json).unwrap();
+
+		let result = read_bundle_manifest_extended(&path).unwrap();
+		assert_eq!(result.entries.len(), 3);
+
+		// All three are tracked as entries
+		assert!(result.entries.contains_key("src/main.tsx"));
+		assert!(result.entries.contains_key("src/pages/home.tsx"));
+		assert!(result.entries.contains_key("src/pages/about.tsx"));
+
+		// Template: only main — page entries excluded via dynamicImports
 		assert_eq!(result.template.js, vec!["assets/main-abc.js"]);
 		assert_eq!(result.template.css, vec!["assets/main-abc.css"]);
 	}
