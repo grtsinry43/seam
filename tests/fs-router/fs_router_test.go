@@ -200,6 +200,7 @@ func assertErrorResponse(t *testing.T, body map[string]any, expectedCode string)
 // -- Page rendering tests --
 
 func TestHomePage(t *testing.T) {
+	t.Parallel()
 	html := assertPageHTML(t, "/_seam/page/")
 	if !strings.Contains(html, "FS Router Demo") {
 		t.Error("home page HTML missing 'FS Router Demo'")
@@ -207,6 +208,7 @@ func TestHomePage(t *testing.T) {
 }
 
 func TestAboutPage(t *testing.T) {
+	t.Parallel()
 	html := assertPageHTML(t, "/_seam/page/about")
 	if !strings.Contains(html, "About") {
 		t.Error("about page HTML missing 'About'")
@@ -214,6 +216,7 @@ func TestAboutPage(t *testing.T) {
 }
 
 func TestBlogParam(t *testing.T) {
+	t.Parallel()
 	html := assertPageHTML(t, "/_seam/page/blog/hello-world")
 	// Skeleton renders with mock data; runtime injects real procedure data as JSON
 	if !strings.Contains(html, "Hello World") && !strings.Contains(html, "hello-world") {
@@ -222,6 +225,7 @@ func TestBlogParam(t *testing.T) {
 }
 
 func TestMarketingPricing(t *testing.T) {
+	t.Parallel()
 	html := assertPageHTML(t, "/_seam/page/pricing")
 	if !strings.Contains(html, "Pricing") {
 		t.Error("pricing page HTML missing 'Pricing'")
@@ -229,6 +233,7 @@ func TestMarketingPricing(t *testing.T) {
 }
 
 func TestMarketingFeatures(t *testing.T) {
+	t.Parallel()
 	html := assertPageHTML(t, "/_seam/page/features")
 	if !strings.Contains(html, "Features") {
 		t.Error("features page HTML missing 'Features'")
@@ -236,6 +241,7 @@ func TestMarketingFeatures(t *testing.T) {
 }
 
 func TestDocsCatchAll(t *testing.T) {
+	t.Parallel()
 	html := assertPageHTML(t, "/_seam/page/docs/getting-started")
 	if !strings.Contains(html, "Documentation") {
 		t.Error("docs page HTML missing 'Documentation'")
@@ -243,6 +249,7 @@ func TestDocsCatchAll(t *testing.T) {
 }
 
 func TestDocsRoot(t *testing.T) {
+	t.Parallel()
 	html := assertPageHTML(t, "/_seam/page/docs")
 	if !strings.Contains(html, "Documentation") {
 		t.Error("docs root page HTML missing 'Documentation'")
@@ -250,6 +257,7 @@ func TestDocsRoot(t *testing.T) {
 }
 
 func TestRootLayoutPresent(t *testing.T) {
+	t.Parallel()
 	_, html := getHTML(t, baseURL+"/_seam/page/")
 	if !strings.Contains(html, `id="root-layout"`) {
 		t.Error("home page HTML missing root-layout wrapper")
@@ -257,6 +265,7 @@ func TestRootLayoutPresent(t *testing.T) {
 }
 
 func TestGroupLayoutPresent(t *testing.T) {
+	t.Parallel()
 	_, html := getHTML(t, baseURL+"/_seam/page/pricing")
 	if !strings.Contains(html, `id="marketing-layout"`) {
 		t.Error("pricing page HTML missing marketing-layout wrapper")
@@ -270,6 +279,7 @@ func TestGroupLayoutPresent(t *testing.T) {
 // -- RPC tests --
 
 func TestRPCQuery(t *testing.T) {
+	t.Parallel()
 	status, body := postJSON(t, baseURL+"/_seam/procedure/getPageData", map[string]any{})
 	if status != 200 {
 		t.Fatalf("status = %d, want 200", status)
@@ -282,6 +292,7 @@ func TestRPCQuery(t *testing.T) {
 }
 
 func TestRPCBlogPost(t *testing.T) {
+	t.Parallel()
 	status, body := postJSON(t, baseURL+"/_seam/procedure/getBlogPost", map[string]any{
 		"slug": "test-slug",
 	})
@@ -300,6 +311,7 @@ func TestRPCBlogPost(t *testing.T) {
 }
 
 func TestManifest(t *testing.T) {
+	t.Parallel()
 	// Manifest is disabled when rpcHashMap is active (hides procedure names)
 	status, _ := getJSON(t, baseURL+"/_seam/manifest.json")
 	if status != 403 {
@@ -310,6 +322,7 @@ func TestManifest(t *testing.T) {
 // -- Error path tests --
 
 func TestPageNotFound(t *testing.T) {
+	t.Parallel()
 	status, _ := getHTML(t, baseURL+"/_seam/page/nonexistent")
 	if status != 404 {
 		t.Fatalf("status = %d, want 404", status)
@@ -317,6 +330,7 @@ func TestPageNotFound(t *testing.T) {
 }
 
 func TestRPCNotFound(t *testing.T) {
+	t.Parallel()
 	status, body := postJSON(t, baseURL+"/_seam/procedure/nonexistent", map[string]any{})
 	if status != 404 {
 		t.Fatalf("status = %d, want 404", status)
@@ -325,6 +339,7 @@ func TestRPCNotFound(t *testing.T) {
 }
 
 func TestRPCInvalidBody(t *testing.T) {
+	t.Parallel()
 	resp, err := http.Post(baseURL+"/_seam/procedure/getPageData", "application/json", strings.NewReader("not json{"))
 	if err != nil {
 		t.Fatalf("POST: %v", err)
@@ -342,6 +357,7 @@ func TestRPCInvalidBody(t *testing.T) {
 }
 
 func TestNoUnresolvedSlots(t *testing.T) {
+	t.Parallel()
 	paths := []string{
 		"/_seam/page/",
 		"/_seam/page/about",

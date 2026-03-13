@@ -10,6 +10,7 @@ import (
 // All SDKs now place nullable fields in "properties" (with nullable: true)
 // and only use "optionalProperties" for truly absent-able fields.
 func TestManifestParity(t *testing.T) {
+	t.Parallel()
 	if len(backends) < 2 {
 		t.Skip("need at least 2 backends for parity test")
 	}
@@ -60,6 +61,7 @@ func TestManifestParity(t *testing.T) {
 }
 
 func TestStaticRPCParity(t *testing.T) {
+	t.Parallel()
 	if len(backends) < 2 {
 		t.Skip("need at least 2 backends for parity test")
 	}
@@ -79,6 +81,7 @@ func TestStaticRPCParity(t *testing.T) {
 	for _, tc := range cases {
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 			responses := make([]string, len(backends))
 			statuses := make([]int, len(backends))
 
@@ -106,6 +109,7 @@ func TestStaticRPCParity(t *testing.T) {
 }
 
 func TestGitHubRPCParity(t *testing.T) {
+	t.Parallel()
 	if len(backends) < 2 {
 		t.Skip("need at least 2 backends for parity test")
 	}
@@ -124,6 +128,7 @@ func TestGitHubRPCParity(t *testing.T) {
 	for _, tc := range cases {
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 			responses := make([]string, len(backends))
 			statuses := make([]int, len(backends))
 
@@ -151,6 +156,7 @@ func TestGitHubRPCParity(t *testing.T) {
 }
 
 func TestErrorCodeParity(t *testing.T) {
+	t.Parallel()
 	if len(backends) < 2 {
 		t.Skip("need at least 2 backends for parity test")
 	}
@@ -169,6 +175,7 @@ func TestErrorCodeParity(t *testing.T) {
 	for _, tc := range cases {
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 			codes := make([]string, len(backends))
 
 			for i, b := range backends {

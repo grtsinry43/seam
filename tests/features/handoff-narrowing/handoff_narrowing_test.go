@@ -165,6 +165,7 @@ func extractSeamData(t *testing.T, html string) map[string]any {
 // -- Page tests --
 
 func TestPageRender(t *testing.T) {
+	t.Parallel()
 	status, html := getHTML(t, baseURL+"/_seam/page/")
 	if status != 200 {
 		t.Fatalf("status = %d, want 200", status)
@@ -178,6 +179,7 @@ func TestPageRender(t *testing.T) {
 }
 
 func TestPageDataNarrowed(t *testing.T) {
+	t.Parallel()
 	_, html := getHTML(t, baseURL+"/_seam/page/")
 	data := extractSeamData(t, html)
 
@@ -203,6 +205,7 @@ func TestPageDataNarrowed(t *testing.T) {
 }
 
 func TestPageNoUnresolvedMarkers(t *testing.T) {
+	t.Parallel()
 	_, html := getHTML(t, baseURL+"/_seam/page/")
 	if strings.Contains(html, "<!--seam:") {
 		idx := strings.Index(html, "<!--seam:")
@@ -217,6 +220,7 @@ func TestPageNoUnresolvedMarkers(t *testing.T) {
 // -- Route manifest tests (filesystem) --
 
 func TestRouteManifestProjections(t *testing.T) {
+	t.Parallel()
 	raw, err := os.ReadFile(filepath.Join(buildDir, "route-manifest.json"))
 	if err != nil {
 		t.Fatalf("read route-manifest.json: %v", err)
@@ -251,6 +255,7 @@ func TestRouteManifestProjections(t *testing.T) {
 }
 
 func TestRouteManifestHandoff(t *testing.T) {
+	t.Parallel()
 	raw, err := os.ReadFile(filepath.Join(buildDir, "route-manifest.json"))
 	if err != nil {
 		t.Fatalf("read route-manifest.json: %v", err)
@@ -282,6 +287,7 @@ func TestRouteManifestHandoff(t *testing.T) {
 // -- RPC tests --
 
 func TestRPCGetUserProfile(t *testing.T) {
+	t.Parallel()
 	status, body := postJSON(t, rpcEndpoint("getUserProfile"), map[string]any{})
 	if status != 200 {
 		t.Fatalf("status = %d, want 200", status)
@@ -297,6 +303,7 @@ func TestRPCGetUserProfile(t *testing.T) {
 }
 
 func TestRPCGetUserTheme(t *testing.T) {
+	t.Parallel()
 	status, body := postJSON(t, rpcEndpoint("getUserTheme"), map[string]any{})
 	if status != 200 {
 		t.Fatalf("status = %d, want 200", status)

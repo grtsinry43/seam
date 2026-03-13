@@ -56,12 +56,15 @@ func readSSEResp(t *testing.T, targetURL string) (*http.Response, []sseEvent) {
 }
 
 func TestSubscribeEndpoint(t *testing.T) {
+	t.Parallel()
 	validEventTypes := map[string]bool{"data": true, "error": true, "complete": true}
 
 	for _, b := range backends {
 		b := b
 		t.Run(b.Name, func(t *testing.T) {
+			t.Parallel()
 			t.Run("onCount streams data events", func(t *testing.T) {
+				t.Parallel()
 				sseURL := fmt.Sprintf("%s/_seam/procedure/onCount?input=%s",
 					b.BaseURL, url.QueryEscape(`{"max":3}`))
 				resp, events := readSSEResp(t, sseURL)
@@ -115,6 +118,7 @@ func TestSubscribeEndpoint(t *testing.T) {
 			})
 
 			t.Run("unknown subscription returns error event", func(t *testing.T) {
+				t.Parallel()
 				sseURL := b.BaseURL + "/_seam/procedure/nonexistent?input=%7B%7D"
 				resp, events := readSSEResp(t, sseURL)
 				defer func() { _ = resp.Body.Close() }()

@@ -241,6 +241,7 @@ func loadBuildManifest(t *testing.T) map[string]any {
 }
 
 func TestManifestEndpointForbidden(t *testing.T) {
+	t.Parallel()
 	status, _ := getJSON(t, baseURL+"/_seam/manifest.json")
 	if status != 403 {
 		t.Fatalf("status = %d, want 403 (obfuscation active)", status)
@@ -248,6 +249,7 @@ func TestManifestEndpointForbidden(t *testing.T) {
 }
 
 func TestManifestStreamKind(t *testing.T) {
+	t.Parallel()
 	manifest := loadBuildManifest(t)
 	procs, ok := manifest["procedures"].(map[string]any)
 	if !ok {
@@ -269,6 +271,7 @@ func TestManifestStreamKind(t *testing.T) {
 }
 
 func TestManifestUploadKind(t *testing.T) {
+	t.Parallel()
 	manifest := loadBuildManifest(t)
 	procs := manifest["procedures"].(map[string]any)
 	eu, ok := procs["echoUpload"].(map[string]any)
@@ -281,6 +284,7 @@ func TestManifestUploadKind(t *testing.T) {
 }
 
 func TestManifestQueryKind(t *testing.T) {
+	t.Parallel()
 	manifest := loadBuildManifest(t)
 	procs := manifest["procedures"].(map[string]any)
 	gi, ok := procs["getInfo"].(map[string]any)
@@ -295,6 +299,7 @@ func TestManifestQueryKind(t *testing.T) {
 // -- Stream tests --
 
 func TestStreamSSE(t *testing.T) {
+	t.Parallel()
 	resp, events := postSSE(t, rpcEndpoint("countStream"), map[string]any{"max": 3})
 	_ = resp
 
@@ -330,6 +335,7 @@ func TestStreamSSE(t *testing.T) {
 }
 
 func TestStreamContentType(t *testing.T) {
+	t.Parallel()
 	resp, _ := postSSE(t, rpcEndpoint("countStream"), map[string]any{"max": 1})
 	ct := resp.Header.Get("Content-Type")
 	if !strings.HasPrefix(ct, "text/event-stream") {
@@ -338,6 +344,7 @@ func TestStreamContentType(t *testing.T) {
 }
 
 func TestStreamDataPayload(t *testing.T) {
+	t.Parallel()
 	_, events := postSSE(t, rpcEndpoint("countStream"), map[string]any{"max": 3})
 
 	idx := 0
@@ -363,6 +370,7 @@ func TestStreamDataPayload(t *testing.T) {
 // -- Upload test --
 
 func TestUploadEcho(t *testing.T) {
+	t.Parallel()
 	content := []byte("hello world from test")
 	body, contentType := buildMultipart(
 		map[string]any{"filename": "test.txt"},
@@ -398,6 +406,7 @@ func TestUploadEcho(t *testing.T) {
 // -- Query test --
 
 func TestQueryGetInfo(t *testing.T) {
+	t.Parallel()
 	status, body := postJSON(t, rpcEndpoint("getInfo"), map[string]any{})
 	if status != 200 {
 		t.Fatalf("status = %d, want 200", status)
@@ -411,6 +420,7 @@ func TestQueryGetInfo(t *testing.T) {
 // -- Page test --
 
 func TestPageRender(t *testing.T) {
+	t.Parallel()
 	status, html := getHTML(t, baseURL+"/_seam/page/")
 	if status != 200 {
 		t.Fatalf("status = %d, want 200", status)

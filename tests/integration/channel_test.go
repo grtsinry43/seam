@@ -22,18 +22,22 @@ func backendHasChannels(t *testing.T, baseURL string) bool {
 }
 
 func TestChannelCommand(t *testing.T) {
+	t.Parallel()
 	for _, b := range backends {
 		b := b
 		t.Run(b.Name, func(t *testing.T) {
+			t.Parallel()
 			// Only Bun example declares channels; other backends skip.
 			if !backendHasChannels(t, b.BaseURL) {
 				t.Skip("backend does not declare channels")
 			}
 			procURL := b.BaseURL + "/_seam/procedure/"
+			roomID := fmt.Sprintf("room-%d", time.Now().UnixNano())
 
 			t.Run("sendMessage returns ok with data", func(t *testing.T) {
+				t.Parallel()
 				status, body := postJSON(t, procURL+"chat.sendMessage", map[string]any{
-					"roomId": "room1",
+					"roomId": roomID,
 					"text":   "hello",
 				})
 				if status != 200 {
@@ -50,8 +54,9 @@ func TestChannelCommand(t *testing.T) {
 			})
 
 			t.Run("sendTyping returns ok", func(t *testing.T) {
+				t.Parallel()
 				status, body := postJSON(t, procURL+"chat.sendTyping", map[string]any{
-					"roomId": "room1",
+					"roomId": roomID,
 				})
 				if status != 200 {
 					t.Fatalf("status = %d, want 200", status)
@@ -63,14 +68,17 @@ func TestChannelCommand(t *testing.T) {
 }
 
 func TestChannelSubscription(t *testing.T) {
+	t.Parallel()
 	for _, b := range backends {
 		b := b
 		t.Run(b.Name, func(t *testing.T) {
+			t.Parallel()
 			if !backendHasChannels(t, b.BaseURL) {
 				t.Skip("backend does not declare channels")
 			}
 
 			t.Run("receives tagged union events", func(t *testing.T) {
+				t.Parallel()
 				// Unique room to avoid cross-test interference
 				roomID := fmt.Sprintf("sse-test-%d", time.Now().UnixNano())
 				sseURL := fmt.Sprintf("%s/_seam/procedure/chat.events?input=%s",
@@ -193,9 +201,11 @@ func TestChannelSubscription(t *testing.T) {
 }
 
 func TestChannelManifest(t *testing.T) {
+	t.Parallel()
 	for _, b := range backends {
 		b := b
 		t.Run(b.Name, func(t *testing.T) {
+			t.Parallel()
 			_, body := getJSON(t, b.BaseURL+"/_seam/manifest.json")
 			channels, ok := body["channels"].(map[string]any)
 			if !ok {
@@ -204,6 +214,7 @@ func TestChannelManifest(t *testing.T) {
 			procs := body["procedures"].(map[string]any)
 
 			t.Run("expanded procedures exist", func(t *testing.T) {
+				t.Parallel()
 				required := []string{"chat.sendMessage", "chat.sendTyping", "chat.events"}
 				for _, name := range required {
 					if _, exists := procs[name]; !exists {
@@ -213,6 +224,7 @@ func TestChannelManifest(t *testing.T) {
 			})
 
 			t.Run("expanded procedure types", func(t *testing.T) {
+				t.Parallel()
 				assertType := func(name, expected string) {
 					proc, ok := procs[name].(map[string]any)
 					if !ok {
@@ -230,6 +242,7 @@ func TestChannelManifest(t *testing.T) {
 			})
 
 			t.Run("channel IR hint structure", func(t *testing.T) {
+				t.Parallel()
 				chat, ok := channels["chat"].(map[string]any)
 				if !ok {
 					t.Fatal("channels.chat not an object")
@@ -280,15 +293,18 @@ func TestChannelManifest(t *testing.T) {
 }
 
 func TestChannelCoexistence(t *testing.T) {
+	t.Parallel()
 	for _, b := range backends {
 		b := b
 		t.Run(b.Name, func(t *testing.T) {
+			t.Parallel()
 			if !backendHasChannels(t, b.BaseURL) {
 				t.Skip("backend does not declare channels")
 			}
 			procURL := b.BaseURL + "/_seam/procedure/"
 
 			t.Run("query still works alongside channels", func(t *testing.T) {
+				t.Parallel()
 				status, body := postJSON(t, procURL+"greet", map[string]any{"name": "Channel"})
 				if status != 200 {
 					t.Fatalf("status = %d, want 200", status)
@@ -301,6 +317,7 @@ func TestChannelCoexistence(t *testing.T) {
 			})
 
 			t.Run("subscription still works alongside channels", func(t *testing.T) {
+				t.Parallel()
 				sseURL := fmt.Sprintf("%s/_seam/procedure/onCount?input=%s",
 					b.BaseURL, url.QueryEscape(`{"max":2}`))
 				resp, events := readSSEResp(t, sseURL)

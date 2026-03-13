@@ -205,6 +205,7 @@ func extractData(t *testing.T, body map[string]any) map[string]any {
 // -- Manifest tests --
 
 func TestManifestEndpoint(t *testing.T) {
+	t.Parallel()
 	if rpcHashMap.Batch != "" {
 		// Obfuscation active: manifest endpoint returns 403
 		resp, err := http.Get(baseURL + "/_seam/manifest.json")
@@ -247,6 +248,7 @@ func TestManifestEndpoint(t *testing.T) {
 // -- RPC tests --
 
 func TestRPCQuery(t *testing.T) {
+	t.Parallel()
 	status, body := postJSON(t, rpcEndpoint("getUser"), map[string]any{
 		"username": "octocat",
 	})
@@ -264,6 +266,7 @@ func TestRPCQuery(t *testing.T) {
 }
 
 func TestRPCNotFound(t *testing.T) {
+	t.Parallel()
 	status, body := postJSON(t, baseURL+"/_seam/procedure/deadbeefcafe", map[string]any{})
 	if status != 404 {
 		t.Fatalf("status = %d, want 404", status)
@@ -272,6 +275,7 @@ func TestRPCNotFound(t *testing.T) {
 }
 
 func TestRPCInvalidBody(t *testing.T) {
+	t.Parallel()
 	resp, err := http.Post(rpcEndpoint("getHomeData"), "application/json", strings.NewReader("not json{"))
 	if err != nil {
 		t.Fatalf("POST: %v", err)
@@ -319,10 +323,12 @@ func assertPageHTML(t *testing.T, path string) string {
 }
 
 func TestPageHome(t *testing.T) {
+	t.Parallel()
 	assertPageHTML(t, "/_seam/page/")
 }
 
 func TestPageDashboard(t *testing.T) {
+	t.Parallel()
 	html := assertPageHTML(t, "/_seam/page/dashboard/octocat")
 
 	// Verify real GitHub data was injected
@@ -358,6 +364,7 @@ func extractPrefetchLinks(html string) []string {
 }
 
 func TestPerPageScriptsDiffer(t *testing.T) {
+	t.Parallel()
 	_, homeHTML := getHTML(t, baseURL+"/_seam/page/")
 	_, dashHTML := getHTML(t, baseURL+"/_seam/page/dashboard/octocat")
 
@@ -389,6 +396,7 @@ func TestPerPageScriptsDiffer(t *testing.T) {
 }
 
 func TestPerPagePrefetchPresent(t *testing.T) {
+	t.Parallel()
 	_, html := getHTML(t, baseURL+"/_seam/page/")
 
 	prefetchLinks := extractPrefetchLinks(html)
@@ -417,6 +425,7 @@ func TestPerPagePrefetchPresent(t *testing.T) {
 }
 
 func TestStaticAsset(t *testing.T) {
+	t.Parallel()
 	_, html := getHTML(t, baseURL+"/_seam/page/")
 
 	assetRe := regexp.MustCompile(`/_seam/static/[^"'\s]+`)

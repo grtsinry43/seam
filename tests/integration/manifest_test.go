@@ -8,12 +8,15 @@ import (
 )
 
 func TestManifest(t *testing.T) {
+	t.Parallel()
 	for _, b := range backends {
 		b := b
 		t.Run(b.Name, func(t *testing.T) {
+			t.Parallel()
 			url := b.BaseURL + "/_seam/manifest.json"
 
 			t.Run("status and content type", func(t *testing.T) {
+				t.Parallel()
 				resp, err := http.Get(url)
 				if err != nil {
 					t.Fatalf("GET %s: %v", url, err)
@@ -26,6 +29,7 @@ func TestManifest(t *testing.T) {
 			})
 
 			t.Run("version", func(t *testing.T) {
+				t.Parallel()
 				_, body := getJSON(t, url)
 				version, ok := body["version"].(float64)
 				if !ok {
@@ -37,6 +41,7 @@ func TestManifest(t *testing.T) {
 			})
 
 			t.Run("common procedures exist", func(t *testing.T) {
+				t.Parallel()
 				_, body := getJSON(t, url)
 				procs, ok := body["procedures"].(map[string]any)
 				if !ok {
@@ -52,6 +57,7 @@ func TestManifest(t *testing.T) {
 			})
 
 			t.Run("procedure schemas", func(t *testing.T) {
+				t.Parallel()
 				_, body := getJSON(t, url)
 				procs := body["procedures"].(map[string]any)
 				for name, v := range procs {
@@ -73,9 +79,11 @@ func TestManifest(t *testing.T) {
 }
 
 func TestManifestProcedureTypes(t *testing.T) {
+	t.Parallel()
 	for _, b := range backends {
 		b := b
 		t.Run(b.Name, func(t *testing.T) {
+			t.Parallel()
 			url := b.BaseURL + "/_seam/manifest.json"
 			_, body := getJSON(t, url)
 			procs, ok := body["procedures"].(map[string]any)

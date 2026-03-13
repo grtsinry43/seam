@@ -164,6 +164,7 @@ func loadManifest(t *testing.T) map[string]any {
 // -- Manifest tests --
 
 func TestManifestCommandKind(t *testing.T) {
+	t.Parallel()
 	body := loadManifest(t)
 	procs := body["procedures"].(map[string]any)
 
@@ -178,6 +179,7 @@ func TestManifestCommandKind(t *testing.T) {
 }
 
 func TestManifestInvalidatesSimple(t *testing.T) {
+	t.Parallel()
 	body := loadManifest(t)
 	procs := body["procedures"].(map[string]any)
 
@@ -204,6 +206,7 @@ func TestManifestInvalidatesSimple(t *testing.T) {
 }
 
 func TestManifestInvalidatesMapping(t *testing.T) {
+	t.Parallel()
 	body := loadManifest(t)
 	procs := body["procedures"].(map[string]any)
 
@@ -241,6 +244,7 @@ func TestManifestInvalidatesMapping(t *testing.T) {
 }
 
 func TestManifestCache(t *testing.T) {
+	t.Parallel()
 	body := loadManifest(t)
 	procs := body["procedures"].(map[string]any)
 
@@ -358,6 +362,7 @@ func TestCRUD(t *testing.T) {
 // -- Page test --
 
 func TestPageRender(t *testing.T) {
+	t.Parallel()
 	status, html := getHTML(t, baseURL+"/_seam/page/")
 	if status != 200 {
 		t.Fatalf("status = %d, want 200", status)

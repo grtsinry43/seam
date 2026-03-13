@@ -19,9 +19,11 @@ func batchResults(t *testing.T, body map[string]any) []any {
 }
 
 func TestBatchRPC(t *testing.T) {
+	t.Parallel()
 	for _, b := range backends {
 		b := b
 		t.Run(b.Name, func(t *testing.T) {
+			t.Parallel()
 			batchURL := b.BaseURL + "/_seam/procedure/_batch"
 
 			// Skip backends that don't support batch yet (Go)
@@ -33,6 +35,7 @@ func TestBatchRPC(t *testing.T) {
 			}
 
 			t.Run("success with two calls", func(t *testing.T) {
+				t.Parallel()
 				status, body := postJSON(t, batchURL, map[string]any{
 					"calls": []map[string]any{
 						{"procedure": "greet", "input": map[string]any{"name": "Alice"}},
@@ -61,6 +64,7 @@ func TestBatchRPC(t *testing.T) {
 			})
 
 			t.Run("mixed success and failure", func(t *testing.T) {
+				t.Parallel()
 				status, body := postJSON(t, batchURL, map[string]any{
 					"calls": []map[string]any{
 						{"procedure": "greet", "input": map[string]any{"name": "Alice"}},
@@ -96,6 +100,7 @@ func TestBatchRPC(t *testing.T) {
 			})
 
 			t.Run("invalid body returns 400", func(t *testing.T) {
+				t.Parallel()
 				status, body := postRaw(t, batchURL, "application/json", "not json{")
 				if status != 400 {
 					t.Errorf("status = %d, want 400", status)
@@ -104,6 +109,7 @@ func TestBatchRPC(t *testing.T) {
 			})
 
 			t.Run("missing calls field returns 400", func(t *testing.T) {
+				t.Parallel()
 				status, body := postJSON(t, batchURL, map[string]any{"notCalls": []any{}})
 				if status != 400 {
 					t.Errorf("status = %d, want 400", status)
@@ -112,6 +118,7 @@ func TestBatchRPC(t *testing.T) {
 			})
 
 			t.Run("empty calls array returns empty results", func(t *testing.T) {
+				t.Parallel()
 				status, body := postJSON(t, batchURL, map[string]any{
 					"calls": []map[string]any{},
 				})

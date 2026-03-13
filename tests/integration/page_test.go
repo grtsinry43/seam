@@ -49,10 +49,13 @@ func stripSeamData(html string) string {
 // --- per-backend tests ---
 
 func TestPageEndpoint(t *testing.T) {
+	t.Parallel()
 	for _, b := range backends {
 		b := b
 		t.Run(b.Name, func(t *testing.T) {
+			t.Parallel()
 			t.Run("user id=1", func(t *testing.T) {
+				t.Parallel()
 				status, html := getHTML(t, b.BaseURL+"/_seam/page/user/1")
 				if status != 200 {
 					t.Fatalf("status = %d, want 200", status)
@@ -96,6 +99,7 @@ func TestPageEndpoint(t *testing.T) {
 			})
 
 			t.Run("user id=2", func(t *testing.T) {
+				t.Parallel()
 				status, html := getHTML(t, b.BaseURL+"/_seam/page/user/2")
 				if status != 200 {
 					t.Fatalf("status = %d, want 200", status)
@@ -140,6 +144,7 @@ func TestPageEndpoint(t *testing.T) {
 			})
 
 			t.Run("user id=999", func(t *testing.T) {
+				t.Parallel()
 				status, html := getHTML(t, b.BaseURL+"/_seam/page/user/999")
 				// Per-loader error boundary: all backends return 200 + error marker
 				if status != 200 {
@@ -174,6 +179,7 @@ func TestPageEndpoint(t *testing.T) {
 			})
 
 			t.Run("no-JS first paint", func(t *testing.T) {
+				t.Parallel()
 				_, html := getHTML(t, b.BaseURL+"/_seam/page/user/1")
 				stripped := stripSeamData(html)
 				if !strings.Contains(stripped, "Alice") {
@@ -185,6 +191,7 @@ func TestPageEndpoint(t *testing.T) {
 			})
 
 			t.Run("HTML structure", func(t *testing.T) {
+				t.Parallel()
 				_, html := getHTML(t, b.BaseURL+"/_seam/page/user/1")
 				if !strings.Contains(html, "<h1>Alice</h1>") {
 					t.Error("HTML missing exact <h1>Alice</h1>")
@@ -203,6 +210,7 @@ func TestPageEndpoint(t *testing.T) {
 // --- cross-backend parity ---
 
 func TestPageParity(t *testing.T) {
+	t.Parallel()
 	if len(backends) < 2 {
 		t.Skip("need at least 2 backends for parity test")
 	}

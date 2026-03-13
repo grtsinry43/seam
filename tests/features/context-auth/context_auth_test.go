@@ -213,6 +213,7 @@ func loadBuildManifest(t *testing.T) map[string]any {
 }
 
 func TestManifestEndpointForbidden(t *testing.T) {
+	t.Parallel()
 	status, _ := getJSON(t, baseURL+"/_seam/manifest.json")
 	if status != 403 {
 		t.Fatalf("status = %d, want 403 (obfuscation active)", status)
@@ -220,6 +221,7 @@ func TestManifestEndpointForbidden(t *testing.T) {
 }
 
 func TestManifestVersion(t *testing.T) {
+	t.Parallel()
 	manifest := loadBuildManifest(t)
 	version, ok := manifest["version"].(float64)
 	if !ok {
@@ -231,6 +233,7 @@ func TestManifestVersion(t *testing.T) {
 }
 
 func TestManifestContext(t *testing.T) {
+	t.Parallel()
 	manifest := loadBuildManifest(t)
 	ctx, ok := manifest["context"].(map[string]any)
 	if !ok {
@@ -249,6 +252,7 @@ func TestManifestContext(t *testing.T) {
 }
 
 func TestManifestProcedureContextRefs(t *testing.T) {
+	t.Parallel()
 	manifest := loadBuildManifest(t)
 	procs := manifest["procedures"].(map[string]any)
 
@@ -270,6 +274,7 @@ func TestManifestProcedureContextRefs(t *testing.T) {
 // -- Auth tests --
 
 func TestPublicNoAuth(t *testing.T) {
+	t.Parallel()
 	status, body := postJSON(t, rpcEndpoint("getPublicInfo"), map[string]any{})
 	if status != 200 {
 		t.Fatalf("status = %d, want 200", status)
@@ -281,11 +286,13 @@ func TestPublicNoAuth(t *testing.T) {
 }
 
 func TestSecretNoAuth(t *testing.T) {
+	t.Parallel()
 	_, body := postJSON(t, rpcEndpoint("getSecretData"), map[string]any{})
 	assertErrorResponse(t, body, "CONTEXT_ERROR")
 }
 
 func TestSecretWithAuth(t *testing.T) {
+	t.Parallel()
 	authJSON, _ := json.Marshal(map[string]any{"userId": "alice", "role": "admin"})
 	status, body := postJSONWithAuth(t, rpcEndpoint("getSecretData"), map[string]any{}, string(authJSON))
 	if status != 200 {
@@ -299,6 +306,7 @@ func TestSecretWithAuth(t *testing.T) {
 }
 
 func TestCommandWithAuth(t *testing.T) {
+	t.Parallel()
 	authJSON, _ := json.Marshal(map[string]any{"userId": "alice", "role": "admin"})
 	status, body := postJSONWithAuth(t, rpcEndpoint("updateProfile"), map[string]any{"name": "Alice"}, string(authJSON))
 	if status != 200 {
@@ -311,6 +319,7 @@ func TestCommandWithAuth(t *testing.T) {
 }
 
 func TestCommandNoAuth(t *testing.T) {
+	t.Parallel()
 	_, body := postJSON(t, rpcEndpoint("updateProfile"), map[string]any{"name": "Alice"})
 	assertErrorResponse(t, body, "CONTEXT_ERROR")
 }

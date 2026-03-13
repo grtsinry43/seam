@@ -51,9 +51,11 @@ var expectedTitles = map[string]string{
 }
 
 func TestPageRenders(t *testing.T) {
+	t.Parallel()
 	for _, b := range backends {
 		b := b
 		t.Run(b.Name, func(t *testing.T) {
+			t.Parallel()
 			status, html := getHTML(t, b.BaseURL+"/_seam/page/")
 			if status != 200 {
 				t.Fatalf("status = %d, want 200\nbody: %s", status, html)
@@ -62,12 +64,14 @@ func TestPageRenders(t *testing.T) {
 			expectedTitle := expectedTitles[b.Name]
 
 			t.Run("title injected in h1", func(t *testing.T) {
+				t.Parallel()
 				if !strings.Contains(html, "<h1>"+expectedTitle+"</h1>") {
 					t.Errorf("HTML missing <h1>%s</h1>", expectedTitle)
 				}
 			})
 
 			t.Run("title injected in head", func(t *testing.T) {
+				t.Parallel()
 				want := "<title>" + expectedTitle + " — Seam Markdown Demo</title>"
 				if !strings.Contains(html, want) {
 					t.Errorf("HTML missing %s", want)
@@ -78,13 +82,16 @@ func TestPageRenders(t *testing.T) {
 }
 
 func TestHtmlSlotRawInjection(t *testing.T) {
+	t.Parallel()
 	for _, b := range backends {
 		b := b
 		t.Run(b.Name, func(t *testing.T) {
+			t.Parallel()
 			_, html := getHTML(t, b.BaseURL+"/_seam/page/")
 			stripped := stripSeamData(html)
 
 			t.Run("raw HTML tags present", func(t *testing.T) {
+				t.Parallel()
 				checks := []struct {
 					name, pattern string
 				}{
@@ -105,6 +112,7 @@ func TestHtmlSlotRawInjection(t *testing.T) {
 			})
 
 			t.Run("not escaped", func(t *testing.T) {
+				t.Parallel()
 				escaped := []string{
 					"&lt;strong&gt;",
 					"&lt;em&gt;",
@@ -120,6 +128,7 @@ func TestHtmlSlotRawInjection(t *testing.T) {
 			})
 
 			t.Run("no unprocessed directives", func(t *testing.T) {
+				t.Parallel()
 				if strings.Contains(html, "<!--seam:") {
 					t.Error("HTML contains unprocessed seam directives")
 				}
@@ -129,9 +138,11 @@ func TestHtmlSlotRawInjection(t *testing.T) {
 }
 
 func TestSeamData(t *testing.T) {
+	t.Parallel()
 	for _, b := range backends {
 		b := b
 		t.Run(b.Name, func(t *testing.T) {
+			t.Parallel()
 			_, html := getHTML(t, b.BaseURL+"/_seam/page/")
 			data := extractSeamData(t, html)
 

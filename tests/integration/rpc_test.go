@@ -8,12 +8,15 @@ import (
 )
 
 func TestRPCSuccess(t *testing.T) {
+	t.Parallel()
 	for _, b := range backends {
 		b := b
 		t.Run(b.Name, func(t *testing.T) {
+			t.Parallel()
 			procURL := b.BaseURL + "/_seam/procedure/"
 
 			t.Run("greet", func(t *testing.T) {
+				t.Parallel()
 				status, body := postJSON(t, procURL+"greet", map[string]any{"name": "Alice"})
 				if status != 200 {
 					t.Fatalf("status = %d, want 200", status)
@@ -27,6 +30,7 @@ func TestRPCSuccess(t *testing.T) {
 			})
 
 			t.Run("getUser", func(t *testing.T) {
+				t.Parallel()
 				status, body := postJSON(t, procURL+"getUser", map[string]any{"id": 1})
 				if status != 200 {
 					t.Fatalf("status = %d, want 200", status)
@@ -52,6 +56,7 @@ func TestRPCSuccess(t *testing.T) {
 			})
 
 			t.Run("listUsers", func(t *testing.T) {
+				t.Parallel()
 				status, body := postJSON(t, procURL+"listUsers", map[string]any{})
 				if status != 200 {
 					t.Fatalf("status = %d, want 200", status)
@@ -75,6 +80,7 @@ func TestRPCSuccess(t *testing.T) {
 			})
 
 			t.Run("content type", func(t *testing.T) {
+				t.Parallel()
 				resp := postJSONResp(t, procURL+"greet", map[string]any{"name": "Test"})
 				defer func() { _ = resp.Body.Close() }()
 				assertContentType(t, resp, "application/json")
@@ -84,12 +90,15 @@ func TestRPCSuccess(t *testing.T) {
 }
 
 func TestRPCErrors(t *testing.T) {
+	t.Parallel()
 	for _, b := range backends {
 		b := b
 		t.Run(b.Name, func(t *testing.T) {
+			t.Parallel()
 			procURL := b.BaseURL + "/_seam/procedure/"
 
 			t.Run("unknown procedure", func(t *testing.T) {
+				t.Parallel()
 				status, body := postJSON(t, procURL+"nonexistent", map[string]any{})
 				if status != 404 {
 					t.Errorf("status = %d, want 404", status)
@@ -129,9 +138,11 @@ func TestRPCErrors(t *testing.T) {
 }
 
 func TestCommandProcedure(t *testing.T) {
+	t.Parallel()
 	for _, b := range backends {
 		b := b
 		t.Run(b.Name, func(t *testing.T) {
+			t.Parallel()
 			procURL := b.BaseURL + "/_seam/procedure/updateEmail"
 			status, body := postJSON(t, procURL, map[string]any{
 				"userId":   1,

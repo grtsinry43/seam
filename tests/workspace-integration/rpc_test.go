@@ -8,12 +8,15 @@ import (
 )
 
 func TestRPCStaticProcedures(t *testing.T) {
+	t.Parallel()
 	for _, b := range backends {
 		b := b
 		t.Run(b.Name, func(t *testing.T) {
+			t.Parallel()
 			rpcURL := b.BaseURL + "/_seam/procedure/"
 
 			t.Run("getSession", func(t *testing.T) {
+				t.Parallel()
 				status, body := postJSON(t, rpcURL+"getSession", map[string]any{})
 				if status != 200 {
 					t.Fatalf("status = %d, want 200", status)
@@ -30,6 +33,7 @@ func TestRPCStaticProcedures(t *testing.T) {
 			})
 
 			t.Run("getHomeData", func(t *testing.T) {
+				t.Parallel()
 				status, body := postJSON(t, rpcURL+"getHomeData", map[string]any{})
 				if status != 200 {
 					t.Fatalf("status = %d, want 200", status)
@@ -45,12 +49,15 @@ func TestRPCStaticProcedures(t *testing.T) {
 }
 
 func TestRPCGitHubProcedures(t *testing.T) {
+	t.Parallel()
 	for _, b := range backends {
 		b := b
 		t.Run(b.Name, func(t *testing.T) {
+			t.Parallel()
 			rpcURL := b.BaseURL + "/_seam/procedure/"
 
 			t.Run("getUser", func(t *testing.T) {
+				t.Parallel()
 				status, body := postJSON(t, rpcURL+"getUser", map[string]any{"username": "octocat"})
 				if status != 200 {
 					t.Fatalf("status = %d, want 200", status)
@@ -73,6 +80,7 @@ func TestRPCGitHubProcedures(t *testing.T) {
 			})
 
 			t.Run("getUserRepos", func(t *testing.T) {
+				t.Parallel()
 				status, raw := postJSONRaw(t, rpcURL+"getUserRepos", map[string]any{"username": "octocat"})
 				if status != 200 {
 					t.Fatalf("status = %d, want 200, body: %s", status, raw)
@@ -103,12 +111,15 @@ func TestRPCGitHubProcedures(t *testing.T) {
 }
 
 func TestRPCErrors(t *testing.T) {
+	t.Parallel()
 	for _, b := range backends {
 		b := b
 		t.Run(b.Name, func(t *testing.T) {
+			t.Parallel()
 			rpcURL := b.BaseURL + "/_seam/procedure/"
 
 			t.Run("unknown procedure", func(t *testing.T) {
+				t.Parallel()
 				status, body := postJSON(t, rpcURL+"nonexistent", map[string]any{})
 				if status != 404 {
 					t.Errorf("status = %d, want 404", status)
@@ -117,6 +128,7 @@ func TestRPCErrors(t *testing.T) {
 			})
 
 			t.Run("invalid JSON", func(t *testing.T) {
+				t.Parallel()
 				status, body := postRaw(t, rpcURL+"getUser", "application/json", "not json{")
 				if status != 400 {
 					t.Errorf("status = %d, want 400", status)
@@ -125,6 +137,7 @@ func TestRPCErrors(t *testing.T) {
 			})
 
 			t.Run("wrong type", func(t *testing.T) {
+				t.Parallel()
 				status, body := postJSON(t, rpcURL+"getUser", map[string]any{"username": 42})
 				// Go SDK returns 500/INTERNAL_ERROR (no schema-level input validation);
 				// TS and Rust SDKs return 400/VALIDATION_ERROR

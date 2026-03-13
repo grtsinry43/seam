@@ -210,6 +210,7 @@ func loadBuildManifest(t *testing.T) map[string]any {
 // -- Page test --
 
 func TestPageRender(t *testing.T) {
+	t.Parallel()
 	status, html := getHTML(t, baseURL+"/")
 	if status != 200 {
 		t.Fatalf("status = %d, want 200", status)
@@ -222,6 +223,7 @@ func TestPageRender(t *testing.T) {
 // -- Query test --
 
 func TestGetInfo(t *testing.T) {
+	t.Parallel()
 	status, body := postJSON(t, rpcEndpoint("getInfo"), map[string]any{})
 	if status != 200 {
 		t.Fatalf("status = %d, want 200", status)
@@ -235,6 +237,7 @@ func TestGetInfo(t *testing.T) {
 // -- Subscription test --
 
 func TestOnTickSSE(t *testing.T) {
+	t.Parallel()
 	resp, events := getSSE(t, rpcEndpoint("onTick"), map[string]any{"interval": 50})
 	_ = resp
 
@@ -279,8 +282,10 @@ func TestOnTickSSE(t *testing.T) {
 // -- Channel tests --
 
 func TestEchoSend(t *testing.T) {
+	t.Parallel()
+	roomID := fmt.Sprintf("echo-send-%d", time.Now().UnixNano())
 	status, body := postJSON(t, rpcEndpoint("echo.send"), map[string]any{
-		"roomId": "test-send",
+		"roomId": roomID,
 		"text":   "hello",
 	})
 	if status != 200 {
@@ -294,6 +299,7 @@ func TestEchoSend(t *testing.T) {
 }
 
 func TestEchoChannel(t *testing.T) {
+	t.Parallel()
 	roomID := fmt.Sprintf("test-channel-%d", time.Now().UnixNano())
 
 	// Bun doesn't flush SSE headers until first data chunk, so http.Get blocks
@@ -374,6 +380,7 @@ func TestEchoChannel(t *testing.T) {
 // -- Manifest tests --
 
 func TestManifest(t *testing.T) {
+	t.Parallel()
 	manifest := loadBuildManifest(t)
 	procs, ok := manifest["procedures"].(map[string]any)
 	if !ok {

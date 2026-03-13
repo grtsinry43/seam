@@ -232,6 +232,7 @@ func extractI18nLocale(t *testing.T, html string) string {
 // -- Prefix mode tests --
 
 func TestPrefixDefaultEnglish(t *testing.T) {
+	t.Parallel()
 	status, html := getHTML(t, prefixBaseURL+"/_seam/page/")
 	if status != 200 {
 		t.Fatalf("status = %d, want 200", status)
@@ -253,6 +254,7 @@ func TestPrefixDefaultEnglish(t *testing.T) {
 }
 
 func TestPrefixChineseRoot(t *testing.T) {
+	t.Parallel()
 	status, html := getHTML(t, prefixBaseURL+"/_seam/page/zh/")
 	if status != 200 {
 		t.Fatalf("status = %d, want 200", status)
@@ -270,6 +272,7 @@ func TestPrefixChineseRoot(t *testing.T) {
 }
 
 func TestPrefixChineseAbout(t *testing.T) {
+	t.Parallel()
 	status, html := getHTML(t, prefixBaseURL+"/_seam/page/zh/about")
 	if status != 200 {
 		t.Fatalf("status = %d, want 200", status)
@@ -287,6 +290,7 @@ func TestPrefixChineseAbout(t *testing.T) {
 }
 
 func TestPrefixEnglishAbout(t *testing.T) {
+	t.Parallel()
 	status, html := getHTML(t, prefixBaseURL+"/_seam/page/about")
 	if status != 200 {
 		t.Fatalf("status = %d, want 200", status)
@@ -301,6 +305,7 @@ func TestPrefixEnglishAbout(t *testing.T) {
 // -- Hidden mode tests --
 
 func TestHiddenDefaultEnglish(t *testing.T) {
+	t.Parallel()
 	status, html := getHTML(t, hiddenBaseURL+"/_seam/page/")
 	if status != 200 {
 		t.Fatalf("status = %d, want 200", status)
@@ -318,6 +323,7 @@ func TestHiddenDefaultEnglish(t *testing.T) {
 }
 
 func TestHiddenQueryParam(t *testing.T) {
+	t.Parallel()
 	status, html := getHTML(t, hiddenBaseURL+"/_seam/page/?lang=zh")
 	if status != 200 {
 		t.Fatalf("status = %d, want 200", status)
@@ -335,6 +341,7 @@ func TestHiddenQueryParam(t *testing.T) {
 }
 
 func TestHiddenCookie(t *testing.T) {
+	t.Parallel()
 	status, html := getHTMLWithHeaders(t, hiddenBaseURL+"/_seam/page/", map[string]string{
 		"Cookie": "seam-locale=zh",
 	})
@@ -349,6 +356,7 @@ func TestHiddenCookie(t *testing.T) {
 }
 
 func TestHiddenAcceptLanguage(t *testing.T) {
+	t.Parallel()
 	status, html := getHTMLWithHeaders(t, hiddenBaseURL+"/_seam/page/", map[string]string{
 		"Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8",
 	})
@@ -363,6 +371,7 @@ func TestHiddenAcceptLanguage(t *testing.T) {
 }
 
 func TestHiddenQueryBeatsCoookie(t *testing.T) {
+	t.Parallel()
 	// Query param should take priority over cookie
 	status, html := getHTMLWithHeaders(t, hiddenBaseURL+"/_seam/page/?lang=en", map[string]string{
 		"Cookie": "seam-locale=zh",
@@ -378,6 +387,7 @@ func TestHiddenQueryBeatsCoookie(t *testing.T) {
 }
 
 func TestHiddenCookieBbeatsAcceptLanguage(t *testing.T) {
+	t.Parallel()
 	// Cookie should take priority over Accept-Language
 	status, html := getHTMLWithHeaders(t, hiddenBaseURL+"/_seam/page/", map[string]string{
 		"Cookie":          "seam-locale=zh",
@@ -394,6 +404,7 @@ func TestHiddenCookieBbeatsAcceptLanguage(t *testing.T) {
 }
 
 func TestHiddenAboutPage(t *testing.T) {
+	t.Parallel()
 	status, html := getHTML(t, hiddenBaseURL+"/_seam/page/about?lang=zh")
 	if status != 200 {
 		t.Fatalf("status = %d, want 200", status)
@@ -408,6 +419,7 @@ func TestHiddenAboutPage(t *testing.T) {
 // -- Invalid locale tests --
 
 func TestPrefixInvalidLocale404(t *testing.T) {
+	t.Parallel()
 	// "fr" is not a configured locale — prefix mode should not match this route
 	status, _ := getHTML(t, prefixBaseURL+"/_seam/page/fr/")
 	if status != 404 {
@@ -416,6 +428,7 @@ func TestPrefixInvalidLocale404(t *testing.T) {
 }
 
 func TestHiddenInvalidCookieFallback(t *testing.T) {
+	t.Parallel()
 	// Invalid locale in cookie should fall back to default (en)
 	status, html := getHTMLWithHeaders(t, hiddenBaseURL+"/_seam/page/", map[string]string{
 		"Cookie": "seam-locale=fr",
@@ -436,6 +449,7 @@ func TestHiddenInvalidCookieFallback(t *testing.T) {
 }
 
 func TestHiddenInvalidQueryFallback(t *testing.T) {
+	t.Parallel()
 	// Invalid locale in query param should fall back to default (en)
 	status, html := getHTML(t, hiddenBaseURL+"/_seam/page/?lang=fr")
 	if status != 200 {
