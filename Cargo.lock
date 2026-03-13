@@ -626,6 +626,7 @@ version = "0.0.0"
 dependencies = [
  "axum",
  "reqwest",
+ "rustls",
  "seam-server",
  "seam-server-axum",
  "serde",
@@ -1565,6 +1566,7 @@ checksum = "758025cb5fccfd3bc2fd74708fd4682be41d99e5dff73c377c0646c6012c73a4"
 dependencies = [
  "aws-lc-rs",
  "once_cell",
+ "ring",
  "rustls-pki-types",
  "rustls-webpki",
  "subtle",
@@ -1679,6 +1681,7 @@ dependencies = [
  "indicatif",
  "notify",
  "reqwest",
+ "rustls",
  "seam-codegen",
  "seam-server",
  "seam-skeleton",

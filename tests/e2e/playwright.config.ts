@@ -5,6 +5,7 @@ import path from 'node:path'
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 
 const workspaceRoot = path.resolve(__dirname, '../..')
+const profile = process.env.SEAM_PROFILE || 'release'
 const portStatePath = path.join(workspaceRoot, '.seam/tests-e2e-ports.json')
 const paths = {
 	fixtureDir: path.resolve(__dirname, 'fixture/.seam/output'),
@@ -25,8 +26,8 @@ const paths = {
 	fsRouterDir: path.resolve(workspaceRoot, 'examples/fs-router-demo/.seam/output'),
 	shadcnUiDemoDir: path.resolve(workspaceRoot, 'examples/shadcn-ui-demo/.seam/output'),
 	nextAppDir: path.resolve(workspaceRoot, 'examples/github-dashboard/next-app'),
-	axumBin: path.join(workspaceRoot, 'target/release/github-dashboard-axum'),
-	i18nAxumBin: path.join(workspaceRoot, 'target/release/i18n-demo-axum'),
+	axumBin: path.join(workspaceRoot, `target/${profile}/github-dashboard-axum`),
+	i18nAxumBin: path.join(workspaceRoot, `target/${profile}/i18n-demo-axum`),
 	goGinBin: path.join(workspaceRoot, 'examples/github-dashboard/backends/go-gin/server'),
 } as const
 

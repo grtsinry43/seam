@@ -130,6 +130,6 @@
 
 ## CLI Binary
 
-- Always use the locally compiled CLI from `target/release/seam`, never the system-installed binary
-- `cargo build -p seam-cli --release` builds it; Rust incremental caching makes no-op rebuilds fast
+- Always use the locally compiled CLI: `target/debug/seam` (local, default) or `target/release/seam` (CI, `SEAM_STABLE=1`)
+- `just build-cli` builds it; local uses cranelift dev profile, CI uses LLVM release
 - `just verify` and `just smoke` already handle this automatically

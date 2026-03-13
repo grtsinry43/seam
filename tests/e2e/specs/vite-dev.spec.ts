@@ -7,7 +7,10 @@ import { rmSync, writeFileSync } from 'node:fs'
 import { createConnection } from 'node:net'
 import path from 'node:path'
 
-const seamBin = path.resolve(__dirname, '../../../target/release/seam')
+const seamBin = path.resolve(
+	__dirname,
+	`../../../target/${process.env.SEAM_PROFILE || 'release'}/seam`,
+)
 const appDir = path.resolve(__dirname, '../../../examples/github-dashboard/seam-app')
 const appPort = Number(process.env.SEAM_E2E_VITE_APP_PORT)
 const vitePort = Number(process.env.SEAM_E2E_VITE_HMR_PORT)

@@ -7,9 +7,21 @@ publish = false
 [lints]
 workspace = true
 
+[features]
+default = ["crypto-ring"]
+crypto-ring = ["rustls/ring"]
+crypto-aws = ["reqwest/rustls"]
+
 [dependencies]
 axum = "0.8"
-reqwest = { version = "0.13", features = ["json"] }
+reqwest = { version = "0.13", default-features = false, features = [
+	"json",
+	"charset",
+	"http2",
+	"system-proxy",
+	"rustls-no-provider",
+] }
+rustls = { version = "0.23", default-features = false, features = ["std", "tls12"] }
 seam-server = { version = "0.5.36", path = "../../../../src/server/core/rust" }
 seam-server-axum = { version = "0.5.36", path = "../../../../src/server/adapter/axum" }
 serde = { version = "1", features = ["derive"] }

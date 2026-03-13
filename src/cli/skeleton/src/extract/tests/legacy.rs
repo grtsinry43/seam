@@ -40,7 +40,7 @@ struct ConditionalBlock {
 
 fn apply_conditionals(html: &str, mut blocks: Vec<ConditionalBlock>) -> String {
 	let mut result = html.to_string();
-	blocks.sort_by(|a, b| b.start.cmp(&a.start));
+	blocks.sort_by_key(|b| std::cmp::Reverse(b.start));
 	for block in &blocks {
 		let endif = format!("<!--seam:endif:{}-->", block.field);
 		let ifstart = format!("<!--seam:if:{}-->", block.field);
@@ -86,7 +86,7 @@ struct ArrayBlock {
 
 fn apply_array_blocks(html: &str, mut blocks: Vec<ArrayBlock>) -> String {
 	let mut result = html.to_string();
-	blocks.sort_by(|a, b| b.start.cmp(&a.start));
+	blocks.sort_by_key(|b| std::cmp::Reverse(b.start));
 	for block in &blocks {
 		let body = &result[block.start..block.end];
 		let field_prefix = format!("<!--seam:{}.", block.field);

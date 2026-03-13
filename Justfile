@@ -8,6 +8,13 @@ set shell := ["bash", "-euo", "pipefail", "-c"]
 
 pm := "bun"
 
+# Cranelift fast builds: auto-detected on nightly. Set SEAM_STABLE=1 for stable LLVM + release.
+_is_nightly := `rustc --version 2>&1 | grep -q nightly && echo "yes" || echo ""`
+_cranelift := if _is_nightly != "" { if env_var_or_default("SEAM_STABLE", "") == "" { "CARGO_UNSTABLE_CODEGEN_BACKEND=true CARGO_PROFILE_DEV_CODEGEN_BACKEND=cranelift" } else { "" } } else { "" }
+_crypto := if env_var_or_default("SEAM_STABLE", "") != "" { "--no-default-features --features crypto-aws" } else { "" }
+_release := if env_var_or_default("SEAM_STABLE", "") != "" { "--release" } else { "" }
+_profile := if env_var_or_default("SEAM_STABLE", "") != "" { "release" } else { "debug" }
+
 # List all recipes
 default:
     @just --list
@@ -64,7 +71,7 @@ lint-ox:
 
 # Lint Rust (clippy)
 lint-clippy:
-    cargo clippy --workspace --all-features --all-targets -- -D warnings
+    {{ _cranelift }} cargo clippy --workspace --all-targets {{ _crypto }} -- -D warnings
 
 # Lint Go (golangci-lint per module)
 lint-go:
@@ -141,11 +148,11 @@ build-ts: build-ts-p1 build-ts-p2 build-ts-p3
 
 # Build Rust workspace
 build-rs:
-    cargo build --workspace
+    {{ _cranelift }} cargo build --workspace {{ _crypto }}
 
-# Build CLI binary (release)
+# Build CLI binary
 build-cli:
-    cargo build -p seam-cli --release
+    {{ _cranelift }} cargo build -p seam-cli {{ _release }} {{ _crypto }}
 
 # Legacy alias; local Cargo installation has been removed.
 build-cli-install: build-cli
@@ -157,7 +164,7 @@ build-wasm:
 
 # Build fullstack fixtures for integration/e2e tests
 build-fixtures:
-    bash scripts/build-fixtures.sh
+    SEAM_PROFILE={{ _profile }} CRYPTO_FLAGS="{{ _crypto }}" {{ _cranelift }} bash scripts/build-fixtures.sh
 
 # Run all tests (unit + integration + e2e)
 test: test-unit test-integration test-e2e
@@ -167,7 +174,7 @@ test-unit: test-rs test-ts
 
 # Rust unit tests
 test-rs:
-    cargo test --workspace
+    {{ _cranelift }} cargo test --workspace {{ _crypto }}
 
 # TS unit tests (vitest across all packages)
 test-ts:
@@ -200,7 +207,7 @@ test-integration:
 
 # Playwright E2E tests
 test-e2e:
-    cd tests/e2e && {{ pm }}x playwright test
+    cd tests/e2e && SEAM_PROFILE={{ _profile }} {{ pm }}x playwright test
 
 # TypeScript type checking
 typecheck:
@@ -258,7 +265,7 @@ push:
 # Install dependencies + local build artifacts
 inst:
     {{ pm }} install
-    cargo build -p seam-cli --release
+    {{ _cranelift }} cargo build -p seam-cli {{ _release }} {{ _crypto }}
 
 # Remove all build artifacts, caches, and dependencies
 clean: clean-rust clean-ts clean-wasm clean-seam clean-go clean-test clean-deps

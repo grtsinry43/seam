@@ -24,6 +24,9 @@ use procedures::{
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
+	#[cfg(feature = "crypto-ring")]
+	rustls::crypto::ring::default_provider().install_default().ok();
+
 	// --manifest flag: print procedure manifest JSON to stdout and exit
 	if env::args().any(|a| a == "--manifest") {
 		let procs = vec![

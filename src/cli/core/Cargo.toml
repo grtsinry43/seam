@@ -23,6 +23,11 @@ workspace = true
 [lints]
 workspace = true
 
+[features]
+default = ["crypto-ring"]
+crypto-ring = ["rustls/ring"]
+crypto-aws = ["reqwest/rustls"]
+
 [[bin]]
 name = "seam"
 path = "src/main.rs"
@@ -43,7 +48,13 @@ features = ["derive"]
 
 [dependencies.reqwest]
 version = "0.13"
-features = ["json", "stream"]
+default-features = false
+features = ["json", "stream", "charset", "http2", "system-proxy", "rustls-no-provider"]
+
+[dependencies.rustls]
+version = "0.23"
+default-features = false
+features = ["std", "tls12"]
 
 [dependencies.seam-codegen]
 version = "0.5.32"

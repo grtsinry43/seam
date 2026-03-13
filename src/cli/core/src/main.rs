@@ -125,6 +125,10 @@ fn resolve_config(explicit: Option<PathBuf>) -> Result<(PathBuf, SeamConfig)> {
 
 #[tokio::main]
 async fn main() {
+	// Install the crypto provider selected by feature flag (ring or aws-lc-rs via reqwest)
+	#[cfg(feature = "crypto-ring")]
+	rustls::crypto::ring::default_provider().install_default().ok();
+
 	if let Err(e) = run().await {
 		ui::error(&format!("{e:#}"));
 		std::process::exit(1);

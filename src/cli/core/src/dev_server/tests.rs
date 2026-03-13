@@ -1,6 +1,11 @@
 /* src/cli/core/src/dev_server/tests.rs */
 
 use super::*;
+
+fn ensure_crypto() {
+	#[cfg(feature = "crypto-ring")]
+	rustls::crypto::ring::default_provider().install_default().ok();
+}
 use axum::body::Body;
 use axum::http::Request as HttpRequest;
 use axum::http::header::SEC_WEBSOCKET_PROTOCOL;
@@ -61,6 +66,7 @@ async fn spawn_http_server(router: Router) -> (u16, JoinHandle<()>) {
 
 #[tokio::test]
 async fn fullstack_proxy_routes_html_to_backend_and_modules_to_vite() {
+	ensure_crypto();
 	let backend_router = Router::new()
 		.route("/dashboard", get(|| async { Html("<html>backend</html>".to_string()) }))
 		.route("/_seam/manifest.json", get(|| async { "manifest" }))
@@ -118,6 +124,7 @@ async fn fullstack_proxy_routes_html_to_backend_and_modules_to_vite() {
 
 #[tokio::test]
 async fn fullstack_proxy_preserves_websocket_subprotocol_for_vite_hmr() {
+	ensure_crypto();
 	let backend_router = Router::new().route("/", get(|| async { "backend" }));
 	let (protocol_tx, mut protocol_rx) = mpsc::unbounded_channel();
 	let vite_router = Router::new().route(
