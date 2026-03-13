@@ -72,9 +72,10 @@ pub(super) fn insert_boolean_directives(
 						});
 					}
 					_ => {
-						// Different attrs or different node types — wrap in if/else
+						// Preserve the already-processed true branch from `tree`.
+						// It may already contain nested directives inserted by array/enum passes.
 						result.push(comment_if(path));
-						result.push(a_nodes[*ai].clone());
+						result.push(tree[tree_pos].clone());
 						result.push(comment_else());
 						result.push(b_nodes[*bi].clone());
 						result.push(comment_endif(path));
@@ -84,14 +85,14 @@ pub(super) fn insert_boolean_directives(
 				tree_content_idx += 1;
 				op_idx += 1;
 			}
-			DiffOp::OnlyLeft(ai) => {
+			DiffOp::OnlyLeft(_ai) => {
 				copy_leading_directives(tree, &mut tree_pos, &content_map, tree_content_idx, &mut result);
 				// Check if next op is OnlyRight — forms an if/else replacement pair
 				if op_idx + 1 < ops.len()
 					&& let DiffOp::OnlyRight(bi) = &ops[op_idx + 1]
 				{
 					result.push(comment_if(path));
-					result.push(a_nodes[*ai].clone());
+					result.push(tree[tree_pos].clone());
 					result.push(comment_else());
 					result.push(b_nodes[*bi].clone());
 					result.push(comment_endif(path));

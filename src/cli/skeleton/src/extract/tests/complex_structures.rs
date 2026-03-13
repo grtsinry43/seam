@@ -145,6 +145,139 @@ fn extract_table_row_with_nested_boolean_stays_scoped_to_row() {
 }
 
 #[test]
+fn extract_conditional_card_grid_with_array_props_emits_each_inside_true_branch() {
+	let axes = vec![
+		make_axis("watches.hasWatches", "boolean", vec![json!(true), json!(false)]),
+		make_axis("watches.watches", "array", vec![json!("populated"), json!("empty")]),
+	];
+
+	fn true_branch(with_cards: bool) -> String {
+		let cards = if with_cards {
+			concat!(
+				r#"<div class="h-full">"#,
+				r#"<div data-slot="card" class="bg-card/82">"#,
+				r#"<!--seam:watches.watches.$.detailHref:attr:href-->"#,
+				r#"<a class="block">"#,
+				r#"<!--seam:watches.watches.$.coverImage:attr:src-->"#,
+				r#"<!--seam:watches.watches.$.coverImageAlt:attr:alt-->"#,
+				r#"<img class="h-full"/>"#,
+				r#"<p class="font-semibold"><!--seam:watches.watches.$.brand--></p>"#,
+				r#"</a></div></div>"#,
+			)
+		} else {
+			""
+		};
+
+		format!(r#"<div><div class="grid grid-cols-1 gap-4">{cards}</div></div>"#)
+	}
+
+	let false_branch = r#"<div><div class="rounded-2xl"><p>No sold watches.</p></div></div>"#;
+	let variants =
+		vec![true_branch(true), true_branch(false), false_branch.to_string(), false_branch.to_string()];
+
+	let result = extract_template(&axes, &variants);
+
+	assert!(
+		result.contains("<!--seam:if:watches.hasWatches-->"),
+		"missing if:watches.hasWatches in:\n{result}"
+	);
+	assert!(
+		result.contains("<!--seam:each:watches.watches-->"),
+		"missing each:watches.watches in:\n{result}"
+	);
+	assert!(
+		result.contains("<!--seam:endeach-->"),
+		"missing endeach for watches.watches in:\n{result}"
+	);
+	assert!(
+		result.contains(r#"<!--seam:$.detailHref:attr:href-->"#),
+		"missing renamed href slot in:\n{result}"
+	);
+	assert!(
+		result.contains(r#"<!--seam:$.coverImage:attr:src-->"#),
+		"missing renamed src slot in:\n{result}"
+	);
+	assert!(
+		result.contains(r#"<!--seam:$.coverImageAlt:attr:alt-->"#),
+		"missing renamed alt slot in:\n{result}"
+	);
+	assert!(result.contains(r#"<!--seam:$.brand-->"#), "missing renamed brand slot in:\n{result}");
+	assert!(
+		!result.contains("watches.watches.$."),
+		"leaked full watches.watches.$.* path in:\n{result}"
+	);
+}
+
+#[test]
+fn extract_conditional_card_grid_with_child_boolean_keeps_each_and_child_if_scoped() {
+	let axes = vec![
+		make_axis("watches.hasWatches", "boolean", vec![json!(true), json!(false)]),
+		make_axis("watches.watches", "array", vec![json!("populated"), json!("empty")]),
+		make_axis("watches.watches.$.featured", "boolean", vec![json!(true), json!(false)]),
+	];
+
+	fn true_branch(with_cards: bool, featured: bool) -> String {
+		let badge = if featured { r#"<span class="badge">Featured</span>"# } else { "" };
+		let cards = if with_cards {
+			format!(
+				concat!(
+					r#"<div class="grid grid-cols-1 gap-4">"#,
+					r#"<div class="h-full">"#,
+					r#"<div data-slot="card" class="bg-card/82">"#,
+					r#"<!--seam:watches.watches.$.detailHref:attr:href-->"#,
+					r#"<a class="block">"#,
+					r#"<!--seam:watches.watches.$.coverImage:attr:src-->"#,
+					r#"<!--seam:watches.watches.$.coverImageAlt:attr:alt-->"#,
+					r#"<img class="h-full"/>"#,
+					r#"<p class="font-semibold"><!--seam:watches.watches.$.brand--></p>"#,
+					"{}",
+					r#"</a></div></div></div>"#,
+				),
+				badge,
+			)
+		} else {
+			r#"<div class="grid grid-cols-1 gap-4"></div>"#.to_string()
+		};
+
+		format!(r#"<div>{cards}</div>"#)
+	}
+
+	let false_branch = r#"<div><div class="rounded-2xl"><p>No sold watches.</p></div></div>"#;
+	let mut variants = Vec::new();
+	for &has_watches in &[true, false] {
+		for &populated in &[true, false] {
+			for &featured in &[true, false] {
+				if has_watches {
+					variants.push(true_branch(populated, featured));
+				} else {
+					variants.push(false_branch.to_string());
+				}
+			}
+		}
+	}
+
+	let result = extract_template(&axes, &variants);
+
+	assert!(
+		result.contains("<!--seam:if:watches.hasWatches-->"),
+		"missing if:watches.hasWatches in:\n{result}"
+	);
+	assert!(
+		result.contains("<!--seam:each:watches.watches-->"),
+		"missing each:watches.watches in:\n{result}"
+	);
+	assert!(
+		result.contains("<!--seam:if:$.featured-->"),
+		"missing child boolean if:$.featured in:\n{result}"
+	);
+	assert!(result.contains("<!--seam:$.brand-->"), "missing renamed brand slot in:\n{result}");
+	assert!(
+		!result.contains("watches.watches.$."),
+		"leaked full watches.watches.$.* path in:\n{result}"
+	);
+}
+
+#[test]
 fn extract_nested_list_inside_article_repeats_only_article_body() {
 	let axes = vec![make_axis("articles", "array", vec![json!("populated"), json!("empty")])];
 	let variants = vec![
