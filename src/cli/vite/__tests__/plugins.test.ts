@@ -19,6 +19,7 @@ const ENV_KEYS = [
 	'SEAM_RPC_MAP_PATH',
 	'SEAM_ROUTES_FILE',
 	'SEAM_DEV_OUT_DIR',
+	'SEAM_VITE_CACHE_DIR',
 ]
 
 const savedEnv: Record<string, string | undefined> = {}
@@ -57,16 +58,26 @@ type PluginWithResolve = Plugin & {
 
 describe('seamVirtual', () => {
 	it('config hardens optimizeDeps for linked router and hydration entries', () => {
+		process.env.SEAM_VITE_CACHE_DIR = '.seam/dev-output/vite-cache/fingerprint'
 		const plugin = seamVirtual() as PluginWithConfig
 		const result = plugin.config({}) as {
+			cacheDir?: string
 			optimizeDeps: { exclude: string[]; include: string[] }
+			resolve: { dedupe: string[] }
 		}
+		expect(result.cacheDir).toBe('.seam/dev-output/vite-cache/fingerprint')
 		expect(result.optimizeDeps.exclude).toEqual([
 			'@canmi/seam-react',
 			'@canmi/seam-tanstack-router',
 			'@canmi/seam-client',
 		])
 		expect(result.optimizeDeps.include).toEqual(['@tanstack/react-router', 'react-dom/client'])
+		expect(result.resolve.dedupe).toEqual([
+			'react',
+			'react-dom',
+			'@canmi/seam-react',
+			'@canmi/seam-client',
+		])
 	})
 
 	it('resolveId returns absolute path when file exists', () => {

@@ -15,6 +15,7 @@ const VIRTUAL_MODULES: Record<string, string> = {
 
 const SEAM_PACKAGES = ['@canmi/seam-react', '@canmi/seam-tanstack-router', '@canmi/seam-client']
 const OPTIMIZE_DEPS_INCLUDE = ['@tanstack/react-router', 'react-dom/client']
+const DEDUPE_PACKAGES = ['react', 'react-dom', '@canmi/seam-react', '@canmi/seam-client']
 
 /**
  * Vite plugin that resolves `virtual:seam/*` imports to generated files
@@ -27,9 +28,13 @@ export function seamVirtual(): Plugin {
 		name: 'seam-virtual',
 		config() {
 			return {
+				cacheDir: process.env.SEAM_VITE_CACHE_DIR,
 				optimizeDeps: {
 					exclude: SEAM_PACKAGES,
 					include: OPTIMIZE_DEPS_INCLUDE,
+				},
+				resolve: {
+					dedupe: DEDUPE_PACKAGES,
 				},
 			}
 		},

@@ -32,20 +32,47 @@ function tryConnect(port: number, host: string): Promise<boolean> {
 	})
 }
 
-async function waitForPort(port: number, timeout = 30_000): Promise<void> {
+let devProc: ChildProcess
+let tempConfigPath: string
+let devStdout = ''
+let devStderr = ''
+let devFailure: Error | null = null
+
+function terminateDevProc(): void {
+	if (!devProc?.pid) return
+	try {
+		process.kill(-devProc.pid, 'SIGTERM')
+	} catch {
+		/* already exited */
+	}
+}
+
+function formatDevLogs(): string {
+	const stdout = devStdout.trim()
+	const stderr = devStderr.trim()
+	return [
+		stdout ? `stdout:\n${stdout}` : 'stdout:\n<empty>',
+		stderr ? `stderr:\n${stderr}` : 'stderr:\n<empty>',
+	].join('\n\n')
+}
+
+function recordDevFailure(message: string): void {
+	if (devFailure) return
+	devFailure = new Error(`${message}\n\n${formatDevLogs()}`)
+}
+
+async function waitForPortOrDevFailure(port: number, timeout = 30_000): Promise<void> {
 	const deadline = Date.now() + timeout
 	while (Date.now() < deadline) {
-		// Try IPv6 first — Vite v7 on macOS binds to ::1
+		if (devFailure) throw devFailure
 		if ((await tryConnect(port, '::1')) || (await tryConnect(port, '127.0.0.1'))) {
 			return
 		}
 		await new Promise((r) => setTimeout(r, 200))
 	}
-	throw new Error(`Timed out waiting for port ${port}`)
+	if (devFailure) throw devFailure
+	throw new Error(`Timed out waiting for port ${port}\n\n${formatDevLogs()}`)
 }
-
-let devProc: ChildProcess
-let tempConfigPath: string
 
 async function assertPortFree(port: number): Promise<void> {
 	if ((await tryConnect(port, '::1')) || (await tryConnect(port, '127.0.0.1'))) {
@@ -83,17 +110,31 @@ test.beforeAll(async () => {
 		stdio: 'pipe',
 	})
 
-	await Promise.all([waitForPort(vitePort), waitForPort(appPort)])
+	devProc.stdout?.on('data', (chunk: Buffer | string) => {
+		devStdout += chunk.toString()
+	})
+	devProc.stderr?.on('data', (chunk: Buffer | string) => {
+		devStderr += chunk.toString()
+	})
+	devProc.once('error', (error) => {
+		recordDevFailure(`Failed to spawn seam dev: ${error.message}`)
+	})
+	devProc.once('exit', (code, signal) => {
+		recordDevFailure(
+			`seam dev exited before ports became ready (code=${code ?? 'null'}, signal=${signal ?? 'null'})`,
+		)
+	})
+
+	try {
+		await Promise.all([waitForPortOrDevFailure(vitePort), waitForPortOrDevFailure(appPort)])
+	} catch (error) {
+		terminateDevProc()
+		throw error
+	}
 })
 
 test.afterAll(async () => {
-	if (devProc?.pid) {
-		try {
-			process.kill(-devProc.pid, 'SIGTERM')
-		} catch {
-			/* already exited */
-		}
-	}
+	terminateDevProc()
 	if (tempConfigPath) {
 		rmSync(tempConfigPath, { force: true })
 	}

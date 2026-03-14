@@ -6,12 +6,16 @@
 import { createServer, mergeConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import { seam } from '@canmi/seam-vite'
+import { prepareViteCache, releaseViteCache } from './vite-cache.mjs'
 
 const port = Number(process.argv[2])
 if (!port) {
 	console.error('usage: dev-frontend.mjs <port>')
 	process.exit(1)
 }
+
+const cacheContext = prepareViteCache()
+process.env.SEAM_VITE_CACHE_DIR = cacheContext.cacheDir
 
 // Load user config from seam.config.ts via SEAM_CONFIG_PATH
 let userConfig = {}
@@ -37,5 +41,21 @@ const seamBase = {
 }
 
 const server = await createServer(mergeConfig(seamBase, userRest))
+
+let cleanedUp = false
+function cleanup() {
+	if (cleanedUp) return
+	cleanedUp = true
+	releaseViteCache(cacheContext)
+}
+
+for (const signal of ['SIGINT', 'SIGTERM']) {
+	process.on(signal, () => {
+		cleanup()
+		process.exit(0)
+	})
+}
+
+process.on('exit', cleanup)
 await server.listen()
 server.printUrls()

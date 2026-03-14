@@ -6,12 +6,16 @@
 import { build, mergeConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import { seam } from '@canmi/seam-vite'
+import { prepareViteCache, releaseViteCache } from './vite-cache.mjs'
 
 const [entry, outDir = '.seam/dist'] = process.argv.slice(2)
 if (!entry) {
 	console.error('usage: build-frontend.mjs <entry> <outdir>')
 	process.exit(1)
 }
+
+const cacheContext = prepareViteCache()
+process.env.SEAM_VITE_CACHE_DIR = cacheContext.cacheDir
 
 // Set SEAM_ENTRY so seam() config plugin can inject it as rolldownOptions.input
 process.env.SEAM_ENTRY = entry
@@ -62,4 +66,8 @@ const seamBase = {
 	resolve: { extensions: ['.ts', '.tsx', '.js', '.jsx', '.mjs'] },
 }
 
-await build(mergeConfig(seamBase, userRest))
+try {
+	await build(mergeConfig(seamBase, userRest))
+} finally {
+	releaseViteCache(cacheContext)
+}
